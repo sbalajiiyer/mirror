@@ -1,17 +1,17 @@
 # Mirror — build status
 
-_Last updated: 2026-11-15 (Phase 1 + 2, branch `phase-1-2`)_
+_Last updated: 2026-11-15 (Phase 3, branch `phase-3`)_
 
 ## Phases
 
 | # | Phase | Status |
 |---|-------|--------|
-| 1 | Foundation — auth, onboarding, framework, 360 setup, invites, rater form, reminders | ✅ Done (PR from `phase-1-2`) |
-| 2 | Report v1 — summary, radar, gap, Johari, heatmap, distributions, themes, PDF | ✅ Done (same PR) |
-| 3 | AI layer — summaries, development plan, de-identification, framework recommendation | ⏳ Next — provider chosen (Groq + gpt-oss, premium per-use option); starts after PR #1 is merged |
+| 1 | Foundation — auth, onboarding, framework, 360 setup, invites, rater form, reminders | ✅ Done (PR #1, merged) |
+| 2 | Report v1 — summary, radar, gap, Johari, heatmap, distributions, themes, PDF | ✅ Done (PR #1, merged) |
+| 3 | AI layer — summaries, development plan, de-identification, framework recommendation | ✅ Done (PR from `phase-3`) |
 | 4–10 | Pulses, coach workspace, teams/orgs, personalization v2, analytics v2, payments, enterprise | Not started |
 
-Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md).
+Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md).
 
 ## Run locally
 
@@ -42,7 +42,7 @@ npm run build && npm run db:seed && npm run test:e2e   # Playwright (needs `npx 
 npm run lint && npm run typecheck
 ```
 
-Current results: **45 Vitest tests** (35 unit + 10 integration) and **8 Playwright tests**, all passing. CI runs everything
+Current results: **62 Vitest tests** (44 unit + 18 integration) and **12 Playwright tests**, all passing. CI runs everything
 on every PR (`.github/workflows/ci.yml`, GitHub Actions free tier, Postgres service container).
 
 ## Decisions made (2026-11-15)
@@ -61,7 +61,7 @@ Nothing paid has been added. Each item below is stubbed behind an interface so i
 | Decision | Current stub | Options (free tier first) | Where to plug in |
 |---|---|---|---|
 | **Email provider** (magic links, invites, reminders) — _deferred by owner_ | `console` provider + `/dev/outbox` | **Resend** free (3,000/mo, 100/day), Postmark (100/mo free), Amazon SES (cheap, needs AWS account), any SMTP. Note: a public deployment can't sign anyone in until this is chosen, because magic links go to the outbox. | Add a sender in `src/lib/email/` and a case in `getEmailSender()` |
-| **Premium AI model + price** | — | Which premium model(s) to offer and the per-use price; decide before Phase 9 billing | `src/lib/ai/` (Phase 3) |
+| **Premium AI model + price** | Catalog entries for Claude and GPT, off by default (`PREMIUM_AI_ENABLED=false`); placeholder price $0.02 per 1K tokens | Which premium model(s) to offer, their model ids and the per-use price; decide before Phase 9 billing | `src/lib/ai/models.ts`, env vars in `.env.example` |
 | **PDF rendering on the host** | Playwright + local Chromium | Works as-is on containers (Azure/Docker). On Vercel: switch to `playwright-core` + `@sparticuz/chromium`, or fall back to browser print (already wired) | `src/lib/pdf/index.ts` (`PdfRenderer`) |
 | **Reminder scheduling** | `GET /api/cron/reminders` + `npm run jobs:reminders` | Vercel Cron (daily on Hobby), GitHub Actions schedule (free), Inngest / Trigger.dev free tiers | `src/lib/jobs/reminders.ts` (`runReminders`) |
 | **Google sign-in** | Hidden unless env vars are set | Free: create an OAuth client in Google Cloud Console | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` |
@@ -109,6 +109,19 @@ Nothing paid has been added. Each item below is stubbed behind an interface so i
   works normally from your machine.
 - Business rules live in `src/lib/services/*` and `src/lib/anonymity.ts`; pages and server actions are thin wrappers.
 
+## Phase 3 defaults (change freely)
+
+- **AI is on demand:** the subject clicks to write the summary or plan (keeps the free quota for people who want it).
+  Results are stored and shown in the PDF.
+- **Daily caps** per user: 10 summaries, 10 plans, 20 recommendations, 20 invite drafts; 40 de-identifications per rater link.
+- **De-identification is on by default** for raters (they can untick it); the AI rewrite replaces the original, which
+  is never stored. Emails/phones/links/handles are always scrubbed.
+- **What's sent to the model:** competency scores and gaps, top/bottom behaviours, comment themes with up to two
+  scrubbed quotes each (group-labelled), Start/Stop/Continue theme counts, goal, role, career stage, industry,
+  learning style and tone. No names, emails or ids.
+- **Groq models:** `openai/gpt-oss-120b` for summaries/plans, `openai/gpt-oss-20b` for short tasks (overridable).
+- **Premium:** catalog and per-use metering only; nobody is charged until payments (Phase 9).
+
 ## Known limitations / next up
 
 - Custom questions get a first-person wording by replacing `{name}` with "I" — grammar may need a manual edit.
@@ -117,6 +130,7 @@ Nothing paid has been added. Each item below is stubbed behind an interface so i
 - No rate limiting yet on the public rater endpoints (tokens are 256-bit, so guessing isn't practical; add limits before launch).
 - `RaterInvite.submittedAt` is stored at day granularity like `Submission.submittedOn`, but row insertion order in Postgres
   could still correlate the two for someone with raw DB access; acceptable for now, revisit with an append-only shuffle job.
-- Text de-identification (AI rewrite) is Phase 3; until then raters are reminded not to include identifying details.
+- The Groq API couldn't be reached from the build sandbox, so real Groq calls were tested only with a stubbed HTTP layer; the first live call happens on Vercel once `GROQ_API_KEY` is set.
+- Comment themes are still keyword-based; the AI summary reads them but doesn't re-cluster comments yet.
 - Benchmarks, time filters and trends need more data/phases (2+ assessments → Phase 4).
 - Dark-mode tokens exist but there is no theme toggle yet.
