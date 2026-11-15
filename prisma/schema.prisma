@@ -1,0 +1,379 @@
+// Mirror — Prisma schema (PostgreSQL)
+// Phase 1 + 2 subset of the data model in docs/SPEC.md.
+
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "client"
+}
+
+// Connection: DATABASE_URL, read by prisma.config.ts (migrations) and src/lib/db.ts (runtime),
+// both through the node-postgres driver adapter.
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Auth.js (next-auth v5) tables
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts    Account[]
+  sessions    Session[]
+  profile     SubjectProfile?
+  assessments Assessment[]
+  auditLogs   AuditLog[]
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// Subject
+// ---------------------------------------------------------------------------
+
+model SubjectProfile {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  displayName  String
+  jobTitle     String?
+  seniority    String?
+  industry     String?
+  /// Goal keys, see src/lib/goals.ts (promotion, new_role, leadership_growth, career_change, ...)
+  goals        String[]
+  feedbackTone String    @default("balanced") // direct | balanced | gentle (used by AI in Phase 3)
+  onboardedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Frameworks
+// ---------------------------------------------------------------------------
+
+model Framework {
+  id          String   @id @default(cuid())
+  slug        String
+  version     Int      @default(1)
+  name        String
+  description String
+  isBuiltIn   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  competencies Competency[]
+  assessments  Assessment[]
+
+  @@unique([slug, version])
+}
+
+model Competency {
+  id          String @id @default(cuid())
+  frameworkId String
+  key         String
+  name        String
+  description String
+  order       Int
+
+  framework Framework  @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  questions Question[]
+
+  @@unique([frameworkId, key])
+}
+
+enum QuestionType {
+  RATING
+  OPEN_TEXT
+}
+
+model Question {
+  id           String       @id @default(cuid())
+  competencyId String
+  key          String
+  type         QuestionType @default(RATING)
+  /// Third-person wording shown to raters, e.g. "{name} communicates ideas clearly."
+  text         String
+  /// First-person wording shown in the self-assessment.
+  selfText     String
+  order        Int
+
+  competency Competency @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+
+  @@unique([competencyId, key])
+}
+
+// ---------------------------------------------------------------------------
+// Assessments (a single 360)
+// ---------------------------------------------------------------------------
+
+enum AssessmentType {
+  FULL_360
+}
+
+enum AssessmentStatus {
+  DRAFT // created by the wizard, self-assessment not yet submitted
+  READY // self-assessment submitted and locked, invites not sent
+  COLLECTING // invites sent, raters responding
+  CLOSED // collection finished, report available
+}
+
+model Assessment {
+  id                    String           @id @default(cuid())
+  subjectId             String
+  frameworkId           String
+  type                  AssessmentType   @default(FULL_360)
+  status                AssessmentStatus @default(DRAFT)
+  title                 String
+  goal                  String
+  inviteMessage         String
+  /// Never lower than ANONYMITY_FLOOR (3), enforced in src/lib/anonymity.ts
+  minRatersPerGroup     Int              @default(3)
+  /// Manager results shown as their own group only if the subject opts in (raters are told).
+  showManagerSeparately Boolean          @default(false)
+  scaleMax              Int              @default(5)
+  dueAt                 DateTime?
+  selfLockedAt          DateTime?
+  launchedAt            DateTime?
+  closedAt              DateTime?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  subject     User                 @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  framework   Framework            @relation(fields: [frameworkId], references: [id])
+  questions   AssessmentQuestion[]
+  raterGroups RaterGroup[]
+  invites     RaterInvite[]
+  submissions Submission[]
+  reports     Report[]
+
+  @@index([subjectId])
+}
+
+/// Snapshot of the questions used in one assessment, so framework edits never change past data.
+model AssessmentQuestion {
+  id            String       @id @default(cuid())
+  assessmentId  String
+  competencyKey String
+  competency    String
+  questionKey   String?
+  type          QuestionType @default(RATING)
+  text          String
+  selfText      String
+  order         Int
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  responses  Response[]
+  comments   Comment[]
+
+  @@index([assessmentId])
+}
+
+enum RaterGroupKind {
+  SELF
+  MANAGER
+  PEER
+  DIRECT_REPORT
+  CLIENT
+  OTHER
+}
+
+model RaterGroup {
+  id           String         @id @default(cuid())
+  assessmentId String
+  kind         RaterGroupKind
+  name         String
+  order        Int
+  /// sha256 of an optional shareable group link token (anyone with the link can respond once).
+  shareTokenHash String?      @unique
+
+  assessment  Assessment    @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  invites     RaterInvite[]
+  submissions Submission[]
+
+  @@index([assessmentId])
+}
+
+enum InviteStatus {
+  INVITED
+  STARTED
+  SUBMITTED
+  DECLINED
+}
+
+enum InviteChannel {
+  EMAIL
+  LINK
+}
+
+/// Who was asked. Never linked to answers after submission (see Submission).
+model RaterInvite {
+  id             String        @id @default(cuid())
+  assessmentId   String
+  raterGroupId   String
+  name           String?
+  email          String?
+  channel        InviteChannel @default(EMAIL)
+  /// sha256 of the token in the rater's link. The raw token is never stored.
+  tokenHash      String        @unique
+  status         InviteStatus  @default(INVITED)
+  /// In-progress answers for save & resume. Cleared on submit.
+  draft          Json?
+  invitedAt      DateTime?
+  startedAt      DateTime?
+  submittedAt    DateTime?
+  lastRemindedAt DateTime?
+  reminderCount  Int           @default(0)
+  createdAt      DateTime      @default(now())
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  raterGroup RaterGroup @relation(fields: [raterGroupId], references: [id], onDelete: Cascade)
+
+  @@index([assessmentId])
+}
+
+/// One completed questionnaire. Deliberately has NO link to RaterInvite, IP address or
+/// user agent, so answers cannot be traced to a person even with database access.
+model Submission {
+  id           String   @id @default(uuid()) /// random v4: cuid embeds a timestamp
+  assessmentId String
+  raterGroupId String
+  isSelf       Boolean  @default(false)
+  /// Truncated to the day on write; never exposed through the API.
+  submittedOn  DateTime @db.Date
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  raterGroup RaterGroup @relation(fields: [raterGroupId], references: [id], onDelete: Cascade)
+  responses  Response[]
+  comments   Comment[]
+
+  @@index([assessmentId])
+}
+
+model Response {
+  id                   String @id @default(uuid()) /// random v4: cuid embeds a timestamp
+  submissionId         String
+  assessmentQuestionId String
+  /// null = "don't know / not observed"
+  value                Int?
+
+  submission Submission         @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  question   AssessmentQuestion @relation(fields: [assessmentQuestionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, assessmentQuestionId])
+}
+
+enum CommentKind {
+  COMPETENCY // optional comment on a competency (assessmentQuestionId points at its first question)
+  START
+  STOP
+  CONTINUE
+  GENERAL
+}
+
+model Comment {
+  id                   String      @id @default(uuid()) /// random v4: cuid embeds a timestamp
+  submissionId         String
+  assessmentQuestionId String?
+  competencyKey        String?
+  kind                 CommentKind
+  text                 String
+
+  submission Submission          @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  question   AssessmentQuestion? @relation(fields: [assessmentQuestionId], references: [id], onDelete: SetNull)
+}
+
+/// Frozen report computed when the assessment closes (prevents before/after diffing attacks).
+model Report {
+  id           String   @id @default(cuid())
+  assessmentId String
+  version      Int      @default(1)
+  data         Json
+  generatedAt  DateTime @default(now())
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@index([assessmentId])
+}
+
+// ---------------------------------------------------------------------------
+// Ops
+// ---------------------------------------------------------------------------
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+/// Outbound email log. With EMAIL_PROVIDER=console this doubles as the dev outbox.
+model Notification {
+  id        String             @id @default(cuid())
+  channel   String             @default("email")
+  to        String
+  template  String
+  subject   String
+  body      String
+  status    NotificationStatus @default(QUEUED)
+  provider  String
+  error     String?
+  createdAt DateTime           @default(now())
+  sentAt    DateTime?
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+}
