@@ -29,6 +29,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "d3": "^7.9.2",
+    "geist": "^1.9.2",
     "lucide-react": "^1.73.0",
     "nanoid": "^6.0.2",
     "next": "15.5.29",
@@ -39,7 +40,8 @@
     "recharts": "^3.10.1",
     "server-only": "^0.0.1",
     "tailwind-merge": "^3.7.0",
-    "zod": "^4.6.7"
+    "zod": "^4.6.7",
+    "playwright": "1.63.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -54,7 +56,6 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.29",
     "patch-package": "^8.0.1",
-    "playwright": "1.63.0",
     "prisma": "^6.19.3",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",

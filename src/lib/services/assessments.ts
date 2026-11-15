@@ -23,6 +23,9 @@ export async function createAssessment(userId: string, input: WizardInput) {
   if (!framework) throw new DomainError("Unknown framework");
   const compName = new Map(framework.competencies.map((c) => [c.key, c.name]));
   for (const q of input.questions) if (!compName.has(q.competencyKey)) throw new DomainError("Question has an unknown competency");
+  const subject = await db.user.findUnique({ where: { id: userId }, select: { email: true } });
+  const own = subject?.email?.toLowerCase();
+  if (own && input.groups.some((g) => g.raters.some((r) => r.email === own))) throw new DomainError("You can't invite yourself as a rater.");
 
   const assessment = await db.$transaction(async (tx) => {
     const a = await tx.assessment.create({

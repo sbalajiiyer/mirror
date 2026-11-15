@@ -11,6 +11,7 @@ import {
   type ReportingGroup,
 } from "@/lib/anonymity";
 import { groupComments, wordFrequencies, type ThemeGroup } from "@/lib/text/themes";
+import { GAP_THRESHOLD } from "@/lib/report/constants";
 
 export type ReportInput = {
   assessment: {
@@ -104,8 +105,7 @@ function stdDev(xs: number[]) {
   return Math.sqrt(xs.reduce((s, x) => s + (x - m) ** 2, 0) / (xs.length - 1));
 }
 
-/** Gap at or above this (on the rating scale) counts as a meaningful self/others difference. */
-export const GAP_THRESHOLD = 0.3;
+export { GAP_THRESHOLD };
 
 export function computeReport(input: ReportInput): ReportData {
   const { assessment } = input;
