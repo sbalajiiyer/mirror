@@ -42,7 +42,7 @@ npm run build && npm run db:seed && npm run test:e2e   # Playwright (needs `npx 
 npm run lint && npm run typecheck
 ```
 
-Current results: **62 Vitest tests** (44 unit + 18 integration) and **12 Playwright tests**, all passing. CI runs everything
+Current results: **63 Vitest tests** (45 unit + 18 integration) and **12 Playwright tests**, all passing. CI runs everything
 on every PR (`.github/workflows/ci.yml`, GitHub Actions free tier, Postgres service container).
 
 ## Decisions made (2026-11-15)
@@ -58,7 +58,9 @@ on every PR (`.github/workflows/ci.yml`, GitHub Actions free tier, Postgres serv
 
 - **Neon** project `mirror` (us-east-1, free tier): `main` branch for production, `preview` branch for Vercel preview
   deployments, so feature-branch migrations never touch production data.
-- **Vercel** project `mirror` (team "sbalajiiyer's projects", region iad1, Node 22). Environment variables are set for
+- **Live:** https://mirror-360.vercel.app
+- **Vercel** project `mirror-360` (team "sbalajiiyer's projects", region iad1, Node 22), linked to this repo: `main` →
+  production, every PR → a protected preview. (An earlier unlinked project named `mirror` can be deleted.) Environment variables are set for
   production and preview: `DATABASE_URL` (pooled), `DIRECT_DATABASE_URL` (migrations), `AUTH_SECRET`, `CRON_SECRET`,
   `EMAIL_PROVIDER=console`, `DEMO_LOGIN_ENABLED=true`, `DEV_TOOLS_ENABLED=false`, `SEED_DEMO_ON_BUILD=true`.
   Public URLs come from Vercel's own environment, so `APP_URL` isn't needed.
@@ -66,8 +68,8 @@ on every PR (`.github/workflows/ci.yml`, GitHub Actions free tier, Postgres serv
 - Vercel Authentication protects **preview** deployments only; production is public (raters need it).
 - Reminders: Vercel Cron, weekdays 14:17 UTC (Hobby allows one run a day).
 - PDF: `@sparticuz/chromium` + `playwright-core` on Vercel (function memory 2 GB, 60 s).
-- **To finish linking:** install the Vercel GitHub app on `sbalajiiyer/mirror`, then pushes to `main` deploy production
-  and every PR gets a preview.
+- `GROQ_API_KEY` must be added to the `mirror-360` project (Production + Preview) to switch from standard text to real AI.
+- Prisma's Wasm query compiler is shipped to every function via `outputFileTracingIncludes` in `next.config.ts`.
 - Until an email provider is chosen, only the demo login works on the public site (magic links aren't delivered and
   the dev outbox is off there). Set `DEMO_LOGIN_ENABLED=false` in Vercel to turn the demo off.
 
