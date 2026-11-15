@@ -57,4 +57,5 @@ npm run dev                        # http://localhost:3000
 
 - `tests/unit/anonymity.test.ts`, `tests/unit/reminders.test.ts`, `tests/unit/tokens.test.ts`
 - `tests/integration/assessment-flow.test.ts` (self-lock, ownership, invite → submit with no identity link, gating, reopen rule)
+- `tests/e2e/auth.spec.ts` (magic link → onboarding → dashboard; protected-page redirect)
 - `tests/e2e/rater-flow.spec.ts` (wizard → self → launch → 3 mobile raters incl. save/resume → close → report)

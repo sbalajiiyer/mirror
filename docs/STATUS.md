@@ -42,7 +42,7 @@ npm run build && npm run db:seed && npm run test:e2e   # Playwright (needs `npx 
 npm run lint && npm run typecheck
 ```
 
-Current results: **45 Vitest tests** (35 unit + 10 integration) and **6 Playwright tests**, all passing. CI runs everything
+Current results: **45 Vitest tests** (35 unit + 10 integration) and **8 Playwright tests**, all passing. CI runs everything
 on every PR (`.github/workflows/ci.yml`, GitHub Actions free tier, Postgres service container).
 
 ## Open decisions for the owner (needed before or during Phase 3)
