@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
+import { EMAIL_RE, parseRaterLines, type Rater } from "@/lib/rater-input";
 import { createAssessmentAction } from "../actions";
 
 export type WizardFramework = {
@@ -25,25 +26,9 @@ export type WizardFramework = {
 
 type Kind = (typeof RATER_GROUP_KINDS)[number]["kind"];
 type Q = { id: string; competencyKey: string; questionKey: string | null; text: string; selfText: string; on: boolean };
-type Rater = { name: string; email: string };
 type Group = { kind: Kind; name: string; raters: Rater[]; shareLink: boolean };
 
 const STEPS = ["Goal", "Framework", "Questions", "Raters", "Settings", "Review"] as const;
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-/** Parse pasted lines like "Sam Patel <sam@x.com>", "sam@x.com" or "Sam Patel, sam@x.com". */
-export function parseRaterLines(text: string): Rater[] {
-  return text
-    .split(/[\n;]+/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const email = line.match(/[^\s<>,;]+@[^\s<>,;]+\.[^\s<>,;]+/)?.[0] ?? "";
-      const name = line.replace(email, "").replace(/[<>,"]/g, " ").replace(/\s+/g, " ").trim();
-      return { name, email: email.toLowerCase() };
-    })
-    .filter((r) => EMAIL_RE.test(r.email));
-}
 
 export function Wizard({
   framework,

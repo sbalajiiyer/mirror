@@ -203,9 +203,11 @@ async function main() {
 
   // Others
   const used = new Set<string>();
-  const take = (pool: string[]) => {
+  /** Each canned comment is used at most once, so the demo has no duplicate quotes. */
+  const take = (pool: string[]): string | null => {
     const fresh = pool.filter((p) => !used.has(p));
-    const t = pick(fresh.length ? fresh : pool);
+    if (!fresh.length) return null;
+    const t = pick(fresh);
     used.add(t);
     return t;
   };
@@ -240,11 +242,16 @@ async function main() {
         return { assessmentQuestionId: q.id, value: dontKnow ? null : clamp(mu + normal() * 0.5) };
       });
       const comments: { kind: "START" | "STOP" | "CONTINUE" | "GENERAL" | "COMPETENCY"; text: string; competencyKey?: string; assessmentQuestionId?: string }[] = [];
-      for (const kind of ["START", "STOP", "CONTINUE"] as const) if (rand() < 0.8) comments.push({ kind, text: take(COMMENTS[kind]) });
-      if (rand() < 0.5) comments.push({ kind: "GENERAL", text: take(COMMENTS.GENERAL) });
-      if (rand() < 0.6) {
+      for (const kind of ["START", "STOP", "CONTINUE"] as const) {
+        const text = rand() < 0.8 ? take(COMMENTS[kind]) : null;
+        if (text) comments.push({ kind, text });
+      }
+      const general = rand() < 0.5 ? take(COMMENTS.GENERAL) : null;
+      if (general) comments.push({ kind: "GENERAL", text: general });
+      if (rand() < 0.7) {
         const key = pick(Object.keys(COMMENTS.COMPETENCY));
-        comments.push({ kind: "COMPETENCY", competencyKey: key, assessmentQuestionId: qByComp(key)[0].id, text: take(COMMENTS.COMPETENCY[key]) });
+        const text = take(COMMENTS.COMPETENCY[key]);
+        if (text) comments.push({ kind: "COMPETENCY", competencyKey: key, assessmentQuestionId: qByComp(key)[0].id, text });
       }
       await db.submission.create({
         data: {
