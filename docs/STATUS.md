@@ -8,7 +8,7 @@ _Last updated: 2026-11-15 (Phase 1 + 2, branch `phase-1-2`)_
 |---|-------|--------|
 | 1 | Foundation — auth, onboarding, framework, 360 setup, invites, rater form, reminders | ✅ Done (PR from `phase-1-2`) |
 | 2 | Report v1 — summary, radar, gap, Johari, heatmap, distributions, themes, PDF | ✅ Done (same PR) |
-| 3 | AI layer — summaries, development plan, de-identification, framework recommendation | ⏳ Next — blocked on the AI provider decision |
+| 3 | AI layer — summaries, development plan, de-identification, framework recommendation | ⏳ Next — provider chosen (Groq + gpt-oss, premium per-use option); starts after PR #1 is merged |
 | 4–10 | Pulses, coach workspace, teams/orgs, personalization v2, analytics v2, payments, enterprise | Not started |
 
 Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md).
@@ -45,16 +45,23 @@ npm run lint && npm run typecheck
 Current results: **45 Vitest tests** (35 unit + 10 integration) and **8 Playwright tests**, all passing. CI runs everything
 on every PR (`.github/workflows/ci.yml`, GitHub Actions free tier, Postgres service container).
 
-## Open decisions for the owner (needed before or during Phase 3)
+## Decisions made (2026-11-15)
+
+| Decision | Choice | Notes |
+|---|---|---|
+| **AI provider (default, free)** | **Groq free tier running open-weight `gpt-oss`** (120b for reports, 20b for light tasks) | No card needed; rate-limited. Owner creates a free key at console.groq.com → `GROQ_API_KEY`. |
+| **AI for paying users** | **Premium model, billed per use** | Subjects can switch to a premium model (e.g. Claude or GPT) in settings and pay by usage. Phase 3 builds the provider interface, the model choice and usage metering; charging (Stripe) comes with Phase 9. |
+| **Hosted database** | **Neon free tier** | Works with the current driver-adapter setup by changing `DATABASE_URL` (pooled string + `?sslmode=require`). |
+| **Hosting** | **Vercel Hobby** | Free, non-commercial. Needs: PDF via `playwright-core` + `@sparticuz/chromium`; reminders cron is daily on Hobby (or use a GitHub Actions schedule for hourly). |
+
+## Still open
 
 Nothing paid has been added. Each item below is stubbed behind an interface so it can be swapped without touching callers.
 
 | Decision | Current stub | Options (free tier first) | Where to plug in |
 |---|---|---|---|
-| **AI provider** (Phase 3 summaries, dev plans, de-identification, framework recommendation) | Template-generated summary; keyword themes | Anthropic Claude API, OpenAI, Azure OpenAI — all usage-billed (needs a card). Rough cost per report: a few cents. | New `src/lib/ai/` provider interface; replaces `summary.narrative` and `groupComments` |
-| **Hosted database** | Local Postgres | **Neon** free tier (0.5 GB, scales to zero — recommended, works with our driver adapter) or Supabase free tier (pauses after 1 week idle). Both connectors are already available in this workspace. | `DATABASE_URL` only |
-| **Email provider** (magic links, invites, reminders) | `console` provider + `/dev/outbox` | **Resend** free (3,000/mo, 100/day), Postmark (100/mo free), Amazon SES (cheap, needs AWS account), any SMTP | Add a sender in `src/lib/email/` and a case in `getEmailSender()` |
-| **Hosting** | Local | **Vercel Hobby** (free, non-commercial; cron limited to daily) or Azure Container Apps (free grant, needs Azure account/card) | — |
+| **Email provider** (magic links, invites, reminders) — _deferred by owner_ | `console` provider + `/dev/outbox` | **Resend** free (3,000/mo, 100/day), Postmark (100/mo free), Amazon SES (cheap, needs AWS account), any SMTP. Note: a public deployment can't sign anyone in until this is chosen, because magic links go to the outbox. | Add a sender in `src/lib/email/` and a case in `getEmailSender()` |
+| **Premium AI model + price** | — | Which premium model(s) to offer and the per-use price; decide before Phase 9 billing | `src/lib/ai/` (Phase 3) |
 | **PDF rendering on the host** | Playwright + local Chromium | Works as-is on containers (Azure/Docker). On Vercel: switch to `playwright-core` + `@sparticuz/chromium`, or fall back to browser print (already wired) | `src/lib/pdf/index.ts` (`PdfRenderer`) |
 | **Reminder scheduling** | `GET /api/cron/reminders` + `npm run jobs:reminders` | Vercel Cron (daily on Hobby), GitHub Actions schedule (free), Inngest / Trigger.dev free tiers | `src/lib/jobs/reminders.ts` (`runReminders`) |
 | **Google sign-in** | Hidden unless env vars are set | Free: create an OAuth client in Google Cloud Console | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` |
