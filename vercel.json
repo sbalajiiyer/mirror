@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "bash scripts/vercel-build.sh",
+  "crons": [{ "path": "/api/cron/reminders", "schedule": "17 14 * * 1-5" }],
+  "functions": {
+    "src/app/api/assessments/[id]/report/pdf/route.ts": { "memory": 2048, "maxDuration": 60 }
+  }
+}
