@@ -54,6 +54,23 @@ on every PR (`.github/workflows/ci.yml`, GitHub Actions free tier, Postgres serv
 | **Hosted database** | **Neon free tier** | Works with the current driver-adapter setup by changing `DATABASE_URL` (pooled string + `?sslmode=require`). |
 | **Hosting** | **Vercel Hobby** | Free, non-commercial. Needs: PDF via `playwright-core` + `@sparticuz/chromium`; reminders cron is daily on Hobby (or use a GitHub Actions schedule for hourly). |
 
+## Deployment (Vercel + Neon)
+
+- **Neon** project `mirror` (us-east-1, free tier): `main` branch for production, `preview` branch for Vercel preview
+  deployments, so feature-branch migrations never touch production data.
+- **Vercel** project `mirror` (team "sbalajiiyer's projects", region iad1, Node 22). Environment variables are set for
+  production and preview: `DATABASE_URL` (pooled), `DIRECT_DATABASE_URL` (migrations), `AUTH_SECRET`, `CRON_SECRET`,
+  `EMAIL_PROVIDER=console`, `DEMO_LOGIN_ENABLED=true`, `DEV_TOOLS_ENABLED=false`, `SEED_DEMO_ON_BUILD=true`.
+  Public URLs come from Vercel's own environment, so `APP_URL` isn't needed.
+- Each build runs `scripts/vercel-build.sh`: `prisma migrate deploy`, re-seed the demo account, `next build`.
+- Vercel Authentication protects **preview** deployments only; production is public (raters need it).
+- Reminders: Vercel Cron, weekdays 14:17 UTC (Hobby allows one run a day).
+- PDF: `@sparticuz/chromium` + `playwright-core` on Vercel (function memory 2 GB, 60 s).
+- **To finish linking:** install the Vercel GitHub app on `sbalajiiyer/mirror`, then pushes to `main` deploy production
+  and every PR gets a preview.
+- Until an email provider is chosen, only the demo login works on the public site (magic links aren't delivered and
+  the dev outbox is off there). Set `DEMO_LOGIN_ENABLED=false` in Vercel to turn the demo off.
+
 ## Still open
 
 Nothing paid has been added. Each item below is stubbed behind an interface so it can be swapped without touching callers.

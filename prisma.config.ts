@@ -13,6 +13,8 @@ export default defineConfig({
   },
   experimental: { adapter: true },
   engine: "js",
-  // Discrete fields (not connectionString) so the adapter's shadow database gets its own name.
-  adapter: async () => new PrismaPg(pgConfigFromUrl(process.env.DATABASE_URL!)),
+  // Migrations prefer a direct (non-pooled) connection when one is configured, e.g. Neon's
+  // host without "-pooler". Discrete fields (not connectionString) so the adapter's shadow
+  // database gets its own name.
+  adapter: async () => new PrismaPg(pgConfigFromUrl(process.env.DIRECT_DATABASE_URL || process.env.DATABASE_URL!)),
 });
