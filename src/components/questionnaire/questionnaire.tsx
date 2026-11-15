@@ -18,11 +18,12 @@ export type QAnswers = {
   stop: string;
   continue: string;
   general: string;
+  deidentify?: boolean;
 };
 export type QDraft = QAnswers & { step: number };
 type Result = { ok: true } | { ok: false; error: string };
 
-const empty: QAnswers = { ratings: {}, competencyComments: {}, start: "", stop: "", continue: "", general: "" };
+const empty: QAnswers = { ratings: {}, competencyComments: {}, start: "", stop: "", continue: "", general: "", deidentify: true };
 
 export function Questionnaire({
   mode,
@@ -34,6 +35,7 @@ export function Questionnaire({
   onSaveDraft,
   onSubmit,
   onDone,
+  onPreviewDeidentify,
 }: {
   mode: "rater" | "self";
   subjectFirstName: string;
@@ -44,6 +46,7 @@ export function Questionnaire({
   onSaveDraft?: (d: QDraft) => Promise<Result>;
   onSubmit: (a: QAnswers) => Promise<Result>;
   onDone?: () => void;
+  onPreviewDeidentify?: (texts: string[]) => Promise<{ ok: true; data?: { texts: string[]; usedAI: boolean } } | { ok: false; error: string }>;
 }) {
   const [answers, setAnswers] = useState<QAnswers>(() => ({ ...empty, ...(initialDraft ?? {}) }));
   // Steps: 0 intro, 1..n competencies, n+1 open questions (rater only), last = review
@@ -178,6 +181,7 @@ export function Questionnaire({
               <Textarea id={`open-${k}`} rows={3} maxLength={2000} value={answers[k]} onChange={(e) => update((a) => ({ ...a, [k]: e.target.value }))} />
             </div>
           ))}
+          {onPreviewDeidentify && <DeidentifyOption answers={answers} update={update} onPreview={onPreviewDeidentify} />}
         </section>
       )}
 
@@ -310,5 +314,62 @@ function CompetencyStep({
         </div>
       )}
     </section>
+  );
+}
+
+function DeidentifyOption({
+  answers,
+  update,
+  onPreview,
+}: {
+  answers: QAnswers;
+  update: (fn: (a: QAnswers) => QAnswers) => void;
+  onPreview: (texts: string[]) => Promise<{ ok: true; data?: { texts: string[]; usedAI: boolean } } | { ok: false; error: string }>;
+}) {
+  const [preview, setPreview] = useState<string[] | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const texts = [...Object.values(answers.competencyComments), answers.start, answers.stop, answers.continue, answers.general].filter((t) => t.trim());
+  return (
+    <div className="space-y-3 rounded-lg border bg-muted/40 p-4">
+      <label className="flex items-start gap-3 text-sm">
+        <input type="checkbox" className="mt-0.5 size-4" checked={answers.deidentify ?? true} onChange={(e) => update((a) => ({ ...a, deidentify: e.target.checked }))} />
+        <span>
+          <span className="font-medium">Remove details that could identify me</span>
+          <span className="block text-muted-foreground">
+            AI rewrites your comments to remove names, places, dates and other give-aways before they are saved. Your original wording is not kept.
+          </span>
+        </span>
+      </label>
+      {answers.deidentify !== false && texts.length > 0 && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={pending}
+          onClick={() =>
+            start(async () => {
+              const r = await onPreview(texts);
+              if (r.ok && r.data) {
+                setPreview(r.data.texts);
+                setNote(r.data.usedAI ? null : "AI isn't available right now; only emails, phone numbers and links will be removed.");
+              } else if (!r.ok) setNote(r.error);
+            })
+          }
+        >
+          {pending ? "Rewriting…" : "Preview rewritten comments"}
+        </Button>
+      )}
+      {preview && (
+        <ul className="space-y-2 text-sm" aria-label="Rewritten comments" data-testid="deidentify-preview">
+          {preview.filter((t) => t.trim()).map((t, i) => (
+            <li key={i} className="rounded-md bg-card p-2 shadow-sm">
+              {t}
+            </li>
+          ))}
+        </ul>
+      )}
+      {note && <p className="text-xs text-muted-foreground">{note}</p>}
+    </div>
   );
 }

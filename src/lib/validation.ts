@@ -60,6 +60,8 @@ export const answersSchema = z.object({
   stop: text,
   continue: text,
   general: text,
+  /** Rater asked for AI to remove identifying details from their comments before saving. */
+  deidentify: z.boolean().optional().default(true),
 });
 export type Answers = z.infer<typeof answersSchema>;
 

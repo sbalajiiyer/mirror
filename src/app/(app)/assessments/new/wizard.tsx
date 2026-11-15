@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Link2, Plus, Trash2, Users } from "lucide-react";
+import { Check, Link2, Plus, Sparkles, Trash2, Users } from "lucide-react";
 import { GOALS, RATER_GROUP_KINDS, goalLabel } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { Alert } from "@/components/ui/alert";
@@ -15,6 +15,8 @@ import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { EMAIL_RE, parseRaterLines, type Rater } from "@/lib/rater-input";
 import { createAssessmentAction } from "../actions";
+import { draftInviteAction, recommendFrameworkAction } from "../ai-actions";
+import type { FrameworkRecommendation } from "@/lib/ai/features/framework";
 
 export type WizardFramework = {
   id: string;
@@ -58,6 +60,30 @@ export function Wizard({
   const [managerSeparate, setManagerSeparate] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const [rec, setRec] = useState<(FrameworkRecommendation & { usedAI: boolean; warning?: string }) | null>(null);
+  const [aiBusy, startAI] = useTransition();
+  const [inviteNote, setInviteNote] = useState<string | null>(null);
+
+  const recommend = () =>
+    startAI(async () => {
+      const r = await recommendFrameworkAction(goal);
+      if (r.ok && r.data) setRec({ ...r.data.recommendation, usedAI: r.data.usedAI, warning: r.data.warning });
+      else if (!r.ok) setError(r.error);
+    });
+  const applyFocus = () => {
+    if (!rec) return;
+    setQuestions((qs) => qs.map((q) => ({ ...q, on: rec.focus.includes(q.competencyKey) })));
+    setStep(2);
+  };
+  const draftInvite = () =>
+    startAI(async () => {
+      setInviteNote(null);
+      const r = await draftInviteAction(goal, minRaters);
+      if (r.ok && r.data) {
+        setMessage(r.data.message);
+        setInviteNote(r.data.usedAI ? "Drafted by AI — edit it so it sounds like you." : (r.data.warning ?? "AI isn't configured, so the standard message was used."));
+      } else if (!r.ok) setInviteNote(r.error);
+    });
 
   const activeQs = questions.filter((q) => q.on);
   const raterCount = groups.reduce((s, g) => s + g.raters.length, 0);
@@ -150,7 +176,7 @@ export function Wizard({
           <>
             <CardHeader>
               <CardTitle>Framework</CardTitle>
-              <CardDescription>The competencies your raters will score. More frameworks (and an AI recommendation) arrive in later phases.</CardDescription>
+              <CardDescription>The competencies your raters will score. Not sure what to focus on? Ask for a recommendation based on your goal and role.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="rounded-lg border border-primary bg-accent/50 p-4 ring-1 ring-primary">
@@ -161,12 +187,34 @@ export function Wizard({
                 <p className="mt-1 text-sm text-muted-foreground">{framework.description}</p>
                 <ul className="mt-4 grid gap-2 sm:grid-cols-2">
                   {framework.competencies.map((c) => (
-                    <li key={c.key} className="text-sm">
+                    <li key={c.key} className={cn("rounded-md p-1 text-sm", rec?.focus.includes(c.key) && "bg-primary/10 ring-1 ring-primary/40")}>
                       <span className="font-medium">{c.name}</span>
                       <span className="block text-xs text-muted-foreground">{c.description}</span>
                     </li>
                   ))}
                 </ul>
+              </div>
+              <div className="mt-4 space-y-3">
+                <Button type="button" variant="outline" onClick={recommend} disabled={aiBusy} data-testid="recommend">
+                  <Sparkles /> {aiBusy ? "Thinking…" : "Recommend a focus for me"}
+                </Button>
+                {rec && (
+                  <div className="rounded-lg border bg-muted/40 p-4 text-sm" data-testid="recommendation">
+                    <p className="font-medium">
+                      Focus on: {rec.focus.map((k) => framework.competencies.find((c) => c.key === k)?.name).join(", ")}
+                    </p>
+                    <p className="mt-1 text-muted-foreground">{rec.reason}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{rec.usedAI ? "Suggested by AI." : (rec.warning ?? "Standard suggestion for your goal (AI not configured).")}</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button type="button" size="sm" onClick={applyFocus}>
+                        Use only these ({rec.focus.length * 4} questions)
+                      </Button>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setStep(2)}>
+                        Keep all seven
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </>
@@ -266,7 +314,12 @@ export function Wizard({
               <div className="space-y-1.5">
                 <Label htmlFor="message">Invite message</Label>
                 <Textarea id="message" rows={5} value={message} onChange={(e) => setMessage(e.target.value)} />
-                <p className="text-xs text-muted-foreground">AI-drafted messages arrive in Phase 3.</p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button type="button" variant="outline" size="sm" onClick={draftInvite} disabled={aiBusy} data-testid="draft-invite">
+                    <Sparkles /> {aiBusy ? "Drafting…" : "Draft with AI"}
+                  </Button>
+                  {inviteNote && <p className="text-xs text-muted-foreground">{inviteNote}</p>}
+                </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">

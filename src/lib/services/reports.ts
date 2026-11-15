@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { computeReport, type ReportData, type ReportInput } from "@/lib/report/compute";
 import { firstName } from "@/lib/utils";
+import type { StoredAISummary } from "@/lib/services/ai";
 
 export async function loadReportInput(assessmentId: string): Promise<ReportInput> {
   const a = await db.assessment.findUniqueOrThrow({
@@ -55,7 +56,7 @@ export async function buildAndStoreReport(assessmentId: string) {
 export async function getReportForOwner(userId: string, assessmentId: string): Promise<
   | { status: "not_found" }
   | { status: "not_closed"; assessmentStatus: string }
-  | { status: "ok"; report: ReportData; generatedAt: Date }
+  | { status: "ok"; report: ReportData; generatedAt: Date; aiSummary: StoredAISummary | null }
 > {
   const a = await db.assessment.findFirst({
     where: { id: assessmentId, subjectId: userId },
@@ -64,5 +65,10 @@ export async function getReportForOwner(userId: string, assessmentId: string): P
   if (!a) return { status: "not_found" };
   if (a.status !== "CLOSED") return { status: "not_closed", assessmentStatus: a.status };
   const r = a.reports[0] ?? (await buildAndStoreReport(a.id));
-  return { status: "ok", report: r.data as unknown as ReportData, generatedAt: r.generatedAt };
+  return {
+    status: "ok",
+    report: r.data as unknown as ReportData,
+    generatedAt: r.generatedAt,
+    aiSummary: (r.aiSummary as unknown as StoredAISummary | null) ?? null,
+  };
 }

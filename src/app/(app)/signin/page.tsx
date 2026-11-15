@@ -71,7 +71,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
               <Button type="submit" variant="secondary" className="w-full" data-testid="demo-login">
                 Sign in as demo user (Alex)
               </Button>
-              <p className="mt-2 text-center text-xs text-muted-foreground">Development only — set DEMO_LOGIN_ENABLED=false in production.</p>
+              <p className="mt-2 text-center text-xs text-muted-foreground">Explore with sample data. The demo account is shared and resets regularly.</p>
             </form>
           )}
         </CardContent>

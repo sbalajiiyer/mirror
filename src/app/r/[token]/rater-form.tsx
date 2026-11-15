@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Questionnaire, type QCompetency, type QDraft } from "@/components/questionnaire/questionnaire";
-import { declineAction, saveDraftAction, submitRaterAction } from "../actions";
+import { declineAction, previewDeidentifyAction, saveDraftAction, submitRaterAction } from "../actions";
 
 export function RaterForm(props: {
   token: string;
@@ -28,6 +28,7 @@ export function RaterForm(props: {
       initialDraft={props.draft}
       onSaveDraft={(d) => saveDraftAction(props.token, d)}
       onSubmit={(a) => submitRaterAction(props.token, a)}
+      onPreviewDeidentify={(texts) => previewDeidentifyAction(props.token, texts)}
       intro={
         <div className="space-y-4">
           <h1 className="text-2xl font-semibold tracking-tight">{props.subjectFirstName} would value your feedback</h1>

@@ -6,6 +6,8 @@ import { derivedToken, hashToken, looksLikeToken } from "@/lib/tokens";
 import { firstName } from "@/lib/utils";
 import { answersSchema, draftSchema, type Draft } from "@/lib/validation";
 import { DomainError, today, validateRatings } from "@/lib/services/assessments";
+import { deidentifyComments } from "@/lib/ai/features/deidentify";
+import { scrubIdentifiers } from "@/lib/ai/scrub";
 
 /**
  * Everything a rater sees. Deliberately minimal: the subject's first name, the questions
@@ -119,6 +121,14 @@ export async function submitRaterResponse(token: string, raw: unknown) {
     if (t) comments.push({ kind, text: t });
   }
 
+  // Obvious identifiers (emails, phones, links, handles) are always removed. If the rater
+  // opted in, AI also rewrites the comments; the original text is never stored.
+  const subjectFirstName = firstName(a.subject.profile?.displayName ?? a.subject.name);
+  const rewritten = answers.deidentify
+    ? (await deidentifyComments(comments.map((c) => c.text), { inviteId: inv.id, subjectFirstName })).texts
+    : comments.map((c) => scrubIdentifiers(c.text));
+  comments.forEach((c, i) => (c.text = rewritten[i]?.trim() || scrubIdentifiers(c.text)));
+
   await db.$transaction(async (tx) => {
     // Atomic status flip guards against double submission from two tabs.
     const flipped = await tx.raterInvite.updateMany({
@@ -157,4 +167,12 @@ export async function inviteFromGroupLink(groupToken: string): Promise<string | 
     data: { id, assessmentId: group.assessmentId, raterGroupId: group.id, channel: "LINK", tokenHash: hashToken(derivedToken("invite", id)), invitedAt: new Date() },
   });
   return derivedToken("invite", id);
+}
+
+/** Show the rater what their comments will look like after AI de-identification. */
+export async function previewDeidentify(token: string, texts: unknown) {
+  const list = Array.isArray(texts) ? texts.filter((t): t is string => typeof t === "string").slice(0, 12).map((t) => t.slice(0, 2000)) : [];
+  const inv = await openInviteOrThrow(token);
+  const name = firstName(inv.assessment.subject.profile?.displayName ?? inv.assessment.subject.name);
+  return deidentifyComments(list, { inviteId: inv.id, subjectFirstName: name });
 }
