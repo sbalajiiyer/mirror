@@ -1,0 +1,50 @@
+diff --git a/node_modules/@prisma/adapter-pg/dist/index.js b/node_modules/@prisma/adapter-pg/dist/index.js
+index 6baabe2..fa20bd5 100644
+--- a/node_modules/@prisma/adapter-pg/dist/index.js
++++ b/node_modules/@prisma/adapter-pg/dist/index.js
+@@ -285,7 +285,9 @@ function fieldToColumnType(fieldTypeId) {
+     case ArrayColumnType.OID_ARRAY:
+       return import_driver_adapter_utils.ColumnTypeEnum.Int64Array;
+     default:
+-      if (fieldTypeId >= FIRST_NORMAL_OBJECT_ID) {
++      // Mirror patch: system-catalog types (name, char, regproc, ...) appear when the JS
++      // schema engine introspects Postgres. Treat them as text (fixed upstream in Prisma 7).
++      if (fieldTypeId >= FIRST_NORMAL_OBJECT_ID || fieldTypeId < 4000) {
+         return import_driver_adapter_utils.ColumnTypeEnum.Text;
+       }
+       throw new UnsupportedNativeDataType(fieldTypeId);
+@@ -809,8 +811,8 @@ var PrismaPgAdapterFactory = class {
+     await conn.executeScript(`CREATE DATABASE "${database}"`);
+     const client = new import_pg2.default.Pool({ ...this.config, database });
+     return new PrismaPgAdapter(client, void 0, async () => {
+-      await conn.executeScript(`DROP DATABASE "${database}"`);
+       await client.end();
++      await conn.executeScript(`DROP DATABASE "${database}" WITH (FORCE)`);
+     });
+   }
+ };
+diff --git a/node_modules/@prisma/adapter-pg/dist/index.mjs b/node_modules/@prisma/adapter-pg/dist/index.mjs
+index f2be06d..3963d7d 100644
+--- a/node_modules/@prisma/adapter-pg/dist/index.mjs
++++ b/node_modules/@prisma/adapter-pg/dist/index.mjs
+@@ -249,7 +249,9 @@ function fieldToColumnType(fieldTypeId) {
+     case ArrayColumnType.OID_ARRAY:
+       return ColumnTypeEnum.Int64Array;
+     default:
+-      if (fieldTypeId >= FIRST_NORMAL_OBJECT_ID) {
++      // Mirror patch: system-catalog types (name, char, regproc, ...) appear when the JS
++      // schema engine introspects Postgres. Treat them as text (fixed upstream in Prisma 7).
++      if (fieldTypeId >= FIRST_NORMAL_OBJECT_ID || fieldTypeId < 4000) {
+         return ColumnTypeEnum.Text;
+       }
+       throw new UnsupportedNativeDataType(fieldTypeId);
+@@ -773,8 +775,8 @@ var PrismaPgAdapterFactory = class {
+     await conn.executeScript(`CREATE DATABASE "${database}"`);
+     const client = new pg2.Pool({ ...this.config, database });
+     return new PrismaPgAdapter(client, void 0, async () => {
+-      await conn.executeScript(`DROP DATABASE "${database}"`);
+       await client.end();
++      await conn.executeScript(`DROP DATABASE "${database}" WITH (FORCE)`);
+     });
+   }
+ };
