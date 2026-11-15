@@ -36,3 +36,29 @@ describe("parseRaterLines", () => {
     ]);
   });
 });
+
+describe("appUrl", () => {
+  it("prefers APP_URL, then Vercel's own URL, then localhost", async () => {
+    const { appUrl } = await import("@/lib/url");
+    const saved = { ...process.env };
+    try {
+      process.env.APP_URL = "https://mirror.example.com/";
+      expect(appUrl("/r/x")).toBe("https://mirror.example.com/r/x");
+      delete process.env.APP_URL;
+      delete process.env.AUTH_URL;
+      process.env.VERCEL_ENV = "production";
+      process.env.VERCEL_PROJECT_PRODUCTION_URL = "mirror.vercel.app";
+      expect(appUrl("/r/x")).toBe("https://mirror.vercel.app/r/x");
+      process.env.VERCEL_ENV = "preview";
+      process.env.VERCEL_BRANCH_URL = "mirror-git-x.vercel.app";
+      expect(appUrl("r/x")).toBe("https://mirror-git-x.vercel.app/r/x");
+      delete process.env.VERCEL_ENV;
+      delete process.env.VERCEL_BRANCH_URL;
+      delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
+      delete process.env.VERCEL_URL;
+      expect(appUrl()).toBe("http://localhost:3000/");
+    } finally {
+      process.env = saved;
+    }
+  });
+});
