@@ -29,6 +29,7 @@ jobs:
       CRON_SECRET: ci-cron
       DEV_TOOLS_ENABLED: "true"
       DEMO_LOGIN_ENABLED: "true"
+      AI_PROVIDER: mock
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
