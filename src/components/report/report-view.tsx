@@ -17,9 +17,10 @@ import { groupColor, fmt } from "./palette";
 import { CompetencyRadar } from "./radar-chart";
 import { SummaryCard } from "./summary-card";
 import { AISummaryCard } from "@/components/ai/ai-summary-card";
+import { SessionHeader } from "@/components/survey/session-header";
 import type { StoredAISummary } from "@/lib/services/ai";
 import Link from "next/link";
-import { Activity, ListChecks, TrendingUp } from "lucide-react";
+import { Activity, ListChecks, Repeat, TrendingUp } from "lucide-react";
 
 export function ReportView({
   report,
@@ -27,12 +28,14 @@ export function ReportView({
   pdfUrl,
   print = false,
   aiSummary = null,
+  session = null,
 }: {
   report: ReportData;
   generatedAt: string;
   pdfUrl?: string;
   print?: boolean;
   aiSummary?: StoredAISummary | null;
+  session?: { code: string; sessionNumber: number; kind: string; label: string | null } | null;
 }) {
   const groups = report.anonymity.groups;
   const [visibleGroups, setVisibleGroups] = useState<string[]>([]);
@@ -80,6 +83,7 @@ export function ReportView({
         <div>
           <p className="text-sm text-muted-foreground">360° feedback report · {goalLabel(report.assessment.goal)}</p>
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{report.assessment.title}</h1>
+          {session && <SessionHeader assessmentId={report.assessment.id} editable={!print} {...session} />}
           <p className="mt-1 flex flex-wrap items-center gap-x-3 text-sm text-muted-foreground">
             <span>{report.anonymity.othersN} raters</span>
             <span>{groups.map((g) => `${g.label} (${g.n})`).join(" · ")}</span>
@@ -91,6 +95,11 @@ export function ReportView({
             <Button asChild variant="secondary">
               <Link href={`/assessments/${report.assessment.id}/plan`}>
                 <ListChecks /> Development plan
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href={`/assessments/${report.assessment.id}/rerun`}>
+                <Repeat /> Run again
               </Link>
             </Button>
             <Button asChild variant="outline">

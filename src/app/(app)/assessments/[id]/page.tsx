@@ -9,6 +9,8 @@ import { derivedToken } from "@/lib/tokens";
 import { appUrl } from "@/lib/url";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/components/assessment/status-badge";
+import { SessionHeader } from "@/components/survey/session-header";
+import { sessionKind, surveyCode } from "@/lib/survey";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,6 +52,7 @@ export default async function AssessmentPage({ params }: { params: Promise<{ id:
             ← My 360s
           </Link>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">{a.title}</h1>
+          <SessionHeader assessmentId={a.id} code={surveyCode(a.rootAssessmentId ?? a.id)} sessionNumber={a.sessionNumber} kind={sessionKind(a.type)} label={a.sessionLabel} />
           <p className="text-muted-foreground">Goal: {goalLabel(a.goal)}</p>
         </div>
         <StatusBadge status={a.status} />

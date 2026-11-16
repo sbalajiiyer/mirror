@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { DomainError } from "@/lib/errors";
 import { derivedToken, hashToken } from "@/lib/tokens";
+import { sessionKind, surveyCode } from "@/lib/survey";
 
 export const rerunSchema = z.object({
   reuseRaters: z.boolean().default(true),
@@ -86,4 +87,11 @@ export async function renameSession(userId: string, assessmentId: string, rawLab
   const a = await db.assessment.findFirst({ where: { id: assessmentId, subjectId: userId } });
   if (!a) throw new DomainError("Not found", "not_found");
   await db.assessment.update({ where: { id: a.id }, data: { sessionLabel: label || null } });
+}
+
+/** Display info for a session: survey ID, number, kind and label. */
+export async function sessionInfo(assessmentId: string) {
+  const a = await db.assessment.findUnique({ where: { id: assessmentId }, select: { id: true, rootAssessmentId: true, sessionNumber: true, type: true, sessionLabel: true } });
+  if (!a) return null;
+  return { code: surveyCode(seriesRootId(a)), sessionNumber: a.sessionNumber, kind: sessionKind(a.type), label: a.sessionLabel };
 }

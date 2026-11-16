@@ -165,6 +165,7 @@ async function main() {
       title: "Pre-promotion 360 — Autumn 2026",
       goal: "promotion",
       status: "CLOSED",
+      sessionLabel: "Baseline",
       inviteMessage: DEFAULT_INVITE_MESSAGE("Alex"),
       showManagerSeparately: true,
       dueAt: new Date(launched.getTime() + 14 * DAY),
@@ -294,6 +295,8 @@ async function main() {
       frameworkId: full.id,
       type: "PULSE",
       rootAssessmentId: a.id,
+      sessionNumber: 2,
+      sessionLabel: "1-month check-in",
       title: "Pulse check 1 — October 2026",
       goal: "promotion",
       status: "CLOSED",
@@ -359,9 +362,87 @@ async function main() {
     }
   }
   await buildAndStoreReport(pulse.id);
+
+  // ---------------- Session 3: the full survey run again (every statement comparable) ----------------
+  const rerunLaunch = new Date(Date.now() - 9 * DAY);
+  const IMPROVE3: Record<string, number> = { communication: 0.5, emotional_intelligence: 0.3, leadership: 0.25, strategic_thinking: 0.1 };
+  const rerun = await db.assessment.create({
+    data: {
+      subjectId: user.id,
+      frameworkId: full.id,
+      type: "FULL_360",
+      rootAssessmentId: a.id,
+      sessionNumber: 3,
+      sessionLabel: "Winter re-run",
+      title: a.title,
+      goal: "promotion",
+      status: "CLOSED",
+      inviteMessage: a.inviteMessage,
+      showManagerSeparately: true,
+      dueAt: new Date(rerunLaunch.getTime() + 7 * DAY),
+      selfLockedAt: new Date(rerunLaunch.getTime() - 3600_000),
+      launchedAt: rerunLaunch,
+      closedAt: new Date(rerunLaunch.getTime() + 6 * DAY),
+      questions: { create: a.questions.map((q) => ({ competencyKey: q.competencyKey, competency: q.competency, questionKey: q.questionKey, text: q.text, selfText: q.selfText, order: q.order })) },
+      raterGroups: { create: groupsDef.map((g, i) => ({ kind: g.kind, name: g.name, order: i })) },
+    },
+    include: { questions: true, raterGroups: true },
+  });
+  const rerunGroup = (kind: RaterGroupKind) => rerun.raterGroups.find((g) => g.kind === kind)!;
+  await db.submission.create({
+    data: {
+      assessmentId: rerun.id,
+      raterGroupId: rerunGroup("SELF").id,
+      isSelf: true,
+      submittedOn: rerun.selfLockedAt!,
+      responses: { create: rerun.questions.map((q) => ({ assessmentQuestionId: q.id, value: q.competencyKey === "strategic_thinking" ? 4 : 4 })) },
+    },
+  });
+  for (const g of groupsDef.slice(1)) {
+    for (const raterName of g.raters) {
+      const id = randomUUID();
+      const [first, last] = raterName.split(" ");
+      await db.raterInvite.create({
+        data: {
+          id,
+          assessmentId: rerun.id,
+          raterGroupId: rerunGroup(g.kind).id,
+          name: raterName,
+          email: `${first}.${last}@example.com`.toLowerCase(),
+          tokenHash: hashToken(derivedToken("invite", id)),
+          status: "SUBMITTED",
+          invitedAt: rerunLaunch,
+          submittedAt: new Date(rerunLaunch.getTime() + 2 * DAY),
+        },
+      });
+      const raterBias = normal() * 0.3;
+      await db.submission.create({
+        data: {
+          assessmentId: rerun.id,
+          raterGroupId: rerunGroup(g.kind).id,
+          submittedOn: new Date(rerunLaunch.getTime() + 2 * DAY),
+          responses: {
+            create: rerun.questions.map((q) => {
+              const bias = GROUP_BIAS[g.kind] ?? {};
+              const mu =
+                OTHERS_BASE[q.competencyKey] +
+                (IMPROVE3[q.competencyKey] ?? 0) +
+                (QUESTION_OFFSET[`${q.competencyKey}.${q.questionKey}`] ?? 0) +
+                (bias[q.competencyKey] ?? 0) +
+                (bias[`${q.competencyKey}.${q.questionKey}`] ?? 0) +
+                raterBias;
+              const dontKnow = g.kind === "CLIENT" ? rand() < 0.08 : rand() < 0.03;
+              return { assessmentQuestionId: q.id, value: dontKnow ? null : clamp(mu + normal() * 0.5) };
+            }),
+          },
+        },
+      });
+    }
+  }
+  await buildAndStoreReport(rerun.id);
   await db.assessment.update({
     where: { id: a.id },
-    data: { cadenceMonths: 1, nextPulseDueAt: new Date(pulseLaunch.getTime() + 30 * DAY) },
+    data: { cadenceMonths: 1, nextPulseDueAt: new Date(rerunLaunch.getTime() + 30 * DAY) },
   });
 
   // ---------------- 360 in progress ----------------
@@ -432,6 +513,7 @@ async function main() {
   console.log(`Seeded demo subject ${DEMO_EMAIL}`);
   console.log(`  closed 360:     /assessments/${a.id}/report`);
   console.log(`  pulse check:    /assessments/${pulse.id}/report  (progress: /progress)`);
+  console.log(`  full re-run:    /assessments/${rerun.id}/report`);
   console.log(`  collecting 360: /assessments/${b.id}`);
   if (open) console.log(`  rater link (${open.name}): /r/${derivedToken("invite", open.id)}`);
 }
