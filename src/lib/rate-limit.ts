@@ -32,6 +32,8 @@ export const LIMITS = {
   magicLinkEmail: { limit: 5, windowSec: 3600 },
   /** Magic-link requests from one network. */
   magicLinkIp: { limit: 20, windowSec: 3600 },
+  /** Public share-link views from one network (Phase 7). */
+  shareViewIp: { limit: 120, windowSec: 600 },
   /** Demo sign-ins from one network. */
   demoLoginIp: { limit: 60, windowSec: 600 },
 } as const satisfies Record<string, { limit: number; windowSec: number }>;

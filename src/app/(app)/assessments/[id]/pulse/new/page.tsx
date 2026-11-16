@@ -22,7 +22,8 @@ export default async function NewPulsePage({ params }: { params: Promise<{ id: s
   const root = await db.assessment.findUniqueOrThrow({ where: { id: seriesRootId(a) } });
   const goals = await db.goal.findMany({ where: { userId, assessmentId: root.id, status: "ACTIVE" } });
   const report = r.report;
-  const defaults = report.anonymity.available ? defaultPulseQuestions(report, goals.map((g) => g.competencyKey)) : [];
+  const profile = await db.subjectProfile.findUnique({ where: { userId } });
+  const defaults = report.anonymity.available ? defaultPulseQuestions(report, goals.map((g) => g.competencyKey), 10, 5, profile?.goals ?? []) : [];
   const raterCount = a.raterGroups.reduce((s, g) => s + g.invites.length, 0);
   const competencies = report.competencies.map((c) => ({
     key: c.key,

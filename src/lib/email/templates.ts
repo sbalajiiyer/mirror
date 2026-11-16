@@ -83,3 +83,14 @@ export function orgCampaignEmail(p: { to: string; orgName: string; campaignName:
     text: `${p.orgName} has started "${p.campaignName}", a 360° feedback round for your development.\n\nSet yours up (about 5 minutes), rate yourself, then invite the people you work with:\n${p.link}${p.dueAt ? `\n\nPlease aim to finish by ${p.dueAt.toDateString()}.` : ""}\n\nYour report is yours. ${p.orgName} sees only group averages (at least 5 people) unless you choose to share your results.\n\n— Mirror`,
   };
 }
+
+export function nudgeEmail(p: { to: string; firstName: string; action: string | null; goals: string[]; link: string; unsubscribe: string }): EmailMessage {
+  const goalLine = p.goals.length ? `\n\nYour goals: ${p.goals.join("; ")}.` : "";
+  const actionLine = p.action ? `This week, try one thing from your development plan:\n\n  ${p.action}` : "A quick check-in on what you're working on.";
+  return {
+    to: p.to,
+    template: "weekly-nudge",
+    subject: p.action ? `This week: ${p.action.slice(0, 70)}` : "Your weekly Mirror check-in",
+    text: `Hi ${p.firstName},\n\n${actionLine}${goalLine}\n\nSee your plan and progress:\n${p.link}\n\nYou asked for these weekly nudges. Turn them off: ${p.unsubscribe}\n\n— Mirror`,
+  };
+}

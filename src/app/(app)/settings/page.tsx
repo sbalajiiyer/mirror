@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SettingsForm } from "./settings-form";
+import { NudgeForm } from "./nudge-form";
 
 export const metadata = { title: "Settings" };
 
@@ -20,6 +21,15 @@ export default async function SettingsPage() {
         initial={{ aiModel: user.profile.aiModel, learningStyle: user.profile.learningStyle, feedbackTone: user.profile.feedbackTone }}
         usage={usage}
       />
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Weekly nudges</CardTitle>
+          <CardDescription>One short email a week with an action from your development plan and your goals. Off unless you switch it on.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <NudgeForm initial={user.profile.nudgeDay} />
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Coaching and organizations</CardTitle>

@@ -44,6 +44,8 @@ model User {
   coachMeetings  CoachMeeting[]    @relation("CoachMeetings")
   clientMeetings CoachMeeting[]    @relation("ClientMeetings")
   orgMemberships OrgMember[]
+  chats          CoachChat[]
+  shareLinks     ShareLink[]
 }
 
 model Account {
@@ -89,24 +91,27 @@ model VerificationToken {
 // ---------------------------------------------------------------------------
 
 model SubjectProfile {
-  id            String    @id @default(cuid())
-  userId        String    @unique
-  displayName   String
-  jobTitle      String?
-  seniority     String?
-  industry      String?
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  displayName     String
+  jobTitle        String?
+  seniority       String?
+  industry        String?
   /// Goal keys, see src/lib/goals.ts (promotion, new_role, leadership_growth, career_change, ...)
-  goals         String[]
-  feedbackTone  String    @default("balanced") // direct | balanced | gentle (used by AI summaries)
+  goals           String[]
+  feedbackTone    String    @default("balanced") // direct | balanced | gentle (used by AI summaries)
   /// Learning style used to tailor development plans: reading | video | practice | conversation
-  learningStyle String?
+  learningStyle   String?
   /// AI model choice, see src/lib/ai/models.ts ("free" = Groq gpt-oss; premium ids are billed per use)
-  aiModel       String    @default("free")
+  aiModel         String    @default("free")
   /// Prepaid credits for paid features (1 credit = one AI-generated questionnaire). See CreditLedger.
-  aiCredits     Int       @default(0)
-  onboardedAt   DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  aiCredits       Int       @default(0)
+  /// Weekly nudge email: day of week (0 = Sunday … 6 = Saturday), null = off (opt-in, Phase 7).
+  nudgeDay        Int?
+  nudgeLastSentAt DateTime?
+  onboardedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -231,6 +236,8 @@ model Assessment {
   pulses      Assessment[]         @relation("Series")
   goals       Goal[]
   orgCampaign OrgCampaign?         @relation(fields: [orgCampaignId], references: [id], onDelete: SetNull)
+  shareLinks  ShareLink[]
+  chats       CoachChat[]
   questions   AssessmentQuestion[]
   raterGroups RaterGroup[]
   invites     RaterInvite[]
@@ -714,4 +721,74 @@ model OrgCampaign {
   assessments Assessment[]
 
   @@index([orgId])
+}
+
+// ---------------------------------------------------------------- Phase 7: personalization v2
+
+enum ChatMode {
+  REPORT
+  ROLEPLAY
+}
+
+/// A conversation with the AI coach about one report, or a role-play of a difficult conversation.
+model CoachChat {
+  id           String   @id @default(cuid())
+  userId       String
+  assessmentId String?
+  mode         ChatMode @default(REPORT)
+  title        String
+  /// Role-play: who the AI plays and the situation.
+  scenario     String?
+  /// free | premium (premium conversations cost 1 credit when started)
+  tier         String   @default("free")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assessment Assessment?   @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  messages   ChatMessage[]
+
+  @@index([userId, updatedAt])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  chatId    String
+  role      String // user | assistant
+  content   String
+  /// Report facts the reply relied on, e.g. ["Communication: others 3.2"].
+  citations String[] @default([])
+  createdAt DateTime @default(now())
+
+  chat CoachChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@index([chatId, createdAt])
+}
+
+enum ShareKind {
+  BADGE
+  SUMMARY
+  REPORT
+}
+
+/// A public, revocable link to something the subject chose to share. Private by default: nothing is
+/// public until the subject creates a link. The id is the unguessable public slug.
+model ShareLink {
+  id           String    @id
+  userId       String
+  assessmentId String
+  kind         ShareKind
+  /// SUMMARY: which sections to show (strengths, growth, chart, narrative).
+  sections     String[]  @default([])
+  /// Optional note shown on the page, e.g. "Shared with my mentor".
+  note         String?
+  expiresAt    DateTime?
+  revokedAt    DateTime?
+  views        Int       @default(0)
+  createdAt    DateTime  @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

@@ -1,6 +1,6 @@
 # Mirror — build status
 
-_Last updated: 2026-11-16 (Phase 6, branch `phase-6`)_
+_Last updated: 2026-11-16 (Phase 7, branch `phase-7`)_
 
 ## Phases
 
@@ -15,10 +15,11 @@ _Last updated: 2026-11-16 (Phase 6, branch `phase-6`)_
 | — | Session grouping — company and tags on sessions; group and filter by company, year, quarter, theme, score range | ✅ Done (PR #7, merged) |
 | — | Questionnaire import — Excel (.xlsx) / CSV, including Google Forms and Microsoft Forms exports | ✅ Done (PR #8, merged) |
 | 5 | Coach workspace — client portfolio, consent-based sharing, session prep (+AI), shared reports, notes, coaching sessions, cross-client analytics, white-label, coach questionnaires | ✅ Done (PR #10, merged) |
-| 6 | Teams and orgs — organizations, people, teams & cohorts, 360 rounds (incl. team 360), participation, team radar/heatmap, cohort comparison, opt-in talent grid (HRIS skipped by owner) | ✅ Done (PR from `phase-6`) |
-| 7–10 | Personalization v2, analytics v2, payments, enterprise | Not started |
+| 6 | Teams and orgs — organizations, people, teams & cohorts, 360 rounds (incl. team 360), participation, team radar/heatmap, cohort comparison, opt-in talent grid (HRIS skipped by owner) | ✅ Done (PR #11, merged) |
+| 7 | Personalization v2 — AI coach chat (report Q&A + role-play), adaptive questions, personalized pulses, opt-in weekly nudges, sharing (badge, summary, full report) | ✅ Done (PR from `phase-7`) |
+| 8–10 | Analytics v2, payments, enterprise | Not started |
 
-Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md), [`docs/phases/phase-4b-survey-sessions.md`](phases/phase-4b-survey-sessions.md), [`docs/phases/phase-5-coach.md`](phases/phase-5-coach.md), [`docs/phases/phase-6-teams-orgs.md`](phases/phase-6-teams-orgs.md).
+Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md), [`docs/phases/phase-4b-survey-sessions.md`](phases/phase-4b-survey-sessions.md), [`docs/phases/phase-5-coach.md`](phases/phase-5-coach.md), [`docs/phases/phase-6-teams-orgs.md`](phases/phase-6-teams-orgs.md), [`docs/phases/phase-7-personalization.md`](phases/phase-7-personalization.md).
 
 ## Run locally
 
@@ -49,7 +50,7 @@ npm run build && npm run db:seed && npm run test:e2e   # Playwright (needs `npx 
 npm run lint && npm run typecheck
 ```
 
-Current results: **159 Vitest tests** and **39 Playwright tests** (including automated WCAG 2.2 AA checks with axe), all passing. CI runs everything
+Current results: **169 Vitest tests** and **42 Playwright tests** (including automated WCAG 2.2 AA checks with axe), all passing. CI runs everything
 on every PR (`.github/workflows/ci.yml`, GitHub Actions free tier, Postgres service container).
 
 ## Decisions made (2026-11-15)
@@ -283,11 +284,28 @@ pulses were renamed by migration `rate_limit_pulse_titles`.
 - **Heatmap names** people only when the people not named are either none or at least 5.
 - **Demo:** `admin@mirror.local` (Morgan Blake) for Brightline Studio. Alex is a member with sharing on.
 
+## Phase 7 defaults (change freely)
+
+- **AI coach chat** (owner: free and paid options):
+  - Free model: 30 messages a day per person.
+  - Premium: 1 credit per conversation, 200 messages a day. It turns on once a premium model is configured and
+    chosen; until then it shows as "coming soon".
+- **Weekly nudges** (owner: opt-in, off by default): the person picks a weekday in Settings. Each email has one
+  rotating plan action plus goal titles. Unsubscribe is one click.
+- **Sharing** (owner: badge, summary and full report). Private by default. Links are 22-character random ids that
+  are revocable and can expire (never, 7, 30 or 90 days). Views are counted. Raters' comments are never public.
+  LinkedIn uses only the public add-certification and share URLs (no API, no app review).
+- **Adaptive questions:** the goal → competency focus map is in `src/lib/personalize.ts`. Leaders also get
+  leadership, and students and entry level get a shorter set. Custom questionnaires are left as written.
+- **Personalized pulses:** active goals, then growth areas tied to onboarding goals, then the blind spot and other
+  growth areas.
+
 ## Known limitations / next up
 
 - Custom questions get a first-person wording by replacing `{name}` with "I" — grammar may need a manual edit.
 - Rater form is English-only by the owner's choice (2026-11-16); multi-language can come later.
-- Next: Phase 7 (personalization v2: AI coach chat, adaptive questions, sharing and badges).
+- Chat replies are not streamed (each reply arrives whole); streaming can come with a premium model.
+- Next: Phase 8 (analytics v2: benchmarks, dashboard builder, natural-language queries, scheduled reports).
 - Coaches who accept by email go through the subject onboarding first; a coach-specific onboarding would be nicer.
 - The header nav is hidden on small screens (no mobile menu yet).
 - Dependency audit (2026-11-16): `next-auth` upgraded to 5.0.0-beta.32 (fixes the email normalisation /

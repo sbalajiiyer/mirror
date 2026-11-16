@@ -27,6 +27,9 @@ export async function AppHeader() {
               <Link href="/questionnaires" className="hidden rounded-md px-3 py-2 hover:bg-accent md:block">
                 Questionnaires
               </Link>
+              <Link href="/chat" className="hidden rounded-md px-3 py-2 hover:bg-accent lg:block">
+                AI coach
+              </Link>
               <Link href={isCoach ? "/coach" : "/coaching"} className="hidden rounded-md px-3 py-2 hover:bg-accent md:block">
                 {isCoach ? "Coach" : "Coaching"}
               </Link>
@@ -38,7 +41,7 @@ export async function AppHeader() {
               <Link href="/settings" className="hidden rounded-md px-3 py-2 hover:bg-accent sm:block">
                 Settings
               </Link>
-              <span className="hidden max-w-48 truncate text-muted-foreground lg:block">{session.user.email}</span>
+              <span className="hidden max-w-48 truncate text-muted-foreground xl:block">{session.user.email}</span>
               <form
                 action={async () => {
                   "use server";

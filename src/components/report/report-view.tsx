@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Download, Printer, ShieldCheck } from "lucide-react";
+import { Download, MessageSquareText, Printer, Share2, ShieldCheck } from "lucide-react";
 import type { ReportData } from "@/lib/report/compute";
 import { goalLabel } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -179,6 +179,16 @@ export function ReportView({
             <Button asChild variant="outline">
               <Link href="/progress">
                 <TrendingUp /> Progress
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href={`/chat?report=${report.assessment.id}`}>
+                <MessageSquareText /> Ask the AI coach
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href={`/assessments/${report.assessment.id}/share`}>
+                <Share2 /> Share
               </Link>
             </Button>
             {pdfUrl && (
