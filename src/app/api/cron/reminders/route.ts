@@ -4,6 +4,8 @@ import { pruneRateLimits } from "@/lib/rate-limit";
 import { runNudges } from "@/lib/jobs/nudges";
 import { rebuildNorms } from "@/lib/services/benchmarks";
 import { runScheduledDashboards } from "@/lib/services/dashboards";
+import { runRetention } from "@/lib/jobs/retention";
+import { pruneSsoTickets } from "@/lib/services/sso";
 
 export const runtime = "nodejs";
 
@@ -19,5 +21,7 @@ export async function GET(req: Request) {
   const dashboards = await runScheduledDashboards();
   const benchmarks = await rebuildNorms();
   const rateLimitRowsPruned = await pruneRateLimits();
-  return NextResponse.json({ raters, pulses, nudges, dashboards, benchmarks, rateLimitRowsPruned });
+  const retention = await runRetention();
+  const ssoTicketsPruned = await pruneSsoTickets();
+  return NextResponse.json({ raters, pulses, nudges, dashboards, benchmarks, rateLimitRowsPruned, retention, ssoTicketsPruned });
 }

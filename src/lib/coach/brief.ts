@@ -55,7 +55,7 @@ export function questionsFor(competencyKey: string, name: string): string[] {
 
 export type Brief = {
   clientFirstName: string;
-  basedOn: { title: string; label: string; date: string; raters: number } | null;
+  basedOn: { assessmentId: string; title: string; label: string; date: string; raters: number } | null;
   headline: string;
   strengths: string[];
   growthAreas: string[];
@@ -109,7 +109,7 @@ export function buildBrief(input: {
     .join(" ");
   return {
     clientFirstName: input.clientFirstName,
-    basedOn: { title: r.assessment.title, label: latest.label, date: latest.date, raters: r.anonymity.othersN },
+    basedOn: { assessmentId: r.assessment.id, title: r.assessment.title, label: latest.label, date: latest.date, raters: r.anonymity.othersN },
     headline,
     strengths: r.summary.strengths.map((k) => name(k)!),
     growthAreas: r.summary.growthAreas.map((k) => name(k)!),

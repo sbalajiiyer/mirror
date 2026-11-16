@@ -1,3 +1,4 @@
+import { providerAllowedIn, type Region } from "@/lib/residency";
 import "server-only";
 import { createHash } from "node:crypto";
 import type { z } from "zod";
@@ -51,6 +52,8 @@ export async function runAI<T>(opts: {
   actorKey?: string | null;
   modelChoice?: string | null;
   fast?: boolean;
+  /** Data residency of the data in this request (Phase 10). */
+  region?: Region | null;
   request: AIRequest;
   schema: z.ZodType<T>;
   mock: () => T;
@@ -87,6 +90,11 @@ export async function runAI<T>(opts: {
         },
       })
       .catch((e) => console.error("[ai] log failed", e));
+
+  if (opts.region && entry.provider !== "mock" && !providerAllowedIn(entry.provider, opts.region)) {
+    await log("residency");
+    return { ok: false, error: "AI is switched off for this organization's data region, so a standard version was used.", fallback: opts.fallback() };
+  }
 
   if (entry.provider === "mock") {
     const data = opts.schema.parse(opts.mock());

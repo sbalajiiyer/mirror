@@ -1,4 +1,5 @@
 import "server-only";
+import type { Region } from "@/lib/residency";
 import { z } from "zod";
 import type { ReportData } from "@/lib/report/compute";
 import { goalLabel } from "@/lib/constants";
@@ -55,6 +56,7 @@ function templateSummary(r: ReportData): AISummary {
 }
 
 export async function generateAISummary(params: {
+  region?: Region;
   report: ReportData;
   userId: string;
   modelChoice: string;
@@ -64,6 +66,7 @@ export async function generateAISummary(params: {
   const { report } = params;
   return runAI({
     feature: "summary",
+    region: params.region,
     userId: params.userId,
     modelChoice: params.modelChoice,
     schema: aiSummarySchema,

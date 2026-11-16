@@ -30,7 +30,20 @@ const magicLink: EmailConfig = {
   },
 };
 
-const providers: NextAuthConfig["providers"] = [magicLink];
+const providers: NextAuthConfig["providers"] = [
+  magicLink,
+  // Enterprise SSO (Phase 10): /api/sso/callback verifies the IdP login and hands over a one-time ticket.
+  Credentials({
+    id: "sso",
+    name: "Company SSO",
+    credentials: { ticket: {} },
+    async authorize(c) {
+      const { redeemTicket } = await import("@/lib/services/sso");
+      const user = await redeemTicket(String(c?.ticket ?? ""));
+      return user ? { id: user.id, email: user.email, name: user.name } : null;
+    },
+  }),
+];
 if (googleEnabled) providers.push(Google({ allowDangerousEmailAccountLinking: true }));
 if (demoLoginEnabled) {
   // Development/demo only: signs in as the seeded demo subject. Disabled unless DEMO_LOGIN_ENABLED=true.
@@ -72,7 +85,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
   providers,
   pages: { signIn: "/signin", verifyRequest: "/signin/check-email" },
+  events: {
+    async signIn({ user, account }) {
+      if (!user.id || account?.provider === "sso") return; // SSO sign-ins are logged with their organization
+      const { audit } = await import("@/lib/audit");
+      await audit(user.id, "auth.sign_in", "User", user.id, { method: account?.provider ?? "unknown" }, { subjectId: user.id });
+    },
+  },
   callbacks: {
+    /** Domains whose organization requires SSO can't use email links or Google. */
+    async signIn({ user, account }) {
+      if (!account || account.provider === "sso" || account.provider.startsWith("demo") || !user.email) return true;
+      const { ssoRequiredFor } = await import("@/lib/services/sso");
+      return (await ssoRequiredFor(user.email)) ? "/signin/sso?error=required" : true;
+    },
     jwt({ token, user }) {
       if (user?.id) token.uid = user.id;
       return token;

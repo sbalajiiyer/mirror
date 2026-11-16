@@ -57,9 +57,10 @@ export function ReportView({
   branding?: { name: string; color: string | null; coach?: string } | null;
 }) {
   const coach = mode === "coach";
+  const purgedAt = (report as ReportData & { retentionPurgedAt?: string }).retentionPurgedAt;
   const commentsHidden =
     (report as ReportData & { commentsHidden?: boolean }).commentsHidden ===
-    true;
+      true || !!purgedAt;
   const groups = report.anonymity.groups;
   const [visibleGroups, setVisibleGroups] = useState<string[]>([]);
   const [selected, setSelected] = useState<string>(
@@ -464,9 +465,11 @@ export function ReportView({
 
       {commentsHidden ? (
         <Alert tone="info" data-testid="comments-hidden">
-          {report.comments.total} written comments aren&apos;t shown:{" "}
+          {purgedAt
+            ? `Written comments were deleted on ${purgedAt.slice(0, 10)} under the organization's data retention policy. Scores and themes are kept.`
+            : <>{report.comments.total} written comments aren&apos;t shown:{" "}
           {report.assessment.subjectFirstName} shares scores and themes but not
-          rater comments word for word.
+          rater comments word for word.</>}
         </Alert>
       ) : (
         <>

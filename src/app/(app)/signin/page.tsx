@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { clientIp, hit } from "@/lib/rate-limit";
 import { normalizeEmail } from "@/lib/email-address";
+import { ssoRequiredFor } from "@/lib/services/sso";
+import Link from "next/link";
 
 export const metadata = { title: "Sign in" };
 
@@ -26,6 +28,8 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
     if (!email) redirect("/signin?error=email");
     const [byIp, byEmail] = await Promise.all([hit("magicLinkIp", await clientIp()), hit("magicLinkEmail", email)]);
     if (!byIp.ok || !byEmail.ok) redirect("/signin?error=rate");
+    // Organizations that require SSO: go straight to their identity provider.
+    if (await ssoRequiredFor(email)) redirect(`/api/sso/start?email=${encodeURIComponent(email)}&callbackUrl=${encodeURIComponent(redirectTo)}`);
     try {
       await signIn("email", { email, redirectTo });
     } catch (e) {
@@ -56,6 +60,11 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
               Email me a sign-in link
             </Button>
           </form>
+          <p className="text-center text-sm">
+            <Link href={`/signin/sso${callbackUrl ? `?callbackUrl=${encodeURIComponent(redirectTo)}` : ""}`} className="underline" data-testid="sso-link">
+              Sign in with company SSO
+            </Link>
+          </p>
           {googleEnabled && (
             <form
               action={async () => {

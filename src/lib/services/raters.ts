@@ -1,4 +1,5 @@
 import "server-only";
+import { regionForAssessment } from "@/lib/services/residency";
 import { isUnlocked } from "@/lib/services/billing";
 import { FREE_RATER_CAP } from "@/lib/billing/catalog";
 import { randomUUID } from "node:crypto";
@@ -128,7 +129,7 @@ export async function submitRaterResponse(token: string, raw: unknown) {
   // opted in, AI also rewrites the comments; the original text is never stored.
   const subjectFirstName = firstName(a.subject.profile?.displayName ?? a.subject.name);
   const rewritten = answers.deidentify
-    ? (await deidentifyComments(comments.map((c) => c.text), { inviteId: inv.id, subjectFirstName })).texts
+    ? (await deidentifyComments(comments.map((c) => c.text), { inviteId: inv.id, subjectFirstName, region: await regionForAssessment(a.id) })).texts
     : comments.map((c) => scrubIdentifiers(c.text));
   comments.forEach((c, i) => (c.text = rewritten[i]?.trim() || scrubIdentifiers(c.text)));
 
@@ -182,5 +183,5 @@ export async function previewDeidentify(token: string, texts: unknown) {
   const list = Array.isArray(texts) ? texts.filter((t): t is string => typeof t === "string").slice(0, 12).map((t) => t.slice(0, 2000)) : [];
   const inv = await openInviteOrThrow(token);
   const name = firstName(inv.assessment.subject.profile?.displayName ?? inv.assessment.subject.name);
-  return deidentifyComments(list, { inviteId: inv.id, subjectFirstName: name });
+  return deidentifyComments(list, { inviteId: inv.id, subjectFirstName: name, region: await regionForAssessment(inv.assessmentId) });
 }

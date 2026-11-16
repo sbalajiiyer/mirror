@@ -1,4 +1,5 @@
 import "server-only";
+import type { Region } from "@/lib/residency";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { ReportData } from "@/lib/report/compute";
@@ -85,6 +86,7 @@ export function toStoredPlan(content: PlanContent, r: ReportData, generatedBy: S
 }
 
 export async function generatePlan(params: {
+  region?: Region;
   report: ReportData;
   userId: string;
   modelChoice: string;
@@ -95,6 +97,7 @@ export async function generatePlan(params: {
   const focus = focusAreas(report).map((k) => report.competencies.find((c) => c.key === k)?.name);
   const res = await runAI({
     feature: "plan",
+    region: params.region,
     userId: params.userId,
     modelChoice: params.modelChoice,
     schema: planSchema,

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createApiTokenAction, revokeApiTokenAction, setBenchmarkOptOutAction } from "./data-actions";
+import { createApiTokenAction, deleteMyAccountAction, revokeApiTokenAction, setBenchmarkOptOutAction } from "./data-actions";
 
 export function BenchmarkToggle({ optOut }: { optOut: boolean }) {
   const [v, setV] = useState(!optOut);
@@ -114,5 +114,37 @@ export function ApiTokens({ tokens }: { tokens: { id: string; name: string; pref
         <code>/api/v1/dashboards/&lt;id&gt;</code>. 120 requests per minute.
       </p>
     </div>
+  );
+}
+
+export function DeleteAccountForm({ email }: { email: string }) {
+  const [v, setV] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  return (
+    <form
+      className="space-y-2"
+      data-testid="delete-account"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!confirm("Delete your account and all your 360s, reports, goals and chats? This can't be undone.")) return;
+        start(async () => {
+          setError(null);
+          const r = await deleteMyAccountAction(v);
+          if (r && !r.ok) setError(r.error);
+        });
+      }}
+    >
+      <label htmlFor="del-email" className="text-sm">
+        Type <strong>{email}</strong> to confirm
+      </label>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Input id="del-email" value={v} onChange={(e) => setV(e.target.value)} autoComplete="off" />
+        <Button type="submit" variant="destructive" disabled={pending || !v}>
+          {pending ? "Deleting…" : "Delete my account"}
+        </Button>
+      </div>
+      {error && <Alert tone="error">{error}</Alert>}
+    </form>
   );
 }

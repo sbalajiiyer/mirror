@@ -1,4 +1,5 @@
 import "server-only";
+import type { Region } from "@/lib/residency";
 import { z } from "zod";
 import { runAI } from "../client";
 import { matchWidget, widgetsFor, type Scope, type WidgetType } from "@/lib/dashboards/widgets";
@@ -7,7 +8,7 @@ import { matchWidget, widgetsFor, type Scope, type WidgetType } from "@/lib/dash
  * Natural-language questions → one widget from the catalog (never free-form queries), so answers always go
  * through the same privacy-safe services. The keyword matcher is the offline fallback.
  */
-export async function questionToWidget(p: { userId: string; question: string; scope: Scope; groups: { id: string; name: string }[]; surveys: { id: string; title: string }[] }) {
+export async function questionToWidget(p: { userId: string; question: string; scope: Scope; groups: { id: string; name: string }[]; surveys: { id: string; title: string }[]; region?: Region }) {
   const types = widgetsFor(p.scope).map((w) => w.type) as [WidgetType, ...WidgetType[]];
   const schema = z.object({
     type: z.enum(types),
@@ -22,6 +23,7 @@ export async function questionToWidget(p: { userId: string; question: string; sc
   };
   const r = await runAI({
     feature: "nl_query",
+    region: p.region,
     userId: p.userId,
     schema,
     request: {

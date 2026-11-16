@@ -1,4 +1,5 @@
 import "server-only";
+import type { Region } from "@/lib/residency";
 import { z } from "zod";
 import type { Brief } from "@/lib/coach/brief";
 import { runAI } from "../client";
@@ -13,10 +14,11 @@ export type AIBriefText = z.infer<typeof aiBriefSchema>;
 const template = (b: Brief): AIBriefText => ({ summary: b.headline, questions: b.questions.map((q) => q.question).slice(0, 6) });
 
 /** Optional AI polish of the deterministic session-prep brief. Uses only the brief's aggregates. */
-export async function generateCoachBrief(params: { brief: Brief; coachId: string; modelChoice?: string | null }) {
+export async function generateCoachBrief(params: { brief: Brief; coachId: string; modelChoice?: string | null; region?: Region }) {
   const { brief } = params;
   return runAI({
     feature: "coach_brief",
+    region: params.region,
     userId: params.coachId,
     modelChoice: params.modelChoice,
     schema: aiBriefSchema,

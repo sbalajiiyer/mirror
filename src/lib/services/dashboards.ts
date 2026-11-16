@@ -1,4 +1,5 @@
 import "server-only";
+import { regionForOrg } from "@/lib/services/residency";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { Dashboard, Prisma } from "@prisma/client";
@@ -128,7 +129,7 @@ export async function askDashboard(userId: string, id: string, question: string)
   const q = z.string().trim().min(3, "Ask a question first").max(300).parse(question);
   const d = await getDashboard(userId, id);
   const opts = await dashboardOptions(d);
-  const pick = await questionToWidget({ userId, question: q, scope: d.scope as Scope, groups: opts.groups.map((g) => ({ id: g.id, name: g.name })), surveys: opts.surveys });
+  const pick = await questionToWidget({ userId, question: q, scope: d.scope as Scope, groups: opts.groups.map((g) => ({ id: g.id, name: g.name })), surveys: opts.surveys, region: d.scope === "ORG" ? await regionForOrg(d.orgId) : "us" });
   const widget: Widget = { id: randomUUID(), type: pick.type, config: { ...(pick.groupId ? { groupId: pick.groupId } : {}), ...(pick.surveyId ? { surveyId: pick.surveyId } : {}) } };
   const [r] = await renderWidgets({ ...d, widgets: [widget] as unknown as Prisma.JsonValue });
   return { widget, data: r.data, error: r.error, explanation: pick.explanation };
