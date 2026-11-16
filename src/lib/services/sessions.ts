@@ -8,6 +8,7 @@ import { DomainError } from "@/lib/errors";
 import { derivedToken, hashToken } from "@/lib/tokens";
 import { sessionKind, surveyCode } from "@/lib/survey";
 import { parseTags, toGroupableSession, type GroupableSession } from "@/lib/session-groups";
+import { checkRaterCap } from "@/lib/services/billing";
 
 export const rerunSchema = z.object({
   reuseRaters: z.boolean().default(true),
@@ -45,10 +46,15 @@ export async function rerunSurvey(userId: string, sourceId: string, raw: unknown
   const open = await db.assessment.count({ where: { OR: [{ id: rootId }, { rootAssessmentId: rootId }], status: { in: ["DRAFT", "READY", "COLLECTING"] } } });
   if (open > 0) throw new DomainError("This survey already has a session in progress. Finish or close it first.");
 
+  const reused = input.reuseRaters ? source.raterGroups.filter((g) => g.kind !== "SELF").reduce((n, g) => n + g.invites.filter((i) => i.email && i.status !== "DECLINED").length, 0) : 0;
   const session = await db.$transaction(async (tx) => {
     const sessionNumber = await nextSessionNumber(tx, rootId);
+    // A re-run is a new 360: the free plan's rater limit applies again (Phase 9).
+    const unlocked = await checkRaterCap(tx, userId, reused, { orgCampaign: !!root.orgCampaignId });
     const s = await tx.assessment.create({
       data: {
+        unlockedAt: unlocked ? new Date() : null,
+        orgCampaignId: null,
         subjectId: userId,
         frameworkId: root.frameworkId,
         type: "FULL_360",

@@ -79,10 +79,12 @@ export async function generateChatReply(params: {
   tone: string;
   modelChoice?: string | null;
   premium: boolean;
+  /** Pro plan: higher daily message cap on the free model. */
+  pro?: boolean;
 }) {
   const last = params.history[params.history.length - 1]?.content ?? "";
   return runAI({
-    feature: params.premium ? "chat_premium" : "chat",
+    feature: params.premium ? "chat_premium" : params.pro ? "chat_pro" : "chat",
     userId: params.userId,
     modelChoice: params.premium ? params.modelChoice : "free",
     schema: chatReplySchema,

@@ -11,6 +11,7 @@ export default defineConfig({
     env: {
       AUTH_SECRET: "test-secret-0123456789abcdef0123456789abcdef",
       EMAIL_PROVIDER: "console",
+      BILLING_ENFORCED: "false", // billing tests turn it on explicitly
       AI_PROVIDER: "", // tests choose providers explicitly; ignore any local .env setting
       // Integration tests run only when TEST_DATABASE_URL points at a disposable database.
       ...(process.env.TEST_DATABASE_URL ? { DATABASE_URL: process.env.TEST_DATABASE_URL } : {}),

@@ -4,6 +4,7 @@ import type { CoachClientLink } from "@prisma/client";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { DomainError } from "@/lib/errors";
+import { assertCoachCapacity, coachHasBranding } from "@/lib/services/billing";
 import { normalizeEmail } from "@/lib/email-address";
 import { sendEmail } from "@/lib/email";
 import { coachInviteEmail } from "@/lib/email/templates";
@@ -83,6 +84,7 @@ async function assertNoOpenLink(where: { coachId?: string; clientId?: string; in
 /** Coach invites a client by email. */
 export async function inviteClient(coachId: string, rawEmail: string) {
   await requireCoach(coachId);
+  await assertCoachCapacity(coachId);
   const email = normalizeEmail(rawEmail);
   if (!email) throw new DomainError("Enter a valid email address.");
   const me = await db.user.findUniqueOrThrow({ where: { id: coachId } });
@@ -134,6 +136,7 @@ async function respond(userId: string, link: CoachClientLink | null, accept: boo
   if (normalizeEmail(user.email ?? "") !== link.inviteEmail) throw new DomainError(`This invitation was sent to ${maskEmail(link.inviteEmail)}. Sign in with that address to respond.`, "wrong_account");
   if (!accept) {
     await db.coachClientLink.update({ where: { id: link.id }, data: { status: "DECLINED", inviteTokenHash: null, endedAt: new Date() } });
+    await db.marketplaceReferral.updateMany({ where: { linkId: link.id, status: "PENDING" }, data: { status: "DECLINED" } });
     await audit(userId, "coach.decline", "CoachClientLink", link.id);
     return link.id;
   }
@@ -145,11 +148,15 @@ async function respond(userId: string, link: CoachClientLink | null, accept: boo
     await db.coachClientLink.update({ where: { id: link.id }, data: { status: "DECLINED", inviteTokenHash: null, endedAt: new Date() } });
     return active.id;
   }
+  // The coach's plan limits active clients (Phase 9); pending invitations they sent already count.
+  if (link.initiatedBy === "CLIENT") await assertCoachCapacity(coachId);
   if (link.initiatedBy === "CLIENT" && !(await getCoachProfile(userId))) {
     // Accepting a client's request makes you a coach, with a profile you can edit later.
     await db.coachProfile.create({ data: { userId, displayName: await displayName(userId) } });
   }
   await db.coachClientLink.update({ where: { id: link.id }, data: { coachId, clientId, status: "ACTIVE", acceptedAt: new Date(), inviteTokenHash: null } });
+  // Marketplace intro accepted: the referral fee becomes due (Phase 9).
+  await db.marketplaceReferral.updateMany({ where: { linkId: link.id, status: "PENDING" }, data: { status: "ACCEPTED", acceptedAt: new Date() } });
   await audit(userId, "coach.accept", "CoachClientLink", link.id);
   return link.id;
 }
@@ -212,6 +219,8 @@ export async function brandingForClient(clientId: string) {
     orderBy: { acceptedAt: "desc" },
   });
   const p = link?.coach?.coachProfile;
+  // White-label is a paid coach feature (Phase 9).
+  if (link?.coachId && !(await coachHasBranding(link.coachId))) return null;
   return p?.brandName ? { name: p.brandName, color: p.brandColor ?? null, coach: p.displayName, website: p.website ?? null } : null;
 }
 
