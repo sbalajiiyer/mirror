@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
+import { db } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/logo";
 
 export async function AppHeader() {
   const session = await auth();
+  const isCoach = session?.user?.id ? !!(await db.coachProfile.findUnique({ where: { userId: session.user.id }, select: { userId: true } })) : false;
   return (
     <header className="no-print sticky top-0 z-30 border-b bg-background/85 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
@@ -22,6 +24,9 @@ export async function AppHeader() {
               </Link>
               <Link href="/questionnaires" className="hidden rounded-md px-3 py-2 hover:bg-accent md:block">
                 Questionnaires
+              </Link>
+              <Link href={isCoach ? "/coach" : "/coaching"} className="hidden rounded-md px-3 py-2 hover:bg-accent md:block">
+                {isCoach ? "Coach" : "Coaching"}
               </Link>
               <Link href="/settings" className="hidden rounded-md px-3 py-2 hover:bg-accent sm:block">
                 Settings

@@ -52,3 +52,16 @@ export function pulseDueEmail(p: { to: string; name: string; link: string; title
     text: `Hi ${p.name},\n\nIt's time for your next pulse check on "${p.title}" — a 2-minute check-in with the same people to see what's changed.\n\nStart it here:\n${p.link}\n\n— Mirror`,
   };
 }
+
+export function coachInviteEmail(p: { to: string; fromName: string; asRole: "coach" | "client"; link: string }): EmailMessage {
+  const text =
+    p.asRole === "client"
+      ? `${p.fromName} would like to coach you using Mirror.\n\nIf you accept, you choose exactly what ${p.fromName} can see (for example your report scores and goals) and you can stop sharing at any time. Raters' individual answers are never shown to anyone.\n\nAccept or decline:\n${p.link}\n\n— Mirror`
+      : `${p.fromName} would like you to be their coach on Mirror.\n\nAccepting gives you a coach workspace with ${p.fromName}'s shared reports, goals and a session-prep briefing. ${p.fromName} controls what is shared.\n\nAccept or decline:\n${p.link}\n\n— Mirror`;
+  return {
+    to: p.to,
+    template: p.asRole === "client" ? "coach-invites-client" : "client-invites-coach",
+    subject: p.asRole === "client" ? `${p.fromName} invited you to coaching on Mirror` : `${p.fromName} asked you to be their coach on Mirror`,
+    text,
+  };
+}

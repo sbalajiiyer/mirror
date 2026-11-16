@@ -80,6 +80,19 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
               <Button type="submit" variant="secondary" className="w-full" data-testid="demo-login">
                 Sign in as demo user (Alex)
               </Button>
+              <Button
+                type="submit"
+                variant="outline"
+                className="mt-2 w-full"
+                data-testid="demo-coach-login"
+                formAction={async () => {
+                  "use server";
+                  if (!(await hit("demoLoginIp", await clientIp())).ok) redirect("/signin?error=rate");
+                  await signIn("demo-coach", { redirectTo: "/coach" });
+                }}
+              >
+                Sign in as demo coach (Jordan)
+              </Button>
               <p className="mt-2 text-center text-xs text-muted-foreground">Explore with sample data. The demo account is shared and resets regularly.</p>
             </form>
           )}

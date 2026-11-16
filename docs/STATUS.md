@@ -1,6 +1,6 @@
 # Mirror — build status
 
-_Last updated: 2026-11-16 (questionnaire import, branch `questionnaire-import`)_
+_Last updated: 2026-11-16 (Phase 5, branch `phase-5`)_
 
 ## Phases
 
@@ -14,9 +14,10 @@ _Last updated: 2026-11-16 (questionnaire import, branch `questionnaire-import`)_
 | — | Launch hardening — rate limits, WCAG 2.2 AA audit and fixes, pulse titles by session | ✅ Done (PR #6, merged) |
 | — | Session grouping — company and tags on sessions; group and filter by company, year, quarter, theme, score range | ✅ Done (PR #7, merged) |
 | — | Questionnaire import — Excel (.xlsx) / CSV, including Google Forms and Microsoft Forms exports | ✅ Done (PR #8, merged) |
-| 5–10 | Coach workspace, teams/orgs, personalization v2, analytics v2, payments, enterprise | Not started |
+| 5 | Coach workspace — client portfolio, consent-based sharing, session prep (+AI), shared reports, notes, coaching sessions, cross-client analytics, white-label, coach questionnaires | ✅ Done (PR from `phase-5`) |
+| 6–10 | Teams/orgs, personalization v2, analytics v2, payments, enterprise | Not started |
 
-Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md), [`docs/phases/phase-4b-survey-sessions.md`](phases/phase-4b-survey-sessions.md).
+Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md), [`docs/phases/phase-4b-survey-sessions.md`](phases/phase-4b-survey-sessions.md), [`docs/phases/phase-5-coach.md`](phases/phase-5-coach.md).
 
 ## Run locally
 
@@ -47,7 +48,7 @@ npm run build && npm run db:seed && npm run test:e2e   # Playwright (needs `npx 
 npm run lint && npm run typecheck
 ```
 
-Current results: **131 Vitest tests** and **30 Playwright tests** (including automated WCAG 2.2 AA checks with axe), all passing. CI runs everything
+Current results: **143 Vitest tests** and **34 Playwright tests** (including automated WCAG 2.2 AA checks with axe), all passing. CI runs everything
 on every PR (`.github/workflows/ci.yml`, GitHub Actions free tier, Postgres service container).
 
 ## Decisions made (2026-11-15)
@@ -248,11 +249,31 @@ pulses were renamed by migration `rate_limit_pulse_titles`.
   (weeks), so it stays an open option. Past responses from other tools are deliberately not imported (Mirror can't
   vouch for their anonymity).
 
+## Phase 5 defaults (change freely)
+
+- **Coach accounts are free** until payments (Phase 9). Anyone can create a coach profile from **Coaching → I'm a
+  coach**, and accepting a client's request creates one automatically.
+- **Consent model:** the client opts in, chosen by the owner on 2026-11-16. Invitations are emailed, single-use, and only
+  valid for the invited address (signing in with another account shows a "sign in with that address" message).
+- **Default sharing:** reports on, comments off, goals on, plan off, branding on. Status and response counts are always
+  visible to an active coach.
+- **Session prep** is deterministic: report summary, changes vs the previous session in the same survey (like-for-like
+  statements), goals, and a question bank per built-in competency. **Write with AI** is optional (`coach_brief`, 20 a
+  day, free model by default) and only sees aggregates.
+- **Cross-client analytics:** latest full 360 per client; each figure needs ≥ 5 clients (`MIN_CLIENTS`).
+- **White-label:** brand name and colour on the client's report and PDF ("Prepared with …"). If a client has several
+  coaches, the most recently accepted coach with a brand is used. No logo upload yet (no file storage).
+- **Coach questionnaires:** a coach's own questionnaires are offered to their active clients in the wizard, labelled
+  "From your coach …".
+- **Demo:** `coach@mirror.local` (Jordan Lee) with six clients. Second demo button on the sign-in page.
+
 ## Known limitations / next up
 
 - Custom questions get a first-person wording by replacing `{name}` with "I" — grammar may need a manual edit.
 - Rater form is English-only by the owner's choice (2026-11-16); multi-language can come later.
-- Next: Phase 5 coach workspace (client opt-in sharing).
+- Next: Phase 6 (teams and orgs).
+- Coaches who accept by email go through the subject onboarding first; a coach-specific onboarding would be nicer.
+- The header nav is hidden on small screens (no mobile menu yet).
 - Dependency audit (2026-11-16): `next-auth` upgraded to 5.0.0-beta.32 (fixes the email normalisation /
   misdelivery advisories). Sign-in emails also go through our own stricter normaliser (`src/lib/email-address.ts`:
   Unicode NFKC, ASCII only, exactly one "@"). `postcss` is pinned to ≥ 8.5.33 via `overrides` (it was bundled by

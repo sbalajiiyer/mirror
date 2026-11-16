@@ -7,6 +7,7 @@ import { syncFramework } from "@/lib/frameworks/sync";
 import { generateQuestionnaire } from "@/lib/ai/features/questionnaire";
 import { aiBriefSchema, customFrameworkSchema, slugify, type CustomFrameworkInput } from "@/lib/questionnaire";
 import { DomainError } from "@/lib/errors";
+import { activeCoachIds } from "@/lib/services/coach";
 
 export type FrameworkView = {
   id: string;
@@ -14,6 +15,8 @@ export type FrameworkView = {
   description: string;
   version: number;
   source: "builtin" | "custom" | "ai";
+  /** Set when the questionnaire belongs to the user's coach (shared with their clients). */
+  sharedBy?: string | null;
   competencies: { key: string; name: string; description: string; questions: { key: string; text: string; selfText: string }[] }[];
 };
 
@@ -39,21 +42,26 @@ function loadFramework(id: string) {
   return db.framework.findUnique({ where: { id }, include });
 }
 
-/** Frameworks a user may build a 360 from: built-ins plus their own questionnaires. */
+/** Frameworks a user may build a 360 from: built-ins, their own questionnaires, and their coaches'. */
 export async function frameworksForUser(userId: string): Promise<FrameworkView[]> {
   await syncFramework(db, CORE_360);
+  const coachIds = await activeCoachIds(userId);
   const rows = await db.framework.findMany({
-    where: { OR: [{ ownerId: null, isBuiltIn: true }, { ownerId: userId }] },
-    include,
+    where: { OR: [{ ownerId: null, isBuiltIn: true }, { ownerId: userId }, ...(coachIds.length ? [{ ownerId: { in: coachIds } }] : [])] },
+    include: { ...include, owner: { select: { coachProfile: { select: { displayName: true } } } } },
     orderBy: [{ isBuiltIn: "desc" }, { updatedAt: "desc" }],
   });
-  return rows.map((r) => view(r));
+  return rows.map((r) => ({ ...view(r), sharedBy: r.ownerId && r.ownerId !== userId ? (r.owner?.coachProfile?.displayName ?? "Your coach") : null }));
 }
 
 /** Server-side guard used by createAssessment: built-in, or owned by this user. */
 export async function assertCanUseFramework(userId: string, frameworkId: string) {
   const f = await db.framework.findUnique({ where: { id: frameworkId }, select: { ownerId: true, isBuiltIn: true } });
-  if (!f || (!f.isBuiltIn && f.ownerId !== userId)) throw new DomainError("Unknown framework");
+  if (!f) throw new DomainError("Unknown framework");
+  if (f.isBuiltIn || f.ownerId === userId) return;
+  // A coach's questionnaires can be used by their active clients.
+  if (f.ownerId && (await activeCoachIds(userId)).includes(f.ownerId)) return;
+  throw new DomainError("Unknown framework");
 }
 
 export async function getOwnFramework(userId: string, id: string): Promise<FrameworkView> {

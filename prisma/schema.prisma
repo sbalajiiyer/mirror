@@ -36,6 +36,13 @@ model User {
   frameworks  Framework[]
   goals       Goal[]
   credits     CreditLedger[]
+
+  coachProfile   CoachProfile?
+  coachLinks     CoachClientLink[] @relation("CoachLinks")
+  clientLinks    CoachClientLink[] @relation("ClientLinks")
+  coachNotes     CoachNote[]       @relation("CoachNotesWritten")
+  coachMeetings  CoachMeeting[]    @relation("CoachMeetings")
+  clientMeetings CoachMeeting[]    @relation("ClientMeetings")
 }
 
 model Account {
@@ -517,4 +524,87 @@ model RateLimit {
   count       Int      @default(0)
 
   @@index([windowStart])
+}
+
+// ---------------------------------------------------------------- Phase 5: coach workspace
+
+/// A user who coaches others. Free for now (coach plans come with payments in Phase 9).
+model CoachProfile {
+  userId      String   @id
+  displayName String
+  /// White-label: shown on shared reports and PDFs of clients who opted in.
+  brandName   String?
+  /// Hex colour, e.g. "#2563eb".
+  brandColor  String?
+  website     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum CoachLinkStatus {
+  PENDING
+  ACTIVE
+  DECLINED
+  REVOKED
+}
+
+/// A coach–client relationship. The client decides what is shared and can revoke at any time.
+model CoachClientLink {
+  id              String          @id @default(cuid())
+  coachId         String?
+  clientId        String?
+  /// Who sent the invitation: COACH (to a client's email) or CLIENT (to a coach's email).
+  initiatedBy     String
+  inviteEmail     String
+  inviteTokenHash String?         @unique
+  status          CoachLinkStatus @default(PENDING)
+  /// What the client shares. Reports = frozen, anonymised report data (scores and themes).
+  shareReports    Boolean         @default(true)
+  /// Verbatim rater comments inside shared reports (off by default).
+  shareComments   Boolean         @default(false)
+  shareGoals      Boolean         @default(true)
+  sharePlan       Boolean         @default(false)
+  /// Show the coach's branding on the client's own reports and PDFs.
+  showBranding    Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  acceptedAt      DateTime?
+  endedAt         DateTime?
+
+  coach  User? @relation("CoachLinks", fields: [coachId], references: [id], onDelete: Cascade)
+  client User? @relation("ClientLinks", fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([coachId, status])
+  @@index([clientId, status])
+}
+
+/// Private notes a coach keeps about a client. Never shown to the client.
+model CoachNote {
+  id        String   @id @default(cuid())
+  coachId   String
+  clientId  String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  coach User @relation("CoachNotesWritten", fields: [coachId], references: [id], onDelete: Cascade)
+
+  @@index([coachId, clientId])
+}
+
+/// A scheduled coaching conversation (shown to both coach and client).
+model CoachMeeting {
+  id          String   @id @default(cuid())
+  coachId     String
+  clientId    String
+  scheduledAt DateTime
+  topic       String   @default("")
+  createdAt   DateTime @default(now())
+
+  coach  User @relation("CoachMeetings", fields: [coachId], references: [id], onDelete: Cascade)
+  client User @relation("ClientMeetings", fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([coachId, scheduledAt])
+  @@index([clientId, scheduledAt])
 }

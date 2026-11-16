@@ -11,8 +11,8 @@ import { db } from "../src/lib/db";
 import { CORE_360 } from "../src/lib/frameworks/core-360";
 import { syncFramework } from "../src/lib/frameworks/sync";
 import { DEFAULT_INVITE_MESSAGE } from "../src/lib/constants";
-import { DEMO_EMAIL } from "../src/lib/demo";
-import { derivedToken, hashToken } from "../src/lib/tokens";
+import { DEMO_COACH_EMAIL, DEMO_EMAIL } from "../src/lib/demo";
+import { derivedToken, hashToken, newToken } from "../src/lib/tokens";
 import { buildAndStoreReport } from "../src/lib/services/reports";
 
 // Deterministic PRNG so the demo report always looks the same.
@@ -515,6 +515,86 @@ async function main() {
     }
   }
 
+  // ---------------- Phase 5: demo coach with six clients ----------------
+  const SAMPLE_CLIENTS = [
+    { email: "sam.rivera@clients.mirror.local", name: "Sam Rivera", job: "Engineering Manager", base: { communication: 3.2, leadership: 3.9, execution: 4.0, collaboration: 3.6, strategic_thinking: 3.1, emotional_intelligence: 3.4, growth_mindset: 3.8 } },
+    { email: "priya.nair@clients.mirror.local", name: "Priya Nair", job: "Head of Sales", base: { communication: 4.1, leadership: 3.5, execution: 3.3, collaboration: 3.9, strategic_thinking: 3.6, emotional_intelligence: 3.2, growth_mindset: 3.7 } },
+    { email: "tom.becker@clients.mirror.local", name: "Tom Becker", job: "Founder", base: { communication: 3.4, leadership: 3.3, execution: 3.8, collaboration: 3.0, strategic_thinking: 4.2, emotional_intelligence: 3.1, growth_mindset: 3.9 } },
+    { email: "mei.chen@clients.mirror.local", name: "Mei Chen", job: "Design Lead", base: { communication: 3.7, leadership: 3.2, execution: 3.5, collaboration: 4.1, strategic_thinking: 3.3, emotional_intelligence: 4.0, growth_mindset: 3.6 } },
+    { email: "omar.haddad@clients.mirror.local", name: "Omar Haddad", job: "Operations Director", base: { communication: 3.0, leadership: 3.6, execution: 4.2, collaboration: 3.4, strategic_thinking: 3.5, emotional_intelligence: 3.3, growth_mindset: 3.2 } },
+  ];
+  await db.user.deleteMany({ where: { email: { in: [DEMO_COACH_EMAIL, ...SAMPLE_CLIENTS.map((c) => c.email)] } } });
+  const coach = await db.user.create({
+    data: {
+      email: DEMO_COACH_EMAIL,
+      name: "Jordan Lee",
+      emailVerified: new Date(),
+      profile: { create: { displayName: "Jordan Lee", jobTitle: "Executive coach", goals: ["leadership_growth"], onboardedAt: new Date() } },
+      coachProfile: { create: { displayName: "Jordan Lee", brandName: "Lee Leadership Coaching", brandColor: "#0f766e", website: "https://example.com" } },
+    },
+  });
+  // Alex shares reports and goals (not comments or the plan) and shows the coach's branding.
+  await db.coachClientLink.create({
+    data: { coachId: coach.id, clientId: user.id, initiatedBy: "CLIENT", inviteEmail: DEMO_COACH_EMAIL, status: "ACTIVE", acceptedAt: new Date(Date.now() - 60 * DAY), shareReports: true, shareGoals: true },
+  });
+  await db.coachMeeting.create({ data: { coachId: coach.id, clientId: user.id, scheduledAt: new Date(Date.now() + 3 * DAY + 10 * 3600000), topic: "Winter re-run debrief" } });
+  await db.coachNote.create({ data: { coachId: coach.id, clientId: user.id, body: "Wants to be ready for the promotion panel in March. Practise framing trade-offs for execs." } });
+
+  /** A closed full 360 for a sample client: 4 peers + 3 direct reports, scores around `base` (+ `lift`). */
+  async function sampleClosed360(subjectId: string, title: string, rootId: string | null, sessionNumber: number, daysAgo: number, base: Record<string, number>, lift: number) {
+    const launchedAt = new Date(Date.now() - (daysAgo + 10) * DAY);
+    const s = await db.assessment.create({
+      data: {
+        subjectId,
+        frameworkId: full.id,
+        rootAssessmentId: rootId,
+        sessionNumber,
+        sessionLabel: sessionNumber === 1 ? "Baseline" : "Re-run",
+        title,
+        goal: "leadership_growth",
+        status: "CLOSED",
+        inviteMessage: "I'd value your honest feedback.",
+        selfLockedAt: new Date(launchedAt.getTime() - 3600000),
+        launchedAt,
+        closedAt: new Date(Date.now() - daysAgo * DAY),
+        questions: { create: questions.map((q, i) => ({ ...q, order: i })) },
+        raterGroups: { create: [{ kind: "SELF", name: "Self", order: 0 }, { kind: "PEER", name: "Peers", order: 1 }, { kind: "DIRECT_REPORT", name: "Direct reports", order: 2 }] },
+      },
+      include: { questions: true, raterGroups: true },
+    });
+    const gid = (k: RaterGroupKind) => s.raterGroups.find((g) => g.kind === k)!.id;
+    await db.submission.create({
+      data: { assessmentId: s.id, raterGroupId: gid("SELF"), isSelf: true, submittedOn: s.selfLockedAt!, responses: { create: s.questions.map((q) => ({ assessmentQuestionId: q.id, value: clamp(3.9 + normal() * 0.4) })) } },
+    });
+    for (const [kind, n] of [["PEER", 4], ["DIRECT_REPORT", 3]] as const) {
+      for (let i = 0; i < n; i++) {
+        const id = randomUUID();
+        await db.raterInvite.create({ data: { id, assessmentId: s.id, raterGroupId: gid(kind), name: `Rater ${i + 1}`, email: `r${i}.${kind.toLowerCase()}.${s.id}@example.com`, tokenHash: hashToken(derivedToken("invite", id)), status: "SUBMITTED", invitedAt: launchedAt, submittedAt: new Date(launchedAt.getTime() + 2 * DAY) } });
+        const rb = normal() * 0.25;
+        await db.submission.create({
+          data: { assessmentId: s.id, raterGroupId: gid(kind), submittedOn: new Date(launchedAt.getTime() + 2 * DAY), responses: { create: s.questions.map((q) => ({ assessmentQuestionId: q.id, value: clamp((base[q.competencyKey] ?? 3.5) + lift + rb + normal() * 0.5) })) } },
+        });
+      }
+    }
+    await buildAndStoreReport(s.id);
+    return s;
+  }
+
+  for (const [i, c] of SAMPLE_CLIENTS.entries()) {
+    const u = await db.user.create({
+      data: { email: c.email, name: c.name, emailVerified: new Date(), profile: { create: { displayName: c.name, jobTitle: c.job, goals: ["leadership_growth"], onboardedAt: new Date() } } },
+    });
+    const title = `${c.name.split(" ")[0]}'s leadership 360`;
+    const s1 = await sampleClosed360(u.id, title, null, 1, 120 + i * 5, c.base, 0);
+    await sampleClosed360(u.id, title, s1.id, 2, 15 + i * 3, c.base, 0.25 + (i % 3) * 0.1);
+    await db.coachClientLink.create({
+      data: { coachId: coach.id, clientId: u.id, initiatedBy: "COACH", inviteEmail: c.email, status: "ACTIVE", acceptedAt: new Date(Date.now() - (130 - i) * DAY), shareReports: true, shareGoals: true, shareComments: i % 2 === 0 },
+    });
+    if (i < 3) await db.coachMeeting.create({ data: { coachId: coach.id, clientId: u.id, scheduledAt: new Date(Date.now() + (i + 1) * 2 * DAY), topic: "Fortnightly check-in" } });
+  }
+  // A pending invitation the coach sent.
+  await db.coachClientLink.create({ data: { coachId: coach.id, initiatedBy: "COACH", inviteEmail: "new.client@example.com", inviteTokenHash: hashToken(newToken()) } });
+
   // Print a working rater link for manual testing of the rater form.
   const open = await db.raterInvite.findFirst({ where: { assessmentId: b.id, status: "INVITED" } });
   console.log(`Seeded demo subject ${DEMO_EMAIL}`);
@@ -522,6 +602,7 @@ async function main() {
   console.log(`  pulse check:    /assessments/${pulse.id}/report  (progress: /progress)`);
   console.log(`  full re-run:    /assessments/${rerun.id}/report`);
   console.log(`  collecting 360: /assessments/${b.id}`);
+  console.log(`Seeded demo coach ${DEMO_COACH_EMAIL} with ${SAMPLE_CLIENTS.length + 1} clients (/coach)`);
   if (open) console.log(`  rater link (${open.name}): /r/${derivedToken("invite", open.id)}`);
 }
 
