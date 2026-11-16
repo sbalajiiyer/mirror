@@ -16,8 +16,24 @@ import { JohariWindow } from "./johari";
 import { groupColor, fmt } from "./palette";
 import { CompetencyRadar } from "./radar-chart";
 import { SummaryCard } from "./summary-card";
+import { AISummaryCard } from "@/components/ai/ai-summary-card";
+import type { StoredAISummary } from "@/lib/services/ai";
+import Link from "next/link";
+import { ListChecks } from "lucide-react";
 
-export function ReportView({ report, generatedAt, pdfUrl, print = false }: { report: ReportData; generatedAt: string; pdfUrl?: string; print?: boolean }) {
+export function ReportView({
+  report,
+  generatedAt,
+  pdfUrl,
+  print = false,
+  aiSummary = null,
+}: {
+  report: ReportData;
+  generatedAt: string;
+  pdfUrl?: string;
+  print?: boolean;
+  aiSummary?: StoredAISummary | null;
+}) {
   const groups = report.anonymity.groups;
   const [visibleGroups, setVisibleGroups] = useState<string[]>([]);
   const [selected, setSelected] = useState<string>(report.competencies[0]?.key ?? "");
@@ -71,7 +87,12 @@ export function ReportView({ report, generatedAt, pdfUrl, print = false }: { rep
           </p>
         </div>
         {!print && (
-          <div className="no-print flex gap-2">
+          <div className="no-print flex flex-wrap gap-2">
+            <Button asChild variant="secondary">
+              <Link href={`/assessments/${report.assessment.id}/plan`}>
+                <ListChecks /> Development plan
+              </Link>
+            </Button>
             {pdfUrl && (
               <Button onClick={downloadPdf} disabled={pdfState === "busy"} data-testid="pdf">
                 <Download /> {pdfState === "busy" ? "Preparing PDF…" : "Download PDF"}
@@ -96,6 +117,8 @@ export function ReportView({ report, generatedAt, pdfUrl, print = false }: { rep
           {groups.some((g) => g.exempt) ? "; your manager agreed to be shown separately" : ""}. {report.anonymity.notes.join(" ")}
         </span>
       </Alert>
+
+      <AISummaryCard assessmentId={report.assessment.id} summary={aiSummary} print={print} />
 
       <SummaryCard report={report} />
 
@@ -245,7 +268,7 @@ export function ReportView({ report, generatedAt, pdfUrl, print = false }: { rep
         <CardHeader>
           <CardTitle>What people said</CardTitle>
           <CardDescription>
-            {report.comments.total} comments grouped into themes by keyword. Smarter AI theming and de-identification arrive in Phase 3.
+            {report.comments.total} comments, grouped into themes by keyword and shown only with the rater group. Raters can choose to have AI remove identifying details before submitting.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

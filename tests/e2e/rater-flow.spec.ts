@@ -59,6 +59,12 @@ test("subject sets up a 360, rates self, invites raters; raters respond anonymou
     }
     await rateAllSections(r, [2 + i, 3, 4]);
     await r.getByLabel(/START doing/).fill("Start delegating more of the detailed work.");
+    if (i === 1) {
+      // De-identification is on by default and can be previewed before submitting.
+      await expect(r.getByRole("checkbox", { name: /Remove details that could identify me/ })).toBeChecked();
+      await r.getByRole("button", { name: "Preview rewritten comments" }).click();
+      await expect(r.getByTestId("deidentify-preview")).toContainText("Start delegating");
+    }
     await r.getByRole("button", { name: /^Next/ }).click();
     await r.getByRole("button", { name: "Submit feedback" }).click();
     await expect(r.getByText("Thank you!")).toBeVisible();

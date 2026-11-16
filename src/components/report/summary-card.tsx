@@ -15,7 +15,7 @@ export function SummaryCard({ report }: { report: ReportData }) {
         <p className="text-sm leading-relaxed text-muted-foreground" data-testid="summary-narrative">
           {s.narrative}
         </p>
-        <p className="text-[11px] text-muted-foreground">Auto-generated from your scores. AI-written summaries arrive in Phase 3.</p>
+        <p className="text-[11px] text-muted-foreground">Calculated directly from your scores.</p>
       </CardHeader>
       <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Tile icon={<TrendingUp className="size-4 text-emerald-600" />} title="Top strengths">

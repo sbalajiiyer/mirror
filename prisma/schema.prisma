@@ -31,6 +31,8 @@ model User {
   profile     SubjectProfile?
   assessments Assessment[]
   auditLogs   AuditLog[]
+  plans       DevelopmentPlan[]
+  aiLogs      AIInteractionLog[]
 }
 
 model Account {
@@ -76,18 +78,22 @@ model VerificationToken {
 // ---------------------------------------------------------------------------
 
 model SubjectProfile {
-  id           String    @id @default(cuid())
-  userId       String    @unique
-  displayName  String
-  jobTitle     String?
-  seniority    String?
-  industry     String?
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  displayName   String
+  jobTitle      String?
+  seniority     String?
+  industry      String?
   /// Goal keys, see src/lib/goals.ts (promotion, new_role, leadership_growth, career_change, ...)
-  goals        String[]
-  feedbackTone String    @default("balanced") // direct | balanced | gentle (used by AI in Phase 3)
-  onboardedAt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  goals         String[]
+  feedbackTone  String    @default("balanced") // direct | balanced | gentle (used by AI summaries)
+  /// Learning style used to tailor development plans: reading | video | practice | conversation
+  learningStyle String?
+  /// AI model choice, see src/lib/ai/models.ts ("free" = Groq gpt-oss; premium ids are billed per use)
+  aiModel       String    @default("free")
+  onboardedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -189,6 +195,7 @@ model Assessment {
   invites     RaterInvite[]
   submissions Submission[]
   reports     Report[]
+  plans       DevelopmentPlan[]
 
   @@index([subjectId])
 }
@@ -222,13 +229,13 @@ enum RaterGroupKind {
 }
 
 model RaterGroup {
-  id           String         @id @default(cuid())
-  assessmentId String
-  kind         RaterGroupKind
-  name         String
-  order        Int
+  id             String         @id @default(cuid())
+  assessmentId   String
+  kind           RaterGroupKind
+  name           String
+  order          Int
   /// sha256 of an optional shareable group link token (anyone with the link can respond once).
-  shareTokenHash String?      @unique
+  shareTokenHash String?        @unique
 
   assessment  Assessment    @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   invites     RaterInvite[]
@@ -332,11 +339,31 @@ model Report {
   assessmentId String
   version      Int      @default(1)
   data         Json
+  /// AI-written summary (Phase 3): { summary, strengths, growth, modelId, generatedAt }
+  aiSummary    Json?
   generatedAt  DateTime @default(now())
 
   assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
 
   @@index([assessmentId])
+}
+
+/// AI development plan for one assessment. `data` holds growth areas → actions, exercises,
+/// resources, 30-60-90 milestones and helpers; action completion is tracked inside it.
+model DevelopmentPlan {
+  id           String   @id @default(cuid())
+  assessmentId String
+  userId       String
+  data         Json
+  modelId      String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([assessmentId])
+  @@index([userId])
 }
 
 // ---------------------------------------------------------------------------
@@ -376,4 +403,29 @@ model AuditLog {
   actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([entity, entityId])
+}
+
+/// Metering for every AI call. Never stores prompts or outputs (they may contain feedback),
+/// only who/what/how much, for rate limits and per-use billing of premium models.
+model AIInteractionLog {
+  id           String   @id @default(cuid())
+  userId       String?
+  /// For calls without a signed-in user (rater de-identification): sha256 of the invite id.
+  actorKey     String?
+  feature      String // summary | plan | deidentify | framework | invite_message
+  modelId      String // catalog id from src/lib/ai/models.ts
+  provider     String
+  tier         String // free | premium | mock
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  /// Price charged to the user for this call, in micro-dollars (0 for free tier).
+  costMicros   Int      @default(0)
+  status       String // ok | error | fallback
+  error        String?
+  createdAt    DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([actorKey, createdAt])
 }
