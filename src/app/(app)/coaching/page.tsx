@@ -95,7 +95,13 @@ export default async function CoachingPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Invite your coach</CardTitle>
-          <CardDescription>We&apos;ll email them an invitation. They only see what you choose to share, after they accept.</CardDescription>
+          <CardDescription>
+            We&apos;ll email them an invitation. They only see what you choose to share, after they accept. No coach yet?{" "}
+            <Link href="/coaches" className="underline">
+              Find a verified coach
+            </Link>
+            .
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <EmailInviteForm label="Coach's email" button="Send invitation" testId="invite-coach" onSubmit="coach" />
