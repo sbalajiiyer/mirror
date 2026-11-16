@@ -21,6 +21,7 @@ export const groupKindSchema = z.enum(["MANAGER", "PEER", "DIRECT_REPORT", "CLIE
 export const wizardSchema = z.object({
   title: z.string().trim().min(1).max(120),
   goal: z.enum(GOAL_KEYS),
+  company: z.string().trim().max(80).optional(),
   frameworkId: z.string().min(1),
   questions: z
     .array(

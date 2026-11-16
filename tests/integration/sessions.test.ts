@@ -84,14 +84,41 @@ describe.skipIf(!hasDb)("survey sessions (integration)", async () => {
     await runToClose(s2.id, 4);
     // Re-running from session 2 still uses the root questionnaire and the next number.
     const qs = await db.assessmentQuestion.findMany({ where: { assessmentId: s2.id }, orderBy: { order: "asc" } });
+    await sessions.updateSessionDetails(userId, s2.id, { company: "Acme Corp", tags: "Promotion, new team, promotion" });
     const p = await pulses.createPulse(userId, s2.id, { questionIds: qs.slice(0, 5).map((q) => q.id) });
-    expect((await db.assessment.findUniqueOrThrow({ where: { id: p.id } })).sessionNumber).toBe(3);
+    const pulse = await db.assessment.findUniqueOrThrow({ where: { id: p.id } });
+    expect(pulse.sessionNumber).toBe(3);
+    // A new session carries over the company and tags of the one it was started from.
+    expect(pulse.company).toBe("Acme Corp");
+    expect(pulse.tags).toEqual(["promotion", "new team"]);
+    expect(pulse.title).toMatch(/· S3 Pulse check$/);
   });
 
   it("renames a session (owner only) and exposes session info", async () => {
     const s2 = await db.assessment.findFirstOrThrow({ where: { rootAssessmentId: rootId, sessionNumber: 2 } });
     await sessions.renameSession(userId, s2.id, "After the reorg");
     await expect(sessions.renameSession(otherId, s2.id, "x")).rejects.toThrow(/not found/i);
-    expect(await sessions.sessionInfo(s2.id)).toEqual({ code: surveyCode(rootId), sessionNumber: 2, kind: "Full 360", label: "After the reorg" });
+    expect(await sessions.sessionInfo(s2.id)).toEqual({
+      code: surveyCode(rootId),
+      sessionNumber: 2,
+      kind: "Full 360",
+      label: "After the reorg",
+      company: "Acme Corp",
+      tags: ["promotion", "new team"],
+    });
+  });
+
+  it("edits company and tags (owner only) and lists sessions for grouping", async () => {
+    const s2 = await db.assessment.findFirstOrThrow({ where: { rootAssessmentId: rootId, sessionNumber: 2 } });
+    await expect(sessions.updateSessionDetails(otherId, s2.id, { company: "x" })).rejects.toThrow(/not found/i);
+    await sessions.updateSessionDetails(userId, s2.id, { company: "" }); // clearing
+    expect((await db.assessment.findUniqueOrThrow({ where: { id: s2.id } })).company).toBeNull();
+    const list = await sessions.groupableSessions(userId);
+    expect(list.map((x) => x.sessionNumber).sort()).toEqual([1, 2, 3]);
+    const g2 = list.find((x) => x.id === s2.id)!;
+    expect(g2.rootId).toBe(rootId);
+    expect(g2.score).toBeGreaterThan(0); // closed with enough raters, so the report is visible
+    expect(g2.label).toBe("After the reorg");
+    expect(list.find((x) => x.sessionNumber === 3)!.score).toBeNull(); // still open
   });
 });

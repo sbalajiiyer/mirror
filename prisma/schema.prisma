@@ -204,6 +204,10 @@ model Assessment {
   sessionNumber         Int              @default(1)
   /// Optional label for the session, e.g. "Spring 2027" or "After the reorg".
   sessionLabel          String?
+  /// Where this session took place (e.g. employer at the time). Used to group sessions.
+  company               String?
+  /// Free-form labels the subject adds (e.g. "promotion", "new role"). Lower-case, max 8.
+  tags                  String[]         @default([])
   /// On a full 360: how often to run pulses (1-3 months), and when the next one is due.
   cadenceMonths         Int?
   nextPulseDueAt        DateTime?

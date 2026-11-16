@@ -7,6 +7,7 @@ import { audit } from "@/lib/audit";
 import { DomainError } from "@/lib/errors";
 import { derivedToken, hashToken } from "@/lib/tokens";
 import { sessionKind, surveyCode } from "@/lib/survey";
+import { parseTags, toGroupableSession, type GroupableSession } from "@/lib/session-groups";
 
 export const rerunSchema = z.object({
   reuseRaters: z.boolean().default(true),
@@ -55,6 +56,8 @@ export async function rerunSurvey(userId: string, sourceId: string, raw: unknown
         sessionNumber,
         sessionLabel: input.sessionLabel || new Date().toLocaleDateString("en", { month: "long", year: "numeric" }),
         title: root.title,
+        company: source.company,
+        tags: source.tags,
         goal: root.goal,
         inviteMessage: root.inviteMessage,
         minRatersPerGroup: root.minRatersPerGroup,
@@ -82,6 +85,37 @@ export async function rerunSurvey(userId: string, sourceId: string, raw: unknown
   return session;
 }
 
+export const sessionDetailsSchema = z.object({
+  label: sessionLabelSchema.optional(),
+  company: z.string().trim().max(80).optional(),
+  tags: z.union([z.string().max(400), z.array(z.string().max(40)).max(20)]).optional(),
+});
+
+/** Edit a session's name, company and tags (owner only). Omitted fields are left as they are. */
+export async function updateSessionDetails(userId: string, assessmentId: string, raw: unknown) {
+  const input = sessionDetailsSchema.parse(raw);
+  const a = await db.assessment.findFirst({ where: { id: assessmentId, subjectId: userId } });
+  if (!a) throw new DomainError("Not found", "not_found");
+  await db.assessment.update({
+    where: { id: a.id },
+    data: {
+      ...(input.label !== undefined ? { sessionLabel: input.label || null } : {}),
+      ...(input.company !== undefined ? { company: input.company || null } : {}),
+      ...(input.tags !== undefined ? { tags: parseTags(input.tags) } : {}),
+    },
+  });
+}
+
+/** Every session the subject has run, flattened for grouping (see lib/session-groups). */
+export async function groupableSessions(userId: string): Promise<GroupableSession[]> {
+  const rows = await db.assessment.findMany({
+    where: { subjectId: userId },
+    include: { reports: { orderBy: { version: "desc" }, take: 1, select: { data: true } } },
+  });
+  const titles = new Map(rows.filter((r) => !r.rootAssessmentId).map((r) => [r.id, r.title]));
+  return rows.map((r) => toGroupableSession(r, titles.get(seriesRootId(r)) ?? r.title));
+}
+
 export async function renameSession(userId: string, assessmentId: string, rawLabel: unknown) {
   const label = sessionLabelSchema.parse(rawLabel);
   const a = await db.assessment.findFirst({ where: { id: assessmentId, subjectId: userId } });
@@ -91,7 +125,7 @@ export async function renameSession(userId: string, assessmentId: string, rawLab
 
 /** Display info for a session: survey ID, number, kind and label. */
 export async function sessionInfo(assessmentId: string) {
-  const a = await db.assessment.findUnique({ where: { id: assessmentId }, select: { id: true, rootAssessmentId: true, sessionNumber: true, type: true, sessionLabel: true } });
+  const a = await db.assessment.findUnique({ where: { id: assessmentId }, select: { id: true, rootAssessmentId: true, sessionNumber: true, type: true, sessionLabel: true, company: true, tags: true } });
   if (!a) return null;
-  return { code: surveyCode(seriesRootId(a)), sessionNumber: a.sessionNumber, kind: sessionKind(a.type), label: a.sessionLabel };
+  return { code: surveyCode(seriesRootId(a)), sessionNumber: a.sessionNumber, kind: sessionKind(a.type), label: a.sessionLabel, company: a.company, tags: a.tags };
 }

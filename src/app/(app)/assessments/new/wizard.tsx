@@ -53,6 +53,7 @@ export function Wizard({
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [goal, setGoal] = useState(defaultGoal);
+  const [company, setCompany] = useState("");
   const [title, setTitle] = useState(`${goalLabel(defaultGoal)} 360 — ${new Date().toLocaleDateString("en", { month: "long", year: "numeric" })}`);
   const [frameworkId, setFrameworkId] = useState(initialFrameworkId && frameworks.some((f) => f.id === initialFrameworkId) ? initialFrameworkId : frameworks[0].id);
   const framework = frameworks.find((f) => f.id === frameworkId) ?? frameworks[0];
@@ -124,6 +125,7 @@ export function Wizard({
       setError(null);
       const res = await createAssessmentAction({
         title,
+        company,
         goal,
         frameworkId: framework.id,
         questions: activeQs.map(({ competencyKey, questionKey, text, selfText }) => ({ competencyKey, questionKey, text, selfText })),
@@ -181,6 +183,10 @@ export function Wizard({
               <div className="space-y-1.5">
                 <Label htmlFor="title">Name</Label>
                 <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="company">Company (optional)</Label>
+                <Input id="company" value={company} maxLength={80} placeholder="Where you work now — helps group sessions later" onChange={(e) => setCompany(e.target.value)} />
               </div>
             </CardContent>
           </>
