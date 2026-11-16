@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, CalendarCheck, Dumbbell, RefreshCw, Sparkles, Users } from "lucide-react";
+import { BookOpen, CalendarCheck, Dumbbell, RefreshCw, Sparkles, Target, Users } from "lucide-react";
 import type { StoredPlan } from "@/lib/ai/features/plan";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { createPlanAction, togglePlanActionAction } from "../../ai-actions";
+import { createGoalAction } from "../../progress-actions";
 
 const STYLES = [
   ["", "No preference"],
@@ -105,7 +106,7 @@ export function PlanView({
   return (
     <div className="space-y-6" data-testid="plan">
       <Card>
-        <CardContent className="space-y-3 pt-6">
+        <CardContent className="space-y-3 pt-5 sm:pt-6">
           <p className="leading-relaxed">{data.intro}</p>
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>
@@ -122,7 +123,10 @@ export function PlanView({
       {data.areas.map((area) => (
         <Card key={area.competency} className="avoid-break">
           <CardHeader>
-            <CardTitle>{area.competency}</CardTitle>
+            <div className="flex items-start justify-between gap-2">
+              <CardTitle>{area.competency}</CardTitle>
+              {area.competencyKey && <MakeGoal assessmentId={assessmentId} competencyKey={area.competencyKey} />}
+            </div>
             <CardDescription>{area.why}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
@@ -200,7 +204,7 @@ export function PlanView({
       <div className="no-print">
         {showRegen ? (
           <Card>
-            <CardContent className="space-y-3 pt-6">
+            <CardContent className="space-y-3 pt-5 sm:pt-6">
               <StylePicker value={style} onChange={setStyle} />
               <p className="text-sm text-muted-foreground">A new plan replaces this one (your ticked actions won&apos;t carry over).</p>
               <Button onClick={() => create(style)} disabled={pending}>
@@ -215,6 +219,27 @@ export function PlanView({
         )}
         {msg && <Alert tone={msg.tone} className="mt-3">{msg.text}</Alert>}
       </div>
+    </div>
+  );
+}
+
+function MakeGoal({ assessmentId, competencyKey }: { assessmentId: string; competencyKey: string }) {
+  const [state, setState] = useState<"idle" | "busy" | "done" | string>("idle");
+  return (
+    <div className="no-print text-right">
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={state === "busy" || state === "done"}
+        onClick={async () => {
+          setState("busy");
+          const r = await createGoalAction(assessmentId, competencyKey);
+          setState(r.ok ? "done" : r.error);
+        }}
+      >
+        <Target /> {state === "done" ? "Goal added" : "Make this a goal"}
+      </Button>
+      {state !== "idle" && state !== "busy" && state !== "done" && <p className="mt-1 max-w-48 text-xs text-muted-foreground">{state}</p>}
     </div>
   );
 }

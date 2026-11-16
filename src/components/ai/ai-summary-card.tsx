@@ -31,7 +31,7 @@ export function AISummaryCard({ assessmentId, summary, print = false }: { assess
     if (print) return null;
     return (
       <Card className="no-print border-dashed">
-        <CardContent className="flex flex-wrap items-center justify-between gap-4 pt-6">
+        <CardContent className="flex flex-wrap items-center justify-between gap-4 pt-5 sm:pt-6">
           <div>
             <p className="flex items-center gap-2 font-medium">
               <Sparkles className="size-4 text-primary" /> Get an AI summary of your feedback

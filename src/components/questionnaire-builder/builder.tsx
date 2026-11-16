@@ -54,7 +54,7 @@ export function QuestionnaireBuilder({ id, initial }: { id?: string; initial?: S
   return (
     <div className="space-y-5" data-testid="builder">
       <Card>
-        <CardContent className="space-y-4 pt-6">
+        <CardContent className="space-y-4 pt-5 sm:pt-6">
           <div className="space-y-1.5">
             <Label htmlFor="q-name">Questionnaire name</Label>
             <Input id="q-name" value={s.name} onChange={(e) => setS({ ...s, name: e.target.value })} placeholder="e.g. Product manager 360" />

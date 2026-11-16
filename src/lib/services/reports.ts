@@ -30,6 +30,7 @@ export async function loadReportInput(assessmentId: string): Promise<ReportInput
       id: q.id,
       competencyKey: q.competencyKey,
       competency: q.competency,
+      questionKey: q.questionKey,
       text: q.text.replaceAll("{name}", name),
       order: q.order,
       type: q.type,

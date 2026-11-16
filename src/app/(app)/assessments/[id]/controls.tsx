@@ -75,7 +75,7 @@ export function LifecycleActions({
         </>
       )}
       {status === "CLOSED" && (
-        <CardContent className="pt-6">
+        <CardContent className="pt-5 sm:pt-6">
           <Button variant="outline" disabled={pending} onClick={() => run(() => reopenAction(assessmentId), "Reopened.")}>
             Reopen and invite more people
           </Button>

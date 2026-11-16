@@ -24,7 +24,7 @@ export type ReportInput = {
     subjectFirstName: string;
   };
   groups: GroupInput[];
-  questions: { id: string; competencyKey: string; competency: string; text: string; order: number; type: "RATING" | "OPEN_TEXT" }[];
+  questions: { id: string; competencyKey: string; competency: string; questionKey?: string | null; text: string; order: number; type: "RATING" | "OPEN_TEXT" }[];
   submissions: {
     id: string;
     groupId: string;
@@ -50,6 +50,8 @@ export type CompetencyResult = {
 
 export type QuestionResult = {
   id: string;
+  /** Stable across assessments in a series (framework question key, or the text). */
+  key?: string;
   competencyKey: string;
   text: string;
   self: number | null;
@@ -192,6 +194,7 @@ export function computeReport(input: ReportInput): ReportData {
     const distribution = visible ? Array.from({ length: assessment.scaleMax }, (_, i) => xs.filter((x) => x === i + 1).length) : null;
     return {
       id: q.id,
+      key: q.questionKey ? `${q.competencyKey}.${q.questionKey}` : `${q.competencyKey}:${q.text}`,
       competencyKey: q.competencyKey,
       text: q.text,
       self: selfVal(q.id),

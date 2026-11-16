@@ -10,42 +10,87 @@ export type SeriesPoint = {
   type: "FULL_360" | "PULSE";
   date: string; // ISO, closedAt
   raters: number;
+  /** Report-level competency averages (all statements in that assessment). */
   competencies: Record<string, { name: string; others: number | null; self: number | null }>;
+  /** Per-statement averages keyed by a key that is stable across a series. */
+  questions: Record<string, { competencyKey: string; others: number | null; self: number | null }>;
 };
+
+const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+const r2 = (x: number | null) => (x == null ? null : Math.round(x * 100) / 100);
 
 export function toSeriesPoint(a: { id: string; title: string; type: "FULL_360" | "PULSE"; closedAt: Date | string }, report: ReportData): SeriesPoint | null {
   if (!report.anonymity.available) return null;
   const competencies: SeriesPoint["competencies"] = {};
   for (const c of report.competencies) competencies[c.key] = { name: c.name, others: c.others.mean, self: c.self };
-  return { assessmentId: a.id, title: a.title, type: a.type, date: new Date(a.closedAt).toISOString(), raters: report.anonymity.othersN, competencies };
+  const questions: SeriesPoint["questions"] = {};
+  for (const q of report.questions) questions[q.key ?? `${q.competencyKey}:${q.text}`] = { competencyKey: q.competencyKey, others: q.others.mean, self: q.self };
+  return { assessmentId: a.id, title: a.title, type: a.type, date: new Date(a.closedAt).toISOString(), raters: report.anonymity.othersN, competencies, questions };
 }
 
-/** One row per assessment (oldest first) with a column per competency — ready for line charts. */
-export function trendRows(points: SeriesPoint[]) {
-  const sorted = [...points].sort((a, b) => a.date.localeCompare(b.date));
-  const keys = new Map<string, string>();
-  for (const p of sorted) for (const [k, v] of Object.entries(p.competencies)) keys.set(k, v.name);
+/** Statement keys of a competency that have a visible others' average in this point. */
+function keysFor(p: SeriesPoint, comp: string) {
+  return new Set(Object.entries(p.questions).filter(([, q]) => q.competencyKey === comp && q.others != null).map(([k]) => k));
+}
+
+/**
+ * Average of a competency over a fixed set of statements. Comparisons always use the
+ * statements both check-ins share, because a pulse usually re-asks only some of them.
+ */
+export function valueOn(p: SeriesPoint, keys: Set<string>) {
+  const qs = [...keys].map((k) => p.questions[k]).filter(Boolean);
   return {
-    competencies: [...keys.entries()].map(([key, name]) => ({ key, name, measured: sorted.filter((p) => p.competencies[key]?.others != null).length })),
-    rows: sorted.map((p) => ({
-      assessmentId: p.assessmentId,
-      label: p.title,
-      date: p.date,
-      type: p.type,
-      ...Object.fromEntries(Object.entries(p.competencies).flatMap(([k, v]) => [[`${k}:others`, v.others], [`${k}:self`, v.self]])),
-    })) as ({ assessmentId: string; label: string; date: string; type: string } & Record<string, number | null | string>)[],
+    others: r2(mean(qs.map((q) => q.others).filter((x): x is number => x != null))),
+    self: r2(mean(qs.map((q) => q.self).filter((x): x is number => x != null))),
   };
 }
 
-/** Before/after: competencies measured in both, with the change in others' average. */
+function intersect(sets: Set<string>[]) {
+  if (!sets.length) return new Set<string>();
+  return new Set([...sets[0]].filter((k) => sets.every((s) => s.has(k))));
+}
+
+/**
+ * One row per check-in (oldest first) with a column per competency, measured on the statements
+ * common to every check-in that included that competency.
+ */
+export function trendRows(points: SeriesPoint[]) {
+  const sorted = [...points].sort((a, b) => a.date.localeCompare(b.date));
+  const names = new Map<string, string>();
+  for (const p of sorted) for (const [k, v] of Object.entries(p.competencies)) names.set(k, v.name);
+  const comps = [...names.entries()].map(([key, name]) => {
+    const measuring = sorted.filter((p) => keysFor(p, key).size > 0);
+    const common = intersect(measuring.map((p) => keysFor(p, key)));
+    return { key, name, measured: common.size ? measuring.length : 0, statements: common.size, common };
+  });
+  const rows = sorted.map((p) => {
+    const row: Record<string, number | null | string> = { assessmentId: p.assessmentId, label: p.title, date: p.date, type: p.type };
+    for (const c of comps) {
+      if (!c.common.size || !keysFor(p, c.key).size) continue;
+      const v = valueOn(p, c.common);
+      row[`${c.key}:others`] = v.others;
+      row[`${c.key}:self`] = v.self;
+    }
+    return row;
+  });
+  return {
+    competencies: comps.map(({ key, name, measured, statements }) => ({ key, name, measured, statements })),
+    rows: rows as ({ assessmentId: string; label: string; date: string; type: string } & Record<string, number | null | string>)[],
+  };
+}
+
+/** Before/after on the competencies both measured, using only the statements both asked. */
 export function compare(before: SeriesPoint, after: SeriesPoint) {
-  return Object.keys(before.competencies)
-    .filter((k) => after.competencies[k] && before.competencies[k].others != null && after.competencies[k].others != null)
+  const names = { ...Object.fromEntries(Object.entries(before.competencies).map(([k, v]) => [k, v.name])), ...Object.fromEntries(Object.entries(after.competencies).map(([k, v]) => [k, v.name])) };
+  return Object.keys(names)
     .map((k) => {
-      const b = before.competencies[k].others!;
-      const a = after.competencies[k].others!;
-      return { key: k, name: after.competencies[k].name, before: b, after: a, delta: Math.round((a - b) * 100) / 100 };
+      const common = intersect([keysFor(before, k), keysFor(after, k)]);
+      if (!common.size) return null;
+      const b = valueOn(before, common).others!;
+      const a = valueOn(after, common).others!;
+      return { key: k, name: names[k], before: b, after: a, delta: Math.round((a - b) * 100) / 100, statements: common.size };
     })
+    .filter((x): x is NonNullable<typeof x> => x !== null)
     .sort((x, y) => y.delta - x.delta);
 }
 
@@ -74,19 +119,25 @@ export function addMonths(d: Date, months: number) {
   return r;
 }
 
-export type GoalProgress = { latest: number | null; latestDate: string | null; pct: number; achieved: boolean; measurements: number };
+export type GoalProgress = { baselineNow: number | null; latest: number | null; latestDate: string | null; pct: number; achieved: boolean; measurements: number };
 
-/** Progress from baseline to target using the latest measurement after the goal was set. */
+/**
+ * Progress from baseline to target. The baseline is re-measured on the same statements as the
+ * latest check-in (the 360 measured more statements than a pulse re-asks), so it's like-for-like.
+ */
 export function goalProgress(goal: { competencyKey: string; baseline: number | null; target: number; createdAt: Date | string }, points: SeriesPoint[]): GoalProgress {
-  const after = points
-    .filter((p) => p.date >= new Date(goal.createdAt).toISOString() && p.competencies[goal.competencyKey]?.others != null)
-    .sort((a, b) => a.date.localeCompare(b.date));
+  const created = new Date(goal.createdAt).toISOString();
+  const measuring = [...points].filter((p) => keysFor(p, goal.competencyKey).size > 0).sort((a, b) => a.date.localeCompare(b.date));
+  const basePoint = [...measuring].reverse().find((p) => p.date <= created) ?? null;
+  const after = measuring.filter((p) => p.date > created && p !== basePoint);
   const last = after[after.length - 1];
-  const latest = last ? last.competencies[goal.competencyKey].others : null;
-  const base = goal.baseline ?? latest ?? goal.target;
-  const span = goal.target - base;
-  const pct = latest == null ? 0 : span <= 0 ? 100 : Math.max(0, Math.min(100, Math.round(((latest - base) / span) * 100)));
-  return { latest, latestDate: last?.date ?? null, pct, achieved: latest != null && latest >= goal.target, measurements: after.length };
+  if (!last) return { baselineNow: goal.baseline, latest: null, latestDate: null, pct: 0, achieved: false, measurements: 0 };
+  const common = basePoint ? intersect([keysFor(basePoint, goal.competencyKey), keysFor(last, goal.competencyKey)]) : keysFor(last, goal.competencyKey);
+  const latest = valueOn(last, common.size ? common : keysFor(last, goal.competencyKey)).others;
+  const base = basePoint && common.size ? valueOn(basePoint, common).others : goal.baseline;
+  const span = goal.target - (base ?? goal.target);
+  const pct = latest == null ? 0 : span <= 0 ? 100 : Math.max(0, Math.min(100, Math.round(((latest - (base ?? 0)) / span) * 100)));
+  return { baselineNow: base, latest, latestDate: last.date, pct, achieved: latest != null && latest >= goal.target, measurements: after.length };
 }
 
 /**
