@@ -16,7 +16,7 @@ test("report renders every section from the seeded 360", async ({ page }) => {
   }
   await expect(page.getByText("Biggest blind spot")).toBeVisible();
   await expect(page.getByRole("img", { name: /Radar chart/ })).toBeVisible();
-  await expect(page.locator("table caption")).toHaveText(/Average score per competency/);
+  await expect(page.getByTestId("report").locator("table caption")).toHaveText(/Average score per competency/);
   // Manager opted in → shown separately with n=1; everyone else is grouped with ≥3.
   await expect(page.getByRole("columnheader", { name: /Manager\s*n=1/ })).toBeVisible();
   // No rater names or emails anywhere in the report.
@@ -30,7 +30,7 @@ test("group filter overlays a rater group on the radar, and drill-down switches 
   await expect(peers).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByLabel("Legend").first()).toContainText("Peers");
 
-  await page.getByRole("row", { name: /^Communication/ }).click();
+  await page.getByTestId("report").getByRole("row", { name: /^Communication/ }).click();
   await expect(page.getByTestId("drilldown").getByRole("button", { name: "Communication", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("distribution-row").filter({ hasText: "listens carefully before responding" })).toBeVisible();
   await expect(page.getByTestId("distribution-row").first()).toBeVisible();

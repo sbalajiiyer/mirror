@@ -1,6 +1,6 @@
 # Mirror — build status
 
-_Last updated: 2026-11-16 (Phase 7, branch `phase-7`)_
+_Last updated: 2026-11-16 (Phase 8, branch `phase-8`)_
 
 ## Phases
 
@@ -16,10 +16,11 @@ _Last updated: 2026-11-16 (Phase 7, branch `phase-7`)_
 | — | Questionnaire import — Excel (.xlsx) / CSV, including Google Forms and Microsoft Forms exports | ✅ Done (PR #8, merged) |
 | 5 | Coach workspace — client portfolio, consent-based sharing, session prep (+AI), shared reports, notes, coaching sessions, cross-client analytics, white-label, coach questionnaires | ✅ Done (PR #10, merged) |
 | 6 | Teams and orgs — organizations, people, teams & cohorts, 360 rounds (incl. team 360), participation, team radar/heatmap, cohort comparison, opt-in talent grid (HRIS skipped by owner) | ✅ Done (PR #11, merged) |
-| 7 | Personalization v2 — AI coach chat (report Q&A + role-play), adaptive questions, personalized pulses, opt-in weekly nudges, sharing (badge, summary, full report) | ✅ Done (PR from `phase-7`) |
-| 8–10 | Analytics v2, payments, enterprise | Not started |
+| 7 | Personalization v2 — AI coach chat (report Q&A + role-play), adaptive questions, personalized pulses, opt-in weekly nudges, sharing (badge, summary, full report) | ✅ Done (PR #12, merged) |
+| 8 | Analytics v2 — benchmarks, dashboard builder (personal/coach/org), plain-English questions, scheduled dashboard emails, CSV export, read-only API | ✅ Done (PR from `phase-8`) |
+| 9–10 | Payments and marketplace, enterprise | Not started |
 
-Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md), [`docs/phases/phase-4b-survey-sessions.md`](phases/phase-4b-survey-sessions.md), [`docs/phases/phase-5-coach.md`](phases/phase-5-coach.md), [`docs/phases/phase-6-teams-orgs.md`](phases/phase-6-teams-orgs.md), [`docs/phases/phase-7-personalization.md`](phases/phase-7-personalization.md).
+Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md), [`docs/phases/phase-4b-survey-sessions.md`](phases/phase-4b-survey-sessions.md), [`docs/phases/phase-5-coach.md`](phases/phase-5-coach.md), [`docs/phases/phase-6-teams-orgs.md`](phases/phase-6-teams-orgs.md), [`docs/phases/phase-7-personalization.md`](phases/phase-7-personalization.md), [`docs/phases/phase-8-analytics.md`](phases/phase-8-analytics.md).
 
 ## Run locally
 
@@ -50,7 +51,7 @@ npm run build && npm run db:seed && npm run test:e2e   # Playwright (needs `npx 
 npm run lint && npm run typecheck
 ```
 
-Current results: **169 Vitest tests** and **42 Playwright tests** (including automated WCAG 2.2 AA checks with axe), all passing. CI runs everything
+Current results: **178 Vitest tests** and **46 Playwright tests** (including automated WCAG 2.2 AA checks with axe), all passing. CI runs everything
 on every PR (`.github/workflows/ci.yml`, GitHub Actions free tier, Postgres service container).
 
 ## Decisions made (2026-11-15)
@@ -300,12 +301,25 @@ pulses were renamed by migration `rate_limit_pulse_titles`.
 - **Personalized pulses:** active goals, then growth areas tied to onboarding goals, then the blind spot and other
   growth areas.
 
+## Phase 8 defaults (change freely)
+
+- **Benchmarks** (owner decision: opt-out, large groups). Everyone norms need ≥ 30 people, slices ≥ 10. Only
+  percentiles are stored, and norms are rebuilt daily by the cron. Only the built-in questionnaire is benchmarked.
+  The demo seeds 14 anonymous sample people so norms exist.
+- **Dashboards for everyone** (owner decision). Dashboards cover your own feedback, coaching clients (coaches) or an
+  organization (admins), with up to 12 catalog widgets each.
+- **Plain-English questions** pick one catalog widget (AI or keyword fallback) and never run free-form queries.
+  Capped at 30 a day.
+- **Scheduled dashboard emails** are opt-in per dashboard: weekly on a weekday, or monthly on day 1–28.
+- **CSV and read API** (owner decision). The API is read-only and uses personal tokens (hash stored, shown once,
+  120 requests per minute). Endpoints: `/api/v1/me`, `/sessions`, `/dashboards`, `/dashboards/{id}`.
+
 ## Known limitations / next up
 
 - Custom questions get a first-person wording by replacing `{name}` with "I" — grammar may need a manual edit.
 - Rater form is English-only by the owner's choice (2026-11-16); multi-language can come later.
 - Chat replies are not streamed (each reply arrives whole); streaming can come with a premium model.
-- Next: Phase 8 (analytics v2: benchmarks, dashboard builder, natural-language queries, scheduled reports).
+- Next: Phase 9 (payments and marketplace: Stripe plans, credits, coach marketplace). This needs a Stripe account — owner decision.
 - Coaches who accept by email go through the subject onboarding first; a coach-specific onboarding would be nicer.
 - The header nav is hidden on small screens (no mobile menu yet).
 - Dependency audit (2026-11-16): `next-auth` upgraded to 5.0.0-beta.32 (fixes the email normalisation /

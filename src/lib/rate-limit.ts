@@ -34,6 +34,8 @@ export const LIMITS = {
   magicLinkIp: { limit: 20, windowSec: 3600 },
   /** Public share-link views from one network (Phase 7). */
   shareViewIp: { limit: 120, windowSec: 600 },
+  /** Read API calls per token (Phase 8). */
+  apiToken: { limit: 120, windowSec: 60 },
   /** Demo sign-ins from one network. */
   demoLoginIp: { limit: 60, windowSec: 600 },
 } as const satisfies Record<string, { limit: number; windowSec: number }>;

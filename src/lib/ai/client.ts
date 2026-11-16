@@ -7,7 +7,7 @@ import { anthropicProvider } from "./providers/anthropic";
 import { groqProvider, openAIProvider } from "./providers/openai-compatible";
 import { AIUnavailableError, type AIProvider, type AIRequest } from "./types";
 
-export type AIFeature = "summary" | "plan" | "deidentify" | "framework" | "invite_message" | "questionnaire" | "coach_brief" | "chat" | "chat_premium";
+export type AIFeature = "summary" | "plan" | "deidentify" | "framework" | "invite_message" | "questionnaire" | "coach_brief" | "chat" | "chat_premium" | "nl_query";
 
 /** Daily caps protect the free Groq quota and premium spend. */
 export const DAILY_LIMITS: Record<AIFeature, number> = {
@@ -20,6 +20,7 @@ export const DAILY_LIMITS: Record<AIFeature, number> = {
   coach_brief: 20,
   chat: 30, // free model: messages per user per day
   chat_premium: 200, // premium conversations are paid with credits
+  nl_query: 30,
 };
 
 const PROVIDERS: Record<string, AIProvider> = { groq: groqProvider, openai: openAIProvider, anthropic: anthropicProvider };

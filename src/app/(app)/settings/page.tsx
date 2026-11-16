@@ -6,12 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SettingsForm } from "./settings-form";
 import { NudgeForm } from "./nudge-form";
+import { ApiTokens, BenchmarkToggle } from "./data-forms";
+import { listApiTokens } from "@/lib/services/api-tokens";
 
 export const metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
   const user = await requireOnboardedUser("/settings");
   const usage = await monthlyUsage(user.id);
+  const tokens = await listApiTokens(user.id);
   const models = aiCatalog().map(({ id, label, description, tier, priceMicrosPer1k, available }) => ({ id, label, description, tier, priceMicrosPer1k, available }));
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -28,6 +31,16 @@ export default async function SettingsPage() {
         </CardHeader>
         <CardContent>
           <NudgeForm initial={user.profile.nudgeDay} />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Data and API</CardTitle>
+          <CardDescription>Benchmarks, and personal tokens for the read-only API.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <BenchmarkToggle optOut={user.profile.benchmarkOptOut} />
+          <ApiTokens tokens={tokens.map((t) => ({ ...t, lastUsedAt: t.lastUsedAt?.toISOString() ?? null, revokedAt: t.revokedAt?.toISOString() ?? null, createdAt: t.createdAt.toISOString() }))} />
         </CardContent>
       </Card>
       <Card>
