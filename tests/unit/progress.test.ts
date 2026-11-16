@@ -100,3 +100,14 @@ describe("default pulse questions", () => {
     expect(defaultPulseQuestions(report, [], 10, 7)).toHaveLength(7);
   });
 });
+
+describe("agreement with the report", () => {
+  it("uses the report's competency figure when every statement is shared", () => {
+    const a = pt("a", "2026-09-01T00:00:00Z", { "c.a": ["c", 3, 4], "c.b": ["c", 4, 4] }, "FULL_360");
+    const b = pt("b", "2026-12-01T00:00:00Z", { "c.a": ["c", 4, 4], "c.b": ["c", 4, 4] }, "FULL_360");
+    a.competencies.c.others = 3.4; // report's rater-level average differs from the mean of item means (3.5)
+    b.competencies.c.others = 4.1;
+    const [row] = compare(a, b);
+    expect(row).toMatchObject({ before: 3.4, after: 4.1, statements: 2 });
+  });
+});

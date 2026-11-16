@@ -1,6 +1,6 @@
 # Mirror — build status
 
-_Last updated: 2026-11-16 (Phase 4, branch `phase-4`)_
+_Last updated: 2026-11-16 (survey sessions, branch `survey-sessions`)_
 
 ## Phases
 
@@ -9,10 +9,11 @@ _Last updated: 2026-11-16 (Phase 4, branch `phase-4`)_
 | 1 | Foundation — auth, onboarding, framework, 360 setup, invites, rater form, reminders | ✅ Done (PR #1, merged) |
 | 2 | Report v1 — summary, radar, gap, Johari, heatmap, distributions, themes, PDF | ✅ Done (PR #1, merged) |
 | 3 | AI layer — summaries, development plan, de-identification, framework recommendation | ✅ Done (PR #3, merged) |
-| 4 | Pulses and progress — pulse surveys, trend lines, before/after, goal tracker, streaks; plus custom questionnaires (free) and AI-generated questionnaires (credits) | ✅ Done (PR from `phase-4`) |
+| 4 | Pulses and progress — pulse surveys, trend lines, before/after, goal tracker, streaks; plus custom questionnaires (free) and AI-generated questionnaires (credits) | ✅ Done (PR #4, merged) |
+| 4b | Survey IDs, numbered sessions, Run again (same questionnaire, same raters), session-based trends | ✅ Done (PR from `survey-sessions`) |
 | 5–10 | Coach workspace, teams/orgs, personalization v2, analytics v2, payments, enterprise | Not started |
 
-Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md).
+Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md), [`docs/phases/phase-4b-survey-sessions.md`](phases/phase-4b-survey-sessions.md).
 
 ## Run locally
 
@@ -43,7 +44,7 @@ npm run build && npm run db:seed && npm run test:e2e   # Playwright (needs `npx 
 npm run lint && npm run typecheck
 ```
 
-Current results: **99 Vitest tests** (71 unit + 28 integration) and **16 Playwright tests**, all passing. CI runs everything
+Current results: **105 Vitest tests** and **19 Playwright tests**, all passing. CI runs everything
 on every PR (`.github/workflows/ci.yml`, GitHub Actions free tier, Postgres service container).
 
 ## Decisions made (2026-11-15)
@@ -160,6 +161,16 @@ Nothing paid has been added. Each item below is stubbed behind an interface so i
   past 360s, because each assessment keeps its own copy of the questions.
 - **AI questionnaire:** uses the subject's chosen model (free Groq gpt-oss by default) and costs 1 credit. Charged only
   on success; daily cap 5.
+
+## Survey session defaults (change freely)
+
+- **Survey ID** `MRR-XXXXXX`: a hash of the first session's id (no lookup table, stable, not sequential).
+- **Sessions** are numbered per survey across full re-runs and pulses. The default name is month + year, editable anytime.
+- **One open session per survey.** Run again and Pulse check are blocked (UI and server) until it closes.
+- **Run again** copies the first session's questionnaire exactly and, by default, the same raters with new links
+  (declined raters skipped). Due in 14 days by default (3–30).
+- **Progress** uses the report's own competency score when a comparison covers all of a session's statements, so
+  Progress and the report always show the same number.
 
 ## Known limitations / next up
 

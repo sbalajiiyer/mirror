@@ -42,7 +42,7 @@ export function ProgressView({
   scaleMax,
 }: {
   seriesList: { id: string; title: string }[];
-  root: { id: string; title: string; cadenceMonths: number | null; nextPulseDueAt: string | null };
+  root: { id: string; title: string; code: string; cadenceMonths: number | null; nextPulseDueAt: string | null };
   points: SeriesPoint[];
   goals: GoalView[];
   streak: { count: number; onTrack: boolean; pulses: number };
@@ -52,7 +52,10 @@ export function ProgressView({
 }) {
   const router = useRouter();
   const sorted = useMemo(() => [...points].sort((a, b) => a.date.localeCompare(b.date)), [points]);
-  const { competencies, rows } = useMemo(() => trendRows(sorted), [sorted]);
+  const fullCount = sorted.filter((p) => p.type === "FULL_360").length;
+  const [scope, setScope] = useState<"all" | "full">("all");
+  const scoped = useMemo(() => (scope === "full" ? sorted.filter((p) => p.type === "FULL_360") : sorted), [scope, sorted]);
+  const { competencies, rows } = useMemo(() => trendRows(scoped), [scoped]);
   const latest = sorted[sorted.length - 1];
 
   return (
@@ -60,7 +63,10 @@ export function ProgressView({
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Progress</h1>
-          <p className="text-muted-foreground">How others&apos; view of you is changing across your 360 and pulse checks.</p>
+          <p className="text-muted-foreground">
+            How others&apos; view of you is changing across every session of <span className="font-medium text-foreground">{root.title}</span>{" "}
+            <span className="font-mono text-xs">({root.code})</span>.
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {seriesList.length > 1 && (
@@ -90,7 +96,9 @@ export function ProgressView({
           <CardContent className="pt-5 sm:pt-6">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Check-ins</p>
             <p className="mt-1 text-2xl font-semibold tabular-nums">{sorted.length}</p>
-            <p className="text-xs text-muted-foreground">1 full 360 · {streak.pulses} pulse{streak.pulses === 1 ? "" : "s"}</p>
+            <p className="text-xs text-muted-foreground">
+              {sorted.filter((p) => p.type === "FULL_360").length} full · {streak.pulses} pulse{streak.pulses === 1 ? "" : "s"} (closed sessions)
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -127,8 +135,34 @@ export function ProgressView({
 
       <Card>
         <CardHeader>
-          <CardTitle>Trends by competency</CardTitle>
-          <CardDescription>Others&apos; average at each check-in, with your self-rating. Pulses only re-measure the competencies you chose.</CardDescription>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle>Trends by competency</CardTitle>
+              <CardDescription>
+                Others&apos; average at each session, with your self-rating. Each line uses only the statements every included session asked.
+              </CardDescription>
+            </div>
+            {fullCount >= 2 && (
+              <div className="flex rounded-md border p-0.5 text-xs" role="group" aria-label="Sessions to include">
+                {(
+                  [
+                    ["all", "All sessions"],
+                    ["full", "Full sessions only"],
+                  ] as const
+                ).map(([v, l]) => (
+                  <button
+                    key={v}
+                    type="button"
+                    aria-pressed={scope === v}
+                    onClick={() => setScope(v)}
+                    className={`rounded px-2.5 py-1 ${scope === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <Legend
             items={[
               { label: "Others", color: OTHERS_COLOR },
@@ -137,7 +171,7 @@ export function ProgressView({
           />
         </CardHeader>
         <CardContent>
-          {sorted.length < 2 ? (
+          {scoped.length < 2 ? (
             <p className="text-sm text-muted-foreground" data-testid="trends-empty">
               Trends appear after your first pulse check closes.
             </p>
@@ -147,7 +181,12 @@ export function ProgressView({
               {competencies
                 .filter((c) => c.measured > 1)
                 .map((c) => {
-                  const data = rows.map((r) => ({ label: shortDate(r.date), others: r[`${c.key}:others`] ?? null, self: r[`${c.key}:self`] ?? null, title: r.label }));
+                  const data = rows.map((r) => ({
+                    label: String(r.label).split(" · ")[0].startsWith("S") ? String(r.label).split(" · ")[0] : shortDate(r.date),
+                    others: r[`${c.key}:others`] ?? null,
+                    self: r[`${c.key}:self`] ?? null,
+                    title: `${r.label} · ${shortDate(r.date)}`,
+                  }));
                   const first = data.find((d) => d.others != null)?.others as number | undefined;
                   const last = [...data].reverse().find((d) => d.others != null)?.others as number | undefined;
                   const delta = first != null && last != null ? last - first : null;
@@ -367,12 +406,13 @@ function BeforeAfter({ points, scaleMax }: { points: SeriesPoint[]; scaleMax: nu
   const after = points.find((p) => p.assessmentId === b)!;
   const rows = compare(before, after);
   const data = rows.map((r) => ({ name: r.name, before: r.before, after: r.after }));
-  const label = (p: SeriesPoint) => `${p.title} (${shortDate(p.date)})`;
+  const label = (p: SeriesPoint) =>
+    p.sessionNumber ? `S${p.sessionNumber} · ${p.type === "PULSE" ? "Pulse" : "Full 360"}${p.sessionLabel ? ` · ${p.sessionLabel}` : ""} (${shortDate(p.date)})` : `${p.title} (${shortDate(p.date)})`;
   return (
     <Card data-testid="before-after">
       <CardHeader>
-        <CardTitle>Before and after</CardTitle>
-        <CardDescription>Compare any two check-ins on the competencies they both measured.</CardDescription>
+        <CardTitle>Compare sessions</CardTitle>
+        <CardDescription>Pick any two sessions. Full re-runs compare every statement; pulses compare the statements they re-asked.</CardDescription>
         <div className="flex flex-wrap gap-3 pt-2">
           {(
             [

@@ -7,6 +7,8 @@ import type { ReportData } from "@/lib/report/compute";
 export type SeriesPoint = {
   assessmentId: string;
   title: string;
+  sessionNumber?: number;
+  sessionLabel?: string | null;
   type: "FULL_360" | "PULSE";
   date: string; // ISO, closedAt
   raters: number;
@@ -19,13 +21,26 @@ export type SeriesPoint = {
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
 const r2 = (x: number | null) => (x == null ? null : Math.round(x * 100) / 100);
 
-export function toSeriesPoint(a: { id: string; title: string; type: "FULL_360" | "PULSE"; closedAt: Date | string }, report: ReportData): SeriesPoint | null {
+export function toSeriesPoint(
+  a: { id: string; title: string; type: "FULL_360" | "PULSE"; closedAt: Date | string; sessionNumber?: number; sessionLabel?: string | null },
+  report: ReportData,
+): SeriesPoint | null {
   if (!report.anonymity.available) return null;
   const competencies: SeriesPoint["competencies"] = {};
   for (const c of report.competencies) competencies[c.key] = { name: c.name, others: c.others.mean, self: c.self };
   const questions: SeriesPoint["questions"] = {};
   for (const q of report.questions) questions[q.key ?? `${q.competencyKey}:${q.text}`] = { competencyKey: q.competencyKey, others: q.others.mean, self: q.self };
-  return { assessmentId: a.id, title: a.title, type: a.type, date: new Date(a.closedAt).toISOString(), raters: report.anonymity.othersN, competencies, questions };
+  return {
+    assessmentId: a.id,
+    title: a.title,
+    sessionNumber: a.sessionNumber,
+    sessionLabel: a.sessionLabel ?? null,
+    type: a.type,
+    date: new Date(a.closedAt).toISOString(),
+    raters: report.anonymity.othersN,
+    competencies,
+    questions,
+  };
 }
 
 /** Statement keys of a competency that have a visible others' average in this point. */
@@ -43,6 +58,19 @@ export function valueOn(p: SeriesPoint, keys: Set<string>) {
     others: r2(mean(qs.map((q) => q.others).filter((x): x is number => x != null))),
     self: r2(mean(qs.map((q) => q.self).filter((x): x is number => x != null))),
   };
+}
+
+/**
+ * A competency's value on a set of statements. When the set is every statement that session
+ * asked for the competency, use the report's own figure (rater-level average) so Progress and
+ * the report always agree; otherwise average the shared statements.
+ */
+function competencyOn(p: SeriesPoint, comp: string, keys: Set<string>) {
+  const own = keysFor(p, comp);
+  const all = own.size === keys.size && [...own].every((k) => keys.has(k));
+  const rep = p.competencies[comp];
+  if (all && rep && rep.others != null) return { others: rep.others, self: rep.self };
+  return valueOn(p, keys);
 }
 
 function intersect(sets: Set<string>[]) {
@@ -64,10 +92,15 @@ export function trendRows(points: SeriesPoint[]) {
     return { key, name, measured: common.size ? measuring.length : 0, statements: common.size, common };
   });
   const rows = sorted.map((p) => {
-    const row: Record<string, number | null | string> = { assessmentId: p.assessmentId, label: p.title, date: p.date, type: p.type };
+    const row: Record<string, number | null | string> = {
+      assessmentId: p.assessmentId,
+      label: p.sessionNumber ? `S${p.sessionNumber}${p.sessionLabel ? ` · ${p.sessionLabel}` : ""}` : p.title,
+      date: p.date,
+      type: p.type,
+    };
     for (const c of comps) {
       if (!c.common.size || !keysFor(p, c.key).size) continue;
-      const v = valueOn(p, c.common);
+      const v = competencyOn(p, c.key, c.common);
       row[`${c.key}:others`] = v.others;
       row[`${c.key}:self`] = v.self;
     }
@@ -86,8 +119,8 @@ export function compare(before: SeriesPoint, after: SeriesPoint) {
     .map((k) => {
       const common = intersect([keysFor(before, k), keysFor(after, k)]);
       if (!common.size) return null;
-      const b = valueOn(before, common).others!;
-      const a = valueOn(after, common).others!;
+      const b = competencyOn(before, k, common).others!;
+      const a = competencyOn(after, k, common).others!;
       return { key: k, name: names[k], before: b, after: a, delta: Math.round((a - b) * 100) / 100, statements: common.size };
     })
     .filter((x): x is NonNullable<typeof x> => x !== null)
@@ -133,8 +166,8 @@ export function goalProgress(goal: { competencyKey: string; baseline: number | n
   const last = after[after.length - 1];
   if (!last) return { baselineNow: goal.baseline, latest: null, latestDate: null, pct: 0, achieved: false, measurements: 0 };
   const common = basePoint ? intersect([keysFor(basePoint, goal.competencyKey), keysFor(last, goal.competencyKey)]) : keysFor(last, goal.competencyKey);
-  const latest = valueOn(last, common.size ? common : keysFor(last, goal.competencyKey)).others;
-  const base = basePoint && common.size ? valueOn(basePoint, common).others : goal.baseline;
+  const latest = competencyOn(last, goal.competencyKey, common.size ? common : keysFor(last, goal.competencyKey)).others;
+  const base = basePoint && common.size ? competencyOn(basePoint, goal.competencyKey, common).others : goal.baseline;
   const span = goal.target - (base ?? goal.target);
   const pct = latest == null ? 0 : span <= 0 ? 100 : Math.max(0, Math.min(100, Math.round(((latest - (base ?? 0)) / span) * 100)));
   return { baselineNow: base, latest, latestDate: last.date, pct, achieved: latest != null && latest >= goal.target, measurements: after.length };

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getReportForOwner } from "@/lib/services/reports";
 import { verifySignedPayload } from "@/lib/tokens";
 import { ReportView } from "@/components/report/report-view";
+import { sessionInfo } from "@/lib/services/sessions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { robots: { index: false } };
@@ -26,7 +27,7 @@ export default async function PrintReport({ params, searchParams }: { params: Pr
   if (r.status !== "ok") notFound();
   return (
     <main className="mx-auto max-w-[1000px] p-6">
-      <ReportView report={r.report} aiSummary={r.aiSummary} generatedAt={r.generatedAt.toISOString()} print />
+      <ReportView report={r.report} aiSummary={r.aiSummary} session={await sessionInfo(id)} generatedAt={r.generatedAt.toISOString()} print />
     </main>
   );
 }

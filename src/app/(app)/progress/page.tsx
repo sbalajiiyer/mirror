@@ -4,6 +4,7 @@ import { goalProgress, streak, toSeriesPoint, type SeriesPoint } from "@/lib/pro
 import type { ReportData } from "@/lib/report/compute";
 import { markAchieved } from "@/lib/services/goals";
 import { requireOnboardedUser } from "@/lib/session";
+import { surveyCode } from "@/lib/survey";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProgressView } from "@/components/progress/progress-view";
@@ -44,10 +45,13 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
   const points: SeriesPoint[] = [];
   for (const m of members) {
     if (m.status !== "CLOSED" || !m.closedAt || !m.reports[0]) continue;
-    const p = toSeriesPoint({ id: m.id, title: m.title, type: m.type, closedAt: m.closedAt }, m.reports[0].data as unknown as ReportData);
+    const p = toSeriesPoint(
+      { id: m.id, title: m.title, type: m.type, closedAt: m.closedAt, sessionNumber: m.sessionNumber, sessionLabel: m.sessionLabel },
+      m.reports[0].data as unknown as ReportData,
+    );
     if (p) points.push(p);
   }
-  const inProgress = members.filter((m) => m.status !== "CLOSED").map((m) => ({ id: m.id, title: m.title, status: m.status }));
+  const inProgress = members.filter((m) => m.status !== "CLOSED").map((m) => ({ id: m.id, title: `Session ${m.sessionNumber}${m.sessionLabel ? ` · ${m.sessionLabel}` : ""}`, status: m.status }));
   const latestClosed = [...members].filter((m) => m.status === "CLOSED").sort((a, b) => +b.closedAt! - +a.closedAt!)[0];
 
   const goals = await db.goal.findMany({ where: { userId: user.id, assessmentId: root.id, status: { not: "ARCHIVED" } }, orderBy: { createdAt: "asc" } });
@@ -72,8 +76,8 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
 
   return (
     <ProgressView
-      seriesList={roots.map((r) => ({ id: r.id, title: r.title }))}
-      root={{ id: root.id, title: root.title, cadenceMonths: root.cadenceMonths, nextPulseDueAt: root.nextPulseDueAt?.toISOString() ?? null }}
+      seriesList={roots.map((r) => ({ id: r.id, title: `${r.title} (${surveyCode(r.id)})` }))}
+      root={{ id: root.id, title: root.title, code: surveyCode(root.id), cadenceMonths: root.cadenceMonths, nextPulseDueAt: root.nextPulseDueAt?.toISOString() ?? null }}
       points={points}
       goals={goalViews}
       streak={{ ...st, pulses: pulseDates.length }}
