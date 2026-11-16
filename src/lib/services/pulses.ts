@@ -19,10 +19,8 @@ export const pulseSchema = z.object({
 export const pulseInviteMessage = (name: string) =>
   `Hi! A little while ago you gave me feedback — thank you. I've been working on it and would love a quick check-in to see if anything has changed. It's a handful of statements (about 2 minutes) and, as before, anonymous. — ${name}`;
 
-/** The full 360 that starts an assessment's series. */
-export function seriesRootId(a: { id: string; rootAssessmentId: string | null }) {
-  return a.rootAssessmentId ?? a.id;
-}
+import { nextSessionNumber, seriesRootId } from "@/lib/services/sessions";
+export { seriesRootId };
 
 /**
  * Create a pulse from a closed assessment: 5–10 of its statements (same keys, so results are
@@ -46,15 +44,19 @@ export async function createPulse(userId: string, sourceId: string, raw: unknown
   const chosen = source.questions.filter((q) => input.questionIds.includes(q.id) && q.type === "RATING");
   if (chosen.length !== new Set(input.questionIds).size) throw new DomainError("Unknown statement selected");
   const pulseNo = (await db.assessment.count({ where: { rootAssessmentId: rootId, type: "PULSE" } })) + 1;
+  const open = await db.assessment.count({ where: { OR: [{ id: rootId }, { rootAssessmentId: rootId }], status: { in: ["DRAFT", "READY", "COLLECTING"] } } });
+  if (open > 0) throw new DomainError("This survey already has a session in progress. Finish or close it first.");
   const name = firstName(source.subject.profile?.displayName ?? source.subject.name);
 
   const pulse = await db.$transaction(async (tx) => {
+    const sessionNumber = await nextSessionNumber(tx, rootId);
     const p = await tx.assessment.create({
       data: {
         subjectId: userId,
         frameworkId: source.frameworkId,
         type: "PULSE",
         rootAssessmentId: rootId,
+        sessionNumber,
         title: `Pulse check ${pulseNo} — ${new Date().toLocaleDateString("en", { month: "long", year: "numeric" })}`,
         goal: source.goal,
         inviteMessage: pulseInviteMessage(name),

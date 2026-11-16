@@ -200,6 +200,10 @@ model Assessment {
   closedAt              DateTime?
   /// Pulses point at the full 360 that starts their series (null for a full 360).
   rootAssessmentId      String?
+  /// Position of this run within its survey (the root 360 is session 1; re-runs and pulses follow).
+  sessionNumber         Int              @default(1)
+  /// Optional label for the session, e.g. "Spring 2027" or "After the reorg".
+  sessionLabel          String?
   /// On a full 360: how often to run pulses (1-3 months), and when the next one is due.
   cadenceMonths         Int?
   nextPulseDueAt        DateTime?
