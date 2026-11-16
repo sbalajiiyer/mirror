@@ -13,7 +13,7 @@ _Last updated: 2026-11-16 (questionnaire import, branch `questionnaire-import`)_
 | 4b | Survey IDs, numbered sessions, Run again (same questionnaire, same raters), session-based trends | ✅ Done (PR #5, merged) |
 | — | Launch hardening — rate limits, WCAG 2.2 AA audit and fixes, pulse titles by session | ✅ Done (PR #6, merged) |
 | — | Session grouping — company and tags on sessions; group and filter by company, year, quarter, theme, score range | ✅ Done (PR #7, merged) |
-| — | Questionnaire import — Excel (.xlsx) / CSV, including Google Forms and Microsoft Forms exports | ✅ Done (PR from `questionnaire-import`) |
+| — | Questionnaire import — Excel (.xlsx) / CSV, including Google Forms and Microsoft Forms exports | ✅ Done (PR #8, merged) |
 | 5–10 | Coach workspace, teams/orgs, personalization v2, analytics v2, payments, enterprise | Not started |
 
 Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md), [`docs/phases/phase-4b-survey-sessions.md`](phases/phase-4b-survey-sessions.md).
@@ -47,7 +47,7 @@ npm run build && npm run db:seed && npm run test:e2e   # Playwright (needs `npx 
 npm run lint && npm run typecheck
 ```
 
-Current results: **128 Vitest tests** and **30 Playwright tests** (including automated WCAG 2.2 AA checks with axe), all passing. CI runs everything
+Current results: **131 Vitest tests** and **30 Playwright tests** (including automated WCAG 2.2 AA checks with axe), all passing. CI runs everything
 on every PR (`.github/workflows/ci.yml`, GitHub Actions free tier, Postgres service container).
 
 ## Decisions made (2026-11-15)
@@ -253,7 +253,11 @@ pulses were renamed by migration `rate_limit_pulse_titles`.
 - Custom questions get a first-person wording by replacing `{name}` with "I" — grammar may need a manual edit.
 - Rater form is English-only by the owner's choice (2026-11-16); multi-language can come later.
 - Next: Phase 5 coach workspace (client opt-in sharing).
-- Dependency audit: `next-auth` 5 beta has published advisories (email normalisation / misdelivery); upgrade to the latest beta before real users sign in by email.
+- Dependency audit (2026-11-16): `next-auth` upgraded to 5.0.0-beta.32 (fixes the email normalisation /
+  misdelivery advisories). Sign-in emails also go through our own stricter normaliser (`src/lib/email-address.ts`:
+  Unicode NFKC, ASCII only, exactly one "@"). `postcss` is pinned to ≥ 8.5.33 via `overrides` (it was bundled by
+  Next). Remaining `npm audit` items are development-time only (the Prisma CLI's `deepmerge-ts`, typescript-eslint's
+  `minimatch`). Their fixes need major upgrades (Prisma 7, Next 16), which are planned separately.
 - `RaterInvite.submittedAt` is stored at day granularity like `Submission.submittedOn`, but row insertion order in Postgres
   could still correlate the two for someone with raw DB access; acceptable for now, revisit with an append-only shuffle job.
 - The Groq API couldn't be reached from the build sandbox, so real Groq calls were tested only with a stubbed HTTP layer; `GROQ_API_KEY` is set on Vercel Production (2026-11-16); not yet on Preview.
