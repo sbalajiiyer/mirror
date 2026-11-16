@@ -5,7 +5,8 @@ import { db } from "@/lib/db";
 import { derivedToken, hashToken, looksLikeToken } from "@/lib/tokens";
 import { firstName } from "@/lib/utils";
 import { answersSchema, draftSchema, type Draft } from "@/lib/validation";
-import { DomainError, today, validateRatings } from "@/lib/services/assessments";
+import { DomainError } from "@/lib/errors";
+import { today, validateRatings } from "@/lib/services/assessments";
 import { deidentifyComments } from "@/lib/ai/features/deidentify";
 import { scrubIdentifiers } from "@/lib/ai/scrub";
 

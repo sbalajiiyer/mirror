@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { runReminders } from "@/lib/jobs/reminders";
+import { runPulseReminders, runReminders } from "@/lib/jobs/reminders";
 
 export const runtime = "nodejs";
 
@@ -9,6 +9,7 @@ export async function GET(req: Request) {
   if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  const result = await runReminders();
-  return NextResponse.json(result);
+  const raters = await runReminders();
+  const pulses = await runPulseReminders();
+  return NextResponse.json({ raters, pulses });
 }

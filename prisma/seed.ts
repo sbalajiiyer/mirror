@@ -143,6 +143,7 @@ async function main() {
           industry: "Software",
           goals: ["promotion", "leadership_growth"],
           onboardedAt: new Date(),
+          aiCredits: 3,
         },
       },
     },
@@ -156,7 +157,7 @@ async function main() {
 
   // ---------------- Closed 360 with 12 raters ----------------
   const DAY = 86400000;
-  const launched = new Date(Date.now() - 21 * DAY);
+  const launched = new Date(Date.now() - 75 * DAY);
   const a = await db.assessment.create({
     data: {
       subjectId: user.id,
@@ -265,6 +266,103 @@ async function main() {
     }
   }
   await buildAndStoreReport(a.id);
+  await db.creditLedger.create({ data: { userId: user.id, delta: 3, reason: "grant", ref: "seed" } });
+
+  // ---------------- Pulse check 1, a month later (communication improving) ----------------
+  const rootReport = (await db.report.findFirstOrThrow({ where: { assessmentId: a.id } })).data as unknown as {
+    competencies: { key: string; others: { mean: number | null } }[];
+  };
+  await db.goal.create({
+    data: {
+      userId: user.id,
+      assessmentId: a.id,
+      competencyKey: "communication",
+      competencyName: "Communication",
+      title: "Raise communication to 3.6",
+      baseline: rootReport.competencies.find((c) => c.key === "communication")!.others.mean,
+      target: 3.6,
+      createdAt: new Date(a.closedAt!.getTime() + DAY),
+    },
+  });
+  const pulseLaunch = new Date(Date.now() - 20 * DAY);
+  const PULSE_KEYS = ["communication.clarity", "communication.listening", "communication.adapts", "communication.informs", "emotional_intelligence.composure", "emotional_intelligence.safety", "leadership.delegates"];
+  const IMPROVE: Record<string, number> = { communication: 0.45, emotional_intelligence: 0.2, leadership: 0.3 };
+  const pulseQs = a.questions.filter((q) => PULSE_KEYS.includes(`${q.competencyKey}.${q.questionKey}`)).sort((x, y) => x.order - y.order);
+  const pulse = await db.assessment.create({
+    data: {
+      subjectId: user.id,
+      frameworkId: full.id,
+      type: "PULSE",
+      rootAssessmentId: a.id,
+      title: "Pulse check 1 — October 2026",
+      goal: "promotion",
+      status: "CLOSED",
+      inviteMessage: "Quick check-in on what's changed — about 2 minutes. — Alex",
+      showManagerSeparately: true,
+      dueAt: new Date(pulseLaunch.getTime() + 7 * DAY),
+      selfLockedAt: new Date(pulseLaunch.getTime() - 3600_000),
+      launchedAt: pulseLaunch,
+      closedAt: new Date(pulseLaunch.getTime() + 8 * DAY),
+      questions: { create: pulseQs.map((q, i) => ({ competencyKey: q.competencyKey, competency: q.competency, questionKey: q.questionKey, text: q.text, selfText: q.selfText, order: i })) },
+      raterGroups: { create: groupsDef.map((g, i) => ({ kind: g.kind, name: g.name, order: i })) },
+    },
+    include: { questions: true, raterGroups: true },
+  });
+  const pulseGroup = (kind: RaterGroupKind) => pulse.raterGroups.find((g) => g.kind === kind)!;
+  await db.submission.create({
+    data: {
+      assessmentId: pulse.id,
+      raterGroupId: pulseGroup("SELF").id,
+      isSelf: true,
+      submittedOn: pulse.selfLockedAt!,
+      responses: { create: pulse.questions.map((q) => ({ assessmentQuestionId: q.id, value: q.competencyKey === "communication" ? 4 : 4 })) },
+    },
+  });
+  for (const g of groupsDef.slice(1)) {
+    for (const raterName of g.raters) {
+      const id = randomUUID();
+      const [first, last] = raterName.split(" ");
+      await db.raterInvite.create({
+        data: {
+          id,
+          assessmentId: pulse.id,
+          raterGroupId: pulseGroup(g.kind).id,
+          name: raterName,
+          email: `${first}.${last}@example.com`.toLowerCase(),
+          tokenHash: hashToken(derivedToken("invite", id)),
+          status: "SUBMITTED",
+          invitedAt: pulseLaunch,
+          submittedAt: new Date(pulseLaunch.getTime() + 3 * DAY),
+        },
+      });
+      const raterBias = normal() * 0.3;
+      await db.submission.create({
+        data: {
+          assessmentId: pulse.id,
+          raterGroupId: pulseGroup(g.kind).id,
+          submittedOn: new Date(pulseLaunch.getTime() + 3 * DAY),
+          responses: {
+            create: pulse.questions.map((q) => {
+              const bias = GROUP_BIAS[g.kind] ?? {};
+              const mu =
+                OTHERS_BASE[q.competencyKey] +
+                (IMPROVE[q.competencyKey] ?? 0) +
+                (QUESTION_OFFSET[`${q.competencyKey}.${q.questionKey}`] ?? 0) +
+                (bias[q.competencyKey] ?? 0) +
+                (bias[`${q.competencyKey}.${q.questionKey}`] ?? 0) +
+                raterBias;
+              return { assessmentQuestionId: q.id, value: clamp(mu + normal() * 0.5) };
+            }),
+          },
+        },
+      });
+    }
+  }
+  await buildAndStoreReport(pulse.id);
+  await db.assessment.update({
+    where: { id: a.id },
+    data: { cadenceMonths: 1, nextPulseDueAt: new Date(pulseLaunch.getTime() + 30 * DAY) },
+  });
 
   // ---------------- 360 in progress ----------------
   const b = await db.assessment.create({
@@ -333,6 +431,7 @@ async function main() {
   const open = await db.raterInvite.findFirst({ where: { assessmentId: b.id, status: "INVITED" } });
   console.log(`Seeded demo subject ${DEMO_EMAIL}`);
   console.log(`  closed 360:     /assessments/${a.id}/report`);
+  console.log(`  pulse check:    /assessments/${pulse.id}/report  (progress: /progress)`);
   console.log(`  collecting 360: /assessments/${b.id}`);
   if (open) console.log(`  rater link (${open.name}): /r/${derivedToken("invite", open.id)}`);
 }

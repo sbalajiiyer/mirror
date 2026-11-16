@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Link2, Plus, Sparkles, Trash2, Users } from "lucide-react";
 import { GOALS, RATER_GROUP_KINDS, goalLabel } from "@/lib/constants";
@@ -23,6 +24,7 @@ export type WizardFramework = {
   name: string;
   description: string;
   version: number;
+  source: "builtin" | "custom" | "ai";
   competencies: { key: string; name: string; description: string; questions: { key: string; text: string; selfText: string }[] }[];
 };
 
@@ -32,13 +34,18 @@ type Group = { kind: Kind; name: string; raters: Rater[]; shareLink: boolean };
 
 const STEPS = ["Goal", "Framework", "Questions", "Raters", "Settings", "Review"] as const;
 
+const questionsFor = (fw: WizardFramework): Q[] =>
+  fw.competencies.flatMap((c) => c.questions.map((q) => ({ id: `${c.key}.${q.key}`, competencyKey: c.key, questionKey: q.key, text: q.text, selfText: q.selfText, on: true })));
+
 export function Wizard({
-  framework,
+  frameworks,
+  initialFrameworkId,
   defaultGoal,
   defaultMessage,
   subjectFirstName,
 }: {
-  framework: WizardFramework;
+  frameworks: WizardFramework[];
+  initialFrameworkId?: string;
   defaultGoal: string;
   defaultMessage: string;
   subjectFirstName: string;
@@ -47,9 +54,16 @@ export function Wizard({
   const [step, setStep] = useState(0);
   const [goal, setGoal] = useState(defaultGoal);
   const [title, setTitle] = useState(`${goalLabel(defaultGoal)} 360 — ${new Date().toLocaleDateString("en", { month: "long", year: "numeric" })}`);
-  const [questions, setQuestions] = useState<Q[]>(() =>
-    framework.competencies.flatMap((c) => c.questions.map((q) => ({ id: `${c.key}.${q.key}`, competencyKey: c.key, questionKey: q.key, text: q.text, selfText: q.selfText, on: true }))),
-  );
+  const [frameworkId, setFrameworkId] = useState(initialFrameworkId && frameworks.some((f) => f.id === initialFrameworkId) ? initialFrameworkId : frameworks[0].id);
+  const framework = frameworks.find((f) => f.id === frameworkId) ?? frameworks[0];
+  const [questions, setQuestions] = useState<Q[]>(() => questionsFor(framework));
+  const chooseFramework = (id: string) => {
+    const fw = frameworks.find((f) => f.id === id);
+    if (!fw || id === frameworkId) return;
+    setFrameworkId(id);
+    setQuestions(questionsFor(fw));
+    setRec(null);
+  };
   const [groups, setGroups] = useState<Group[]>([
     { kind: "MANAGER", name: "Manager", raters: [], shareLink: false },
     { kind: "PEER", name: "Peers", raters: [], shareLink: false },
@@ -179,21 +193,49 @@ export function Wizard({
               <CardDescription>The competencies your raters will score. Not sure what to focus on? Ask for a recommendation based on your goal and role.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="rounded-lg border border-primary bg-accent/50 p-4 ring-1 ring-primary">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{framework.name}</span>
-                  <Badge variant="secondary">v{framework.version} · built-in</Badge>
+              <div className="space-y-3" role="radiogroup" aria-label="Framework">
+                {frameworks.map((fw) => {
+                  const on = fw.id === framework.id;
+                  return (
+                    <label
+                      key={fw.id}
+                      className={cn("block cursor-pointer rounded-lg border p-4 hover:bg-accent/40", on && "border-primary bg-accent/50 ring-1 ring-primary")}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="flex items-center gap-2 font-medium">
+                          <input type="radio" name="framework" checked={on} onChange={() => chooseFramework(fw.id)} className="size-4" />
+                          {fw.name}
+                        </span>
+                        <Badge variant="secondary">{fw.source === "builtin" ? `v${fw.version} · built-in` : fw.source === "ai" ? "Your questionnaire · AI-generated" : "Your questionnaire"}</Badge>
+                      </div>
+                      <p className="mt-1 text-sm text-muted-foreground">{fw.description}</p>
+                      {on && (
+                        <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+                          {fw.competencies.map((c) => (
+                            <li key={c.key} className={cn("rounded-md p-1 text-sm", rec?.focus.includes(c.key) && "bg-primary/10 ring-1 ring-primary/40")}>
+                              <span className="font-medium">{c.name}</span>
+                              <span className="block text-xs text-muted-foreground">{c.description}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </label>
+                  );
+                })}
+                <div className="flex flex-wrap gap-2 text-sm">
+                  <Button asChild variant="outline" size="sm">
+                    <Link href="/questionnaires/new">
+                      <Plus /> Build your own questionnaire (free)
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline" size="sm">
+                    <Link href="/questionnaires/new?ai=1">
+                      <Sparkles /> Generate one with AI ($4.99)
+                    </Link>
+                  </Button>
                 </div>
-                <p className="mt-1 text-sm text-muted-foreground">{framework.description}</p>
-                <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-                  {framework.competencies.map((c) => (
-                    <li key={c.key} className={cn("rounded-md p-1 text-sm", rec?.focus.includes(c.key) && "bg-primary/10 ring-1 ring-primary/40")}>
-                      <span className="font-medium">{c.name}</span>
-                      <span className="block text-xs text-muted-foreground">{c.description}</span>
-                    </li>
-                  ))}
-                </ul>
               </div>
+              {framework.source === "builtin" && (
               <div className="mt-4 space-y-3">
                 <Button type="button" variant="outline" onClick={recommend} disabled={aiBusy} data-testid="recommend">
                   <Sparkles /> {aiBusy ? "Thinking…" : "Recommend a focus for me"}
@@ -210,12 +252,13 @@ export function Wizard({
                         Use only these ({rec.focus.length * 4} questions)
                       </Button>
                       <Button type="button" size="sm" variant="ghost" onClick={() => setStep(2)}>
-                        Keep all seven
+                        Keep all {framework.competencies.length}
                       </Button>
                     </div>
                   </div>
                 )}
               </div>
+              )}
             </CardContent>
           </>
         )}

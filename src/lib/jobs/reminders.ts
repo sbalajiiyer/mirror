@@ -14,7 +14,8 @@
  */
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
-import { raterReminderEmail } from "@/lib/email/templates";
+import { pulseDueEmail, raterReminderEmail } from "@/lib/email/templates";
+import { firstName } from "@/lib/utils";
 import { derivedToken } from "@/lib/tokens";
 import { appUrl } from "@/lib/url";
 
@@ -92,4 +93,33 @@ export async function runReminders(now = new Date()) {
     sent++;
   }
   return { checked: invites.length, sent };
+}
+
+/** Email subjects whose next pulse is due (once per due date). Runs with the daily cron. */
+export async function runPulseReminders(now = new Date()) {
+  const roots = await db.assessment.findMany({
+    where: { rootAssessmentId: null, cadenceMonths: { not: null }, nextPulseDueAt: { lte: now }, pulseReminderSentAt: null },
+    include: { subject: { include: { profile: true } } },
+  });
+  let sent = 0;
+  for (const root of roots) {
+    if (!root.subject.email) continue;
+    // Start the next pulse from the most recent closed assessment in the series.
+    const latest = await db.assessment.findFirst({
+      where: { OR: [{ id: root.id }, { rootAssessmentId: root.id }], status: "CLOSED" },
+      orderBy: { closedAt: "desc" },
+    });
+    if (!latest) continue;
+    await sendEmail(
+      pulseDueEmail({
+        to: root.subject.email,
+        name: firstName(root.subject.profile?.displayName ?? root.subject.name),
+        title: root.title,
+        link: appUrl(`/assessments/${latest.id}/pulse/new`),
+      }),
+    );
+    await db.assessment.update({ where: { id: root.id }, data: { pulseReminderSentAt: now } });
+    sent++;
+  }
+  return { sent };
 }

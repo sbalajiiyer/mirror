@@ -19,7 +19,7 @@ import { SummaryCard } from "./summary-card";
 import { AISummaryCard } from "@/components/ai/ai-summary-card";
 import type { StoredAISummary } from "@/lib/services/ai";
 import Link from "next/link";
-import { ListChecks } from "lucide-react";
+import { Activity, ListChecks, TrendingUp } from "lucide-react";
 
 export function ReportView({
   report,
@@ -91,6 +91,16 @@ export function ReportView({
             <Button asChild variant="secondary">
               <Link href={`/assessments/${report.assessment.id}/plan`}>
                 <ListChecks /> Development plan
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href={`/assessments/${report.assessment.id}/pulse/new`}>
+                <Activity /> Start a pulse check
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/progress">
+                <TrendingUp /> Progress
               </Link>
             </Button>
             {pdfUrl && (
