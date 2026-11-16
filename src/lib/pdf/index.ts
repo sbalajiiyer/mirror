@@ -5,15 +5,25 @@ export interface PdfRenderer {
   render(url: string): Promise<Buffer>;
 }
 
+async function launchBrowser() {
+  // Serverless (Vercel / AWS Lambda): no system Chromium, so use the compressed build
+  // shipped in @sparticuz/chromium and drive it with playwright-core.
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    const [{ default: chromium }, { chromium: pw }] = await Promise.all([import("@sparticuz/chromium"), import("playwright-core")]);
+    return pw.launch({ executablePath: await chromium.executablePath(), args: chromium.args, headless: true });
+  }
+  // Local / containers: Playwright's own Chromium (`npx playwright install chromium`).
+  const { chromium } = await import("playwright");
+  return chromium.launch();
+}
+
 /**
- * Default: headless Chromium via Playwright (free, best fidelity — the PDF is the real report
- * page with print CSS). Needs a Chromium binary on the server: fine locally, in Docker or on
- * Azure Container Apps; on Vercel use @sparticuz/chromium (open decision).
+ * Headless Chromium renders the real report page with print CSS, so the PDF matches the
+ * web report exactly. Free on every host we use.
  */
 export const playwrightRenderer: PdfRenderer = {
   async render(url) {
-    const { chromium } = await import("playwright");
-    const browser = await chromium.launch();
+    const browser = await launchBrowser();
     try {
       const page = await browser.newPage({ viewport: { width: 1100, height: 1400 } });
       await page.emulateMedia({ media: "print" });
