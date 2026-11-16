@@ -16,7 +16,9 @@ import {
   type GroupableSession,
   type SessionFilters,
 } from "@/lib/session-groups";
+import { memberTasks } from "@/lib/services/org";
 import { StatusBadge } from "@/components/assessment/status-badge";
+import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,6 +47,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     orderBy: [{ sessionNumber: "desc" }, { createdAt: "desc" }],
     include: { invites: { select: { status: true } }, reports: { orderBy: { version: "desc" }, take: 1, select: { data: true } } },
   });
+  const orgTasks = await memberTasks(user.id);
   const byId = new Map(assessments.map((a) => [a.id, a]));
   const rootTitle = (a: (typeof assessments)[number]) => byId.get(a.rootAssessmentId ?? a.id)?.title ?? a.title;
   const all = assessments.map((a) => toGroupableSession(a, rootTitle(a)));
@@ -123,6 +126,17 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           </Button>
         </div>
       </div>
+
+      {orgTasks.map((t) => (
+        <Alert key={t.campaignId} tone="info" className="flex flex-wrap items-center justify-between gap-2" data-testid="org-task-banner">
+          <span>
+            {t.orgName} started “{t.name}”. Set up your 360{t.dueAt ? ` by ${t.dueAt.toLocaleDateString()}` : ""}.
+          </span>
+          <Button asChild size="sm">
+            <Link href={`/assessments/new?campaign=${t.campaignId}`}>Set up my 360</Link>
+          </Button>
+        </Alert>
+      ))}
 
       {all.length > 0 && (
         <form method="get" className="flex flex-wrap items-end gap-2 rounded-lg border p-3" aria-label="Group and filter sessions" data-testid="session-filters">

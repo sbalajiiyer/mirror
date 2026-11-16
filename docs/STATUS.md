@@ -1,6 +1,6 @@
 # Mirror — build status
 
-_Last updated: 2026-11-16 (Phase 5, branch `phase-5`)_
+_Last updated: 2026-11-16 (Phase 6, branch `phase-6`)_
 
 ## Phases
 
@@ -14,10 +14,11 @@ _Last updated: 2026-11-16 (Phase 5, branch `phase-5`)_
 | — | Launch hardening — rate limits, WCAG 2.2 AA audit and fixes, pulse titles by session | ✅ Done (PR #6, merged) |
 | — | Session grouping — company and tags on sessions; group and filter by company, year, quarter, theme, score range | ✅ Done (PR #7, merged) |
 | — | Questionnaire import — Excel (.xlsx) / CSV, including Google Forms and Microsoft Forms exports | ✅ Done (PR #8, merged) |
-| 5 | Coach workspace — client portfolio, consent-based sharing, session prep (+AI), shared reports, notes, coaching sessions, cross-client analytics, white-label, coach questionnaires | ✅ Done (PR from `phase-5`) |
-| 6–10 | Teams/orgs, personalization v2, analytics v2, payments, enterprise | Not started |
+| 5 | Coach workspace — client portfolio, consent-based sharing, session prep (+AI), shared reports, notes, coaching sessions, cross-client analytics, white-label, coach questionnaires | ✅ Done (PR #10, merged) |
+| 6 | Teams and orgs — organizations, people, teams & cohorts, 360 rounds (incl. team 360), participation, team radar/heatmap, cohort comparison, opt-in talent grid (HRIS skipped by owner) | ✅ Done (PR from `phase-6`) |
+| 7–10 | Personalization v2, analytics v2, payments, enterprise | Not started |
 
-Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md), [`docs/phases/phase-4b-survey-sessions.md`](phases/phase-4b-survey-sessions.md), [`docs/phases/phase-5-coach.md`](phases/phase-5-coach.md).
+Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md), [`docs/phases/phase-4b-survey-sessions.md`](phases/phase-4b-survey-sessions.md), [`docs/phases/phase-5-coach.md`](phases/phase-5-coach.md), [`docs/phases/phase-6-teams-orgs.md`](phases/phase-6-teams-orgs.md).
 
 ## Run locally
 
@@ -48,7 +49,7 @@ npm run build && npm run db:seed && npm run test:e2e   # Playwright (needs `npx 
 npm run lint && npm run typecheck
 ```
 
-Current results: **143 Vitest tests** and **34 Playwright tests** (including automated WCAG 2.2 AA checks with axe), all passing. CI runs everything
+Current results: **159 Vitest tests** and **39 Playwright tests** (including automated WCAG 2.2 AA checks with axe), all passing. CI runs everything
 on every PR (`.github/workflows/ci.yml`, GitHub Actions free tier, Postgres service container).
 
 ## Decisions made (2026-11-15)
@@ -267,11 +268,26 @@ pulses were renamed by migration `rate_limit_pulse_titles`.
   "From your coach …".
 - **Demo:** `coach@mirror.local` (Jordan Lee) with six clients. Second demo button on the sign-in page.
 
+## Phase 6 defaults (change freely)
+
+- **Privacy model** (owner decision, 2026-11-16): aggregates plus opt-in.
+  - Admins see participation and group figures with at least 5 people.
+  - Individual reports only with the person's consent, and never raters' comments word for word.
+  - Only 360s started from an org round count; personal 360s never do.
+- **Talent grid** (owner decision): opt-in, with a performance rating the admin enters (low, medium, high) against the
+  360 behaviours band. It is labelled a development tool.
+- **HRIS:** skipped (owner decision). Admins paste a list exported from any HR system.
+- **Orgs are free**, and anyone can create one (owner decision). Per-participant pricing comes in Phase 9.
+- **Team 360:** in a round for a team, teammates are pre-filled as raters (the "Teammates" group). People can add or
+  remove raters.
+- **Heatmap names** people only when the people not named are either none or at least 5.
+- **Demo:** `admin@mirror.local` (Morgan Blake) for Brightline Studio. Alex is a member with sharing on.
+
 ## Known limitations / next up
 
 - Custom questions get a first-person wording by replacing `{name}` with "I" — grammar may need a manual edit.
 - Rater form is English-only by the owner's choice (2026-11-16); multi-language can come later.
-- Next: Phase 6 (teams and orgs).
+- Next: Phase 7 (personalization v2: AI coach chat, adaptive questions, sharing and badges).
 - Coaches who accept by email go through the subject onboarding first; a coach-specific onboarding would be nicer.
 - The header nav is hidden on small screens (no mobile menu yet).
 - Dependency audit (2026-11-16): `next-auth` upgraded to 5.0.0-beta.32 (fixes the email normalisation /

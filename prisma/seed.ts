@@ -11,7 +11,7 @@ import { db } from "../src/lib/db";
 import { CORE_360 } from "../src/lib/frameworks/core-360";
 import { syncFramework } from "../src/lib/frameworks/sync";
 import { DEFAULT_INVITE_MESSAGE } from "../src/lib/constants";
-import { DEMO_COACH_EMAIL, DEMO_EMAIL } from "../src/lib/demo";
+import { DEMO_COACH_EMAIL, DEMO_EMAIL, DEMO_ORG_ADMIN_EMAIL } from "../src/lib/demo";
 import { derivedToken, hashToken, newToken } from "../src/lib/tokens";
 import { buildAndStoreReport } from "../src/lib/services/reports";
 
@@ -541,13 +541,14 @@ async function main() {
   await db.coachNote.create({ data: { coachId: coach.id, clientId: user.id, body: "Wants to be ready for the promotion panel in March. Practise framing trade-offs for execs." } });
 
   /** A closed full 360 for a sample client: 4 peers + 3 direct reports, scores around `base` (+ `lift`). */
-  async function sampleClosed360(subjectId: string, title: string, rootId: string | null, sessionNumber: number, daysAgo: number, base: Record<string, number>, lift: number) {
+  async function sampleClosed360(subjectId: string, title: string, rootId: string | null, sessionNumber: number, daysAgo: number, base: Record<string, number>, lift: number, orgCampaignId: string | null = null) {
     const launchedAt = new Date(Date.now() - (daysAgo + 10) * DAY);
     const s = await db.assessment.create({
       data: {
         subjectId,
         frameworkId: full.id,
         rootAssessmentId: rootId,
+        orgCampaignId,
         sessionNumber,
         sessionLabel: sessionNumber === 1 ? "Baseline" : "Re-run",
         title,
@@ -595,6 +596,56 @@ async function main() {
   // A pending invitation the coach sent.
   await db.coachClientLink.create({ data: { coachId: coach.id, initiatedBy: "COACH", inviteEmail: "new.client@example.com", inviteTokenHash: hashToken(newToken()) } });
 
+  // ---------------- Phase 6: demo organization ----------------
+  const EMPLOYEES = [
+    ["Ana Silva", "product", 3.4],
+    ["Ben Okafor", "product", 3.7],
+    ["Chloe Martin", "product", 3.2],
+    ["Dev Patel", "product", 3.9],
+    ["Erin Walsh", "product", 3.5],
+    ["Felix Wong", "engineering", 3.6],
+    ["Grace Kim", "engineering", 4.1],
+    ["Hugo Laurent", "engineering", 3.3],
+    ["Isla Brown", "engineering", 3.8],
+    ["Jonas Berg", "engineering", 3.1],
+    ["Kira Novak", "engineering", 3.7],
+    ["Leo Rossi", "engineering", 3.5],
+  ] as const;
+  const empEmail = (n: string) => `${n.toLowerCase().replace(" ", ".")}@brightline.mirror.local`;
+  await db.organization.deleteMany({ where: { name: "Brightline Studio", members: { some: { email: DEMO_ORG_ADMIN_EMAIL } } } });
+  await db.user.deleteMany({ where: { email: { in: [DEMO_ORG_ADMIN_EMAIL, ...EMPLOYEES.map(([n]) => empEmail(n))] } } });
+  const orgAdmin = await db.user.create({
+    data: { email: DEMO_ORG_ADMIN_EMAIL, name: "Morgan Blake", emailVerified: new Date(), profile: { create: { displayName: "Morgan Blake", jobTitle: "Head of People", goals: ["leadership_growth"], onboardedAt: new Date() } } },
+  });
+  const org = await db.organization.create({ data: { name: "Brightline Studio", createdById: orgAdmin.id } });
+  const adminMember = await db.orgMember.create({ data: { orgId: org.id, userId: orgAdmin.id, email: DEMO_ORG_ADMIN_EMAIL, name: "Morgan Blake", role: "ADMIN", status: "ACTIVE", joinedAt: new Date(Date.now() - 300 * DAY) } });
+  // Alex is a member who shares reports and is on the talent grid.
+  const alexMember = await db.orgMember.create({ data: { orgId: org.id, userId: user.id, email: DEMO_EMAIL, name: "Alex Morgan", status: "ACTIVE", joinedAt: new Date(Date.now() - 250 * DAY), shareReports: true, shareTalentGrid: true } });
+  const product = await db.orgGroup.create({ data: { orgId: org.id, kind: "TEAM", name: "Product" } });
+  const engineering = await db.orgGroup.create({ data: { orgId: org.id, kind: "TEAM", name: "Engineering" } });
+  const cohort = await db.orgGroup.create({ data: { orgId: org.id, kind: "COHORT", name: "Leadership programme 2026" } });
+  await db.orgGroupMember.create({ data: { groupId: product.id, memberId: alexMember.id } });
+  const spring = await db.orgCampaign.create({ data: { orgId: org.id, name: "Spring 2026 360", frameworkId: full.id, createdAt: new Date(Date.now() - 215 * DAY), dueAt: new Date(Date.now() - 190 * DAY) } });
+  const autumn = await db.orgCampaign.create({ data: { orgId: org.id, name: "Autumn 2026 360", frameworkId: full.id, createdAt: new Date(Date.now() - 40 * DAY), dueAt: new Date(Date.now() - 15 * DAY) } });
+  // Open team 360 for Product: Alex hasn't started theirs yet (shows as a task).
+  await db.orgCampaign.create({ data: { orgId: org.id, name: "Winter 2026 team 360", groupId: product.id, frameworkId: full.id, teamMode: true, dueAt: new Date(Date.now() + 21 * DAY) } });
+  const SHARERS = new Set(["Ben Okafor", "Dev Patel", "Grace Kim", "Isla Brown"]);
+  const GRID: Record<string, number | null> = { "Ben Okafor": 2, "Dev Patel": 3, "Grace Kim": 3, "Isla Brown": 1, "Jonas Berg": null };
+  const COHORT = new Set(["Ana Silva", "Ben Okafor", "Dev Patel", "Felix Wong", "Grace Kim", "Isla Brown"]);
+  for (const [i, [name, team, level]] of EMPLOYEES.entries()) {
+    const u = await db.user.create({ data: { email: empEmail(name), name, emailVerified: new Date(), profile: { create: { displayName: name, goals: ["leadership_growth"], onboardedAt: new Date() } } } });
+    const m = await db.orgMember.create({
+      data: { orgId: org.id, userId: u.id, email: empEmail(name), name, status: "ACTIVE", joinedAt: new Date(Date.now() - 260 * DAY), shareReports: SHARERS.has(name), shareTalentGrid: name in GRID, performance: GRID[name] ?? null },
+    });
+    await db.orgGroupMember.create({ data: { groupId: (team === "product" ? product : engineering).id, memberId: m.id } });
+    if (COHORT.has(name)) await db.orgGroupMember.create({ data: { groupId: cohort.id, memberId: m.id } });
+    const base = Object.fromEntries(Object.keys(OTHERS_BASE).map((k, j) => [k, level + ((i + j) % 4) * 0.15 - 0.2]));
+    const s1 = await sampleClosed360(u.id, "Brightline 360", null, 1, 195 + i, base, 0, spring.id);
+    // The leadership cohort improves more between rounds.
+    await sampleClosed360(u.id, "Brightline 360", s1.id, 2, 18 + (i % 5), base, COHORT.has(name) ? 0.35 : 0.1, autumn.id);
+  }
+  void adminMember;
+
   // Print a working rater link for manual testing of the rater form.
   const open = await db.raterInvite.findFirst({ where: { assessmentId: b.id, status: "INVITED" } });
   console.log(`Seeded demo subject ${DEMO_EMAIL}`);
@@ -602,6 +653,7 @@ async function main() {
   console.log(`  pulse check:    /assessments/${pulse.id}/report  (progress: /progress)`);
   console.log(`  full re-run:    /assessments/${rerun.id}/report`);
   console.log(`  collecting 360: /assessments/${b.id}`);
+  console.log(`Seeded demo org admin ${DEMO_ORG_ADMIN_EMAIL} (Brightline Studio, ${EMPLOYEES.length + 2} people) (/orgs)`);
   console.log(`Seeded demo coach ${DEMO_COACH_EMAIL} with ${SAMPLE_CLIENTS.length + 1} clients (/coach)`);
   if (open) console.log(`  rater link (${open.name}): /r/${derivedToken("invite", open.id)}`);
 }

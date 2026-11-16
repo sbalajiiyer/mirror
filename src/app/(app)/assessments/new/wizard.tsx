@@ -44,18 +44,21 @@ export function Wizard({
   defaultGoal,
   defaultMessage,
   subjectFirstName,
+  campaign = null,
 }: {
   frameworks: WizardFramework[];
   initialFrameworkId?: string;
   defaultGoal: string;
   defaultMessage: string;
   subjectFirstName: string;
+  /** An organization's 360 round: the questionnaire is fixed and teammates may be suggested as peers. */
+  campaign?: { id: string; name: string; orgName: string; teamMode: boolean; groupName: string | null; teammates: { name: string; email: string }[] } | null;
 }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [goal, setGoal] = useState(defaultGoal);
-  const [company, setCompany] = useState("");
-  const [title, setTitle] = useState(`${goalLabel(defaultGoal)} 360 — ${new Date().toLocaleDateString("en", { month: "long", year: "numeric" })}`);
+  const [company, setCompany] = useState(campaign?.orgName ?? "");
+  const [title, setTitle] = useState(campaign ? campaign.name : `${goalLabel(defaultGoal)} 360 — ${new Date().toLocaleDateString("en", { month: "long", year: "numeric" })}`);
   const [frameworkId, setFrameworkId] = useState(initialFrameworkId && frameworks.some((f) => f.id === initialFrameworkId) ? initialFrameworkId : frameworks[0].id);
   const framework = frameworks.find((f) => f.id === frameworkId) ?? frameworks[0];
   const [questions, setQuestions] = useState<Q[]>(() => questionsFor(framework));
@@ -68,7 +71,7 @@ export function Wizard({
   };
   const [groups, setGroups] = useState<Group[]>([
     { kind: "MANAGER", name: "Manager", raters: [], shareLink: false },
-    { kind: "PEER", name: "Peers", raters: [], shareLink: false },
+    { kind: "PEER", name: campaign?.teamMode ? "Teammates" : "Peers", raters: campaign?.teamMode ? campaign.teammates.slice(0, 50) : [], shareLink: false },
   ]);
   const [message, setMessage] = useState(defaultMessage);
   const [dueAt, setDueAt] = useState(() => new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10));
@@ -135,6 +138,7 @@ export function Wizard({
         dueAt: dueAt ? new Date(`${dueAt}T17:00:00Z`).toISOString() : null,
         minRatersPerGroup: minRaters,
         showManagerSeparately: managerSeparate,
+        orgCampaignId: campaign?.id ?? null,
       });
       if (!res.ok) setError(res.error);
       else router.push(`/assessments/${res.data!.id}/self`);
@@ -146,6 +150,12 @@ export function Wizard({
     <div className="mx-auto max-w-3xl">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">Set up your 360</h1>
+        {campaign && (
+          <p className="mt-1 text-sm text-muted-foreground" data-testid="campaign-banner">
+            Part of {campaign.orgName}&apos;s “{campaign.name}”{campaign.groupName ? ` for ${campaign.groupName}` : ""}. The questionnaire is set by your organization
+            {campaign.teamMode ? ", and your teammates are suggested as raters" : ""}. Your report is yours: {campaign.orgName} only sees group averages unless you choose to share.
+          </p>
+        )}
         <ol className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm" aria-label="Steps">
           {STEPS.map((s, i) => (
             <li key={s} className={cn("flex items-center gap-1.5", i === step ? "font-medium text-foreground" : "text-muted-foreground")} aria-current={i === step ? "step" : undefined}>

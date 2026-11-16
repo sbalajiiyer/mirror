@@ -64,6 +64,13 @@ export async function assertCanUseFramework(userId: string, frameworkId: string)
   throw new DomainError("Unknown framework");
 }
 
+/** Any framework by id (callers check access, e.g. an org campaign's fixed questionnaire). */
+export async function frameworkView(id: string): Promise<FrameworkView> {
+  const f = await loadFramework(id);
+  if (!f) throw new DomainError("Not found", "not_found");
+  return view(f);
+}
+
 export async function getOwnFramework(userId: string, id: string): Promise<FrameworkView> {
   const f = await loadFramework(id);
   if (!f || f.ownerId !== userId) throw new DomainError("Not found", "not_found");

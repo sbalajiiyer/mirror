@@ -65,3 +65,21 @@ export function coachInviteEmail(p: { to: string; fromName: string; asRole: "coa
     text,
   };
 }
+
+export function orgInviteEmail(p: { to: string; orgName: string; fromName: string; link: string }): EmailMessage {
+  return {
+    to: p.to,
+    template: "org-invite",
+    subject: `${p.fromName} invited you to ${p.orgName} on Mirror`,
+    text: `${p.fromName} invited you to join ${p.orgName} on Mirror, where you can run 360° feedback for your own development.\n\nWhat ${p.orgName}'s admins can see: whether you've taken part, and team or cohort averages built from at least 5 people. They can't see your individual results unless you choose to share them, and raters' individual answers are never shown to anyone.\n\nJoin or decline:\n${p.link}\n\n— Mirror`,
+  };
+}
+
+export function orgCampaignEmail(p: { to: string; orgName: string; campaignName: string; link: string; dueAt?: Date | null }): EmailMessage {
+  return {
+    to: p.to,
+    template: "org-campaign",
+    subject: `${p.orgName}: your 360 for ${p.campaignName} is ready to set up`,
+    text: `${p.orgName} has started "${p.campaignName}", a 360° feedback round for your development.\n\nSet yours up (about 5 minutes), rate yourself, then invite the people you work with:\n${p.link}${p.dueAt ? `\n\nPlease aim to finish by ${p.dueAt.toDateString()}.` : ""}\n\nYour report is yours. ${p.orgName} sees only group averages (at least 5 people) unless you choose to share your results.\n\n— Mirror`,
+  };
+}
