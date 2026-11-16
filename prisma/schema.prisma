@@ -48,6 +48,9 @@ model User {
   shareLinks     ShareLink[]
   dashboards     Dashboard[]
   apiTokens      ApiToken[]
+  subscriptions  Subscription[]
+  payments       Payment[]
+  entitlements   Entitlement[]
 }
 
 model Account {
@@ -227,6 +230,8 @@ model Assessment {
   tags                  String[]         @default([])
   /// Set when an organization's 360 campaign started this assessment (Phase 6).
   orgCampaignId         String?
+  /// Full 360 unlocked (Phase 9): more than 5 raters and PDF export on the free plan.
+  unlockedAt            DateTime?
   /// On a full 360: how often to run pulses (1-3 months), and when the next one is due.
   cadenceMonths         Int?
   nextPulseDueAt        DateTime?
@@ -545,15 +550,24 @@ model RateLimit {
 
 /// A user who coaches others. Free for now (coach plans come with payments in Phase 9).
 model CoachProfile {
-  userId      String   @id
-  displayName String
+  userId            String   @id
+  displayName       String
   /// White-label: shown on shared reports and PDFs of clients who opted in.
-  brandName   String?
+  brandName         String?
   /// Hex colour, e.g. "#2563eb".
-  brandColor  String?
-  website     String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  brandColor        String?
+  website           String?
+  /// Marketplace (Phase 9): listed coaches appear in /coaches once a platform admin has verified them.
+  listed            Boolean  @default(false)
+  verified          Boolean  @default(false)
+  headline          String?
+  bio               String?
+  specialties       String[] @default([])
+  languages         String[] @default([])
+  /// Price of one coaching session, in cents (shown in the marketplace; paid to the coach directly).
+  sessionPriceCents Int?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -632,6 +646,8 @@ model Organization {
   name         String
   /// Smallest number of people behind any group-level figure an admin sees (never below 5).
   minGroupSize Int      @default(5)
+  /// Participant seats for 360 rounds (Phase 9). New orgs get 10 free; one seat per person per round.
+  seats        Int      @default(10)
   createdById  String
   createdAt    DateTime @default(now())
 
@@ -862,4 +878,73 @@ model ApiToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ---------------------------------------------------------------- Phase 9: payments and marketplace
+
+/// A plan for a period: PRO (individuals, yearly), COACH_STARTER / COACH_PRO (monthly). FREE has no row.
+model Subscription {
+  id               String    @id @default(cuid())
+  userId           String
+  plan             String
+  status           String    @default("ACTIVE") // ACTIVE | CANCELED (runs to period end) | EXPIRED
+  currentPeriodEnd DateTime
+  provider         String // stub | stripe
+  providerRef      String?
+  createdAt        DateTime  @default(now())
+  canceledAt       DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+}
+
+/// One checkout. Fulfilment is idempotent (keyed on this id) whichever provider confirms it.
+model Payment {
+  id          String    @id @default(cuid())
+  userId      String
+  product     String
+  amountCents Int
+  currency    String    @default("usd")
+  status      String    @default("PENDING") // PENDING | PAID | CANCELED | REFUNDED
+  provider    String
+  providerRef String?
+  /// e.g. { assessmentId } or { orgId, seats }
+  context     Json      @default("{}")
+  createdAt   DateTime  @default(now())
+  paidAt      DateTime?
+  fulfilledAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+/// Prepaid units: full_360 unlocks (bought or gifted by a coach) and coach report credits.
+model Entitlement {
+  id        String   @id @default(cuid())
+  userId    String
+  kind      String // full_360 | coach_report_credit
+  remaining Int
+  source    String // purchase | coach_gift | grant
+  ref       String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind])
+}
+
+/// A client who found their coach in the marketplace. The referral fee is billed to the coach.
+model MarketplaceReferral {
+  id         String    @id @default(cuid())
+  coachId    String
+  clientId   String
+  linkId     String    @unique
+  feeCents   Int
+  status     String    @default("PENDING") // PENDING (request sent) | ACCEPTED (fee due) | DECLINED
+  createdAt  DateTime  @default(now())
+  acceptedAt DateTime?
+
+  @@index([coachId, status])
 }

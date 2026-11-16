@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { DomainError } from "@/lib/errors";
+import { chatFeature } from "@/lib/services/billing";
 import { resolveModel } from "@/lib/ai/models";
 import { generateChatReply, ROLEPLAY_PRESETS, type ChatContext } from "@/lib/ai/features/chat";
 import type { ReportData } from "@/lib/report/compute";
@@ -105,7 +106,7 @@ export async function sendMessage(userId: string, chatId: string, rawText: strin
   if (chat.messages.length >= 80) throw new DomainError("This conversation is long; start a new one to keep answers sharp.");
   const { ctx, tone, aiModel } = await context(userId, chat.assessmentId);
   const history = [...chat.messages.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })), { role: "user" as const, content: text }];
-  const res = await generateChatReply({ userId, mode: chat.mode, scenario: chat.scenario, ctx, history, tone, modelChoice: aiModel, premium: chat.tier === "premium" });
+  const res = await generateChatReply({ userId, mode: chat.mode, scenario: chat.scenario, ctx, history, tone, modelChoice: aiModel, premium: chat.tier === "premium", pro: (await chatFeature(userId)) === "chat_pro" });
   if (!res.ok && /limit/i.test(res.error)) throw new DomainError(`${res.error} Your message wasn't sent.`, "rate_limited");
   const reply = res.ok ? res.data : res.fallback;
   await db.$transaction([

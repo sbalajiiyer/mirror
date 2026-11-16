@@ -65,7 +65,7 @@ export function ReportView({
   const [selected, setSelected] = useState<string>(
     report.competencies[0]?.key ?? "",
   );
-  const [pdfState, setPdfState] = useState<"idle" | "busy" | "error">("idle");
+  const [pdfState, setPdfState] = useState<"idle" | "busy" | "error" | "locked">("idle");
   const qById = useMemo(
     () => new Map(report.questions.map((q) => [q.id, q])),
     [report.questions],
@@ -95,6 +95,7 @@ export function ReportView({
     setPdfState("busy");
     try {
       const res = await fetch(pdfUrl);
+      if (res.status === 402) return setPdfState("locked");
       if (!res.ok) throw new Error(String(res.status));
       const blob = await res.blob();
       const a = document.createElement("a");
@@ -211,6 +212,15 @@ export function ReportView({
           </div>
         )}
       </header>
+      {pdfState === "locked" && (
+        <Alert tone="info" className="no-print" data-testid="pdf-locked">
+          PDF export comes with a full 360 or Pro.{" "}
+          <Link href={`/billing?unlock=${report.assessment.id}`} className="font-medium underline">
+            Unlock this 360
+          </Link>{" "}
+          or use the print button and “Save as PDF”.
+        </Alert>
+      )}
       {pdfState === "error" && (
         <Alert tone="error" className="no-print">
           PDF export isn&apos;t available on this server (needs a headless

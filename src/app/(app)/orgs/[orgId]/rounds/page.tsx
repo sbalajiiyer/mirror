@@ -4,6 +4,7 @@ import { frameworksForUser } from "@/lib/services/frameworks";
 import { OrgNav } from "@/components/org/org-nav";
 import { ParticipationBar } from "@/components/org/stats";
 import { CreateCampaignForm } from "@/components/org/org-controls";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -25,6 +26,12 @@ export default async function RoundsPage({ params }: { params: Promise<{ orgId: 
             Everyone taking part gets an email to set up their own 360 on the same questionnaire. Each person rates themselves and invites their raters; the report
             belongs to them.
           </CardDescription>
+          <p className="text-sm" data-testid="round-seats">
+            <strong>{o.org.seats}</strong> participant seats left (one per person per round).{" "}
+            <Link href="/billing" className="underline">
+              Add seats
+            </Link>
+          </p>
         </CardHeader>
         <CardContent>
           <CreateCampaignForm orgId={orgId} groups={o.groups.map((g) => ({ id: g.id, name: g.name, kind: g.kind }))} frameworks={frameworks.map((f) => ({ id: f.id, name: f.name }))} />

@@ -659,6 +659,30 @@ async function main() {
     await sampleClosed360(u.id, "Benchmark sample 360", null, 1, 30 + i * 4, base, 0);
   }
   const norms = await rebuildNorms();
+
+  // ---------------- Plans and marketplace (Phase 9; payments are simulated) ----------------
+  const YEAR = 365 * DAY;
+  await db.subscription.create({ data: { userId: user.id, plan: "PRO", currentPeriodEnd: new Date(Date.now() + YEAR), provider: "seed" } });
+  await db.subscription.create({ data: { userId: coach.id, plan: "COACH_STARTER", currentPeriodEnd: new Date(Date.now() + 30 * DAY), provider: "seed" } });
+  await db.entitlement.create({ data: { userId: coach.id, kind: "coach_report_credit", remaining: 3, source: "seed" } });
+  await db.coachProfile.update({
+    where: { userId: coach.id },
+    data: { listed: true, verified: true, headline: "Executive coach for new and growing leaders", bio: "I help managers turn 360 feedback into a focused development plan, with monthly sessions and pulse checks in between.", specialties: ["Leadership", "Communication", "Executive presence"], languages: ["English"], sessionPriceCents: 20000 },
+  });
+  await db.user.deleteMany({ where: { email: "priya@coaches.mirror.local" } });
+  const priya = await db.user.create({
+    data: {
+      email: "priya@coaches.mirror.local",
+      name: "Priya Shah",
+      emailVerified: new Date(),
+      profile: { create: { displayName: "Priya Shah", jobTitle: "Leadership coach", goals: ["leadership_growth"], onboardedAt: new Date() } },
+      coachProfile: { create: { displayName: "Priya Shah", brandName: "Shah Coaching", listed: true, verified: true, headline: "Coaching first-time managers through their first year", bio: "Former engineering manager. I focus on delegation, feedback conversations and building trust with a new team.", specialties: ["First-time managers", "Delegation", "Communication"], languages: ["English", "Hindi"], sessionPriceCents: 15000 } },
+    },
+  });
+  await db.subscription.create({ data: { userId: priya.id, plan: "COACH_PRO", currentPeriodEnd: new Date(Date.now() + 30 * DAY), provider: "seed" } });
+  await db.organization.update({ where: { id: org.id }, data: { seats: 100 } });
+  // Demo 360s predate plan limits, like real ones created before Phase 9.
+  await db.assessment.updateMany({ where: { unlockedAt: null, subject: { email: { endsWith: "mirror.local" } } }, data: { unlockedAt: new Date() } });
   const w = (type: string, config: Record<string, string> = {}) => ({ id: randomUUID(), type, config });
   await db.dashboard.create({ data: { ownerId: user.id, name: "My growth", widgets: [w("latest_scores"), w("trend", { surveyId: a.id }), w("goals"), w("benchmarks")] } });
   await db.dashboard.create({
@@ -674,7 +698,7 @@ async function main() {
   console.log(`  collecting 360: /assessments/${b.id}`);
   console.log(`Benchmarks: ${norms.norms} norms from ${norms.people} people`);
   console.log(`Seeded demo org admin ${DEMO_ORG_ADMIN_EMAIL} (Brightline Studio, ${EMPLOYEES.length + 2} people) (/orgs)`);
-  console.log(`Seeded demo coach ${DEMO_COACH_EMAIL} with ${SAMPLE_CLIENTS.length + 1} clients (/coach)`);
+  console.log(`Seeded demo coach ${DEMO_COACH_EMAIL} with ${SAMPLE_CLIENTS.length + 1} clients (/coach); marketplace: /coaches`);
   if (open) console.log(`  rater link (${open.name}): /r/${derivedToken("invite", open.id)}`);
 }
 

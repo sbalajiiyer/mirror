@@ -16,6 +16,7 @@ import { scheduleNextPulse } from "@/lib/services/pulses";
 import { DomainError } from "@/lib/errors";
 import { assertCanUseFramework } from "@/lib/services/frameworks";
 import { campaignContext } from "@/lib/services/org";
+import { checkRaterCap } from "@/lib/services/billing";
 export { DomainError };
 
 export async function createAssessment(userId: string, input: WizardInput) {
@@ -38,9 +39,13 @@ export async function createAssessment(userId: string, input: WizardInput) {
   const own = subject?.email?.toLowerCase();
   if (own && input.groups.some((g) => g.raters.some((r) => r.email === own))) throw new DomainError("You can't invite yourself as a rater.");
 
+  const raterCount = input.groups.reduce((n, g) => n + g.raters.length, 0);
   const assessment = await db.$transaction(async (tx) => {
+    // Free plan: up to 5 named raters unless Pro, an org round, or a prepaid unlock (Phase 9).
+    const unlocked = await checkRaterCap(tx, userId, raterCount, { orgCampaign: !!orgCampaignId });
     const a = await tx.assessment.create({
       data: {
+        unlockedAt: unlocked ? new Date() : null,
         subjectId: userId,
         frameworkId: framework.id,
         title: input.title,
@@ -211,7 +216,13 @@ export async function addRaters(userId: string, assessmentId: string, raterGroup
   if (raters.some((r) => r.email === a.subject.email?.toLowerCase())) throw new DomainError("You can't invite yourself as a rater.");
   const group = await db.raterGroup.findFirst({ where: { id: raterGroupId, assessmentId, kind: { not: "SELF" } } });
   if (!group) throw new DomainError("Unknown rater group");
-  const created = await db.$transaction((tx) => createInvites(tx, a.id, group.id, raters));
+  const created = await db.$transaction(async (tx) => {
+    const existing = await tx.raterInvite.count({ where: { assessmentId: a.id } });
+    if (await checkRaterCap(tx, userId, existing + raters.length, { unlocked: !!a.unlockedAt, orgCampaign: !!a.orgCampaignId })) {
+      if (!a.unlockedAt) await tx.assessment.update({ where: { id: a.id }, data: { unlockedAt: new Date() } });
+    }
+    return createInvites(tx, a.id, group.id, raters);
+  });
   if (a.status === "COLLECTING") await sendPendingInvites(a.id);
   await audit(userId, "assessment.add_raters", "Assessment", a.id, { count: created.length });
   return created.length;

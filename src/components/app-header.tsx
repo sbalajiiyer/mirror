@@ -41,6 +41,9 @@ export async function AppHeader() {
                   Organizations
                 </Link>
               )}
+              <Link href="/billing" className="hidden rounded-md px-3 py-2 hover:bg-accent lg:block">
+                Billing
+              </Link>
               <Link href="/settings" className="hidden rounded-md px-3 py-2 hover:bg-accent sm:block">
                 Settings
               </Link>

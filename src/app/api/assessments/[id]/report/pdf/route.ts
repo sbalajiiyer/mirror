@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getPdfRenderer } from "@/lib/pdf";
 import { signPayload } from "@/lib/tokens";
 import { appUrl } from "@/lib/url";
+import { isUnlocked } from "@/lib/services/billing";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -12,9 +13,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   const userId = (await auth())?.user?.id;
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const a = await db.assessment.findFirst({ where: { id, subjectId: userId }, select: { status: true, title: true } });
+  const a = await db.assessment.findFirst({ where: { id, subjectId: userId }, select: { status: true, title: true, unlockedAt: true, orgCampaignId: true } });
   if (!a) return NextResponse.json({ error: "not_found" }, { status: 404 });
   if (a.status !== "CLOSED") return NextResponse.json({ error: "not_closed" }, { status: 409 });
+  // PDF export is part of a full 360 / Pro (Phase 9).
+  if (!(await isUnlocked(userId, a))) return NextResponse.json({ error: "upgrade_required", product: "full_360" }, { status: 402 });
   const token = signPayload(`print:${id}:${userId}`, 120);
   try {
     const pdf = await getPdfRenderer().render(appUrl(`/print/report/${id}?t=${encodeURIComponent(token)}`));

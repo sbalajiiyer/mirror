@@ -4,6 +4,7 @@ import type { OrgMember } from "@prisma/client";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { DomainError } from "@/lib/errors";
+import { consumeOrgSeats } from "@/lib/services/billing";
 import { normalizeEmail } from "@/lib/email-address";
 import { sendEmail } from "@/lib/email";
 import { orgCampaignEmail, orgInviteEmail } from "@/lib/email/templates";
@@ -228,8 +229,12 @@ export async function createCampaign(adminId: string, orgId: string, raw: unknow
   if (input.groupId && !(await db.orgGroup.findFirst({ where: { id: input.groupId, orgId } }))) throw new DomainError("Unknown team or cohort");
   if (input.teamMode && !input.groupId) throw new DomainError("A team 360 needs a team.");
   const dueAt = new Date(Date.now() + input.dueInDays * 86400000);
-  const c = await db.orgCampaign.create({ data: { orgId, name: input.name, groupId: input.groupId ?? null, frameworkId: input.frameworkId, teamMode: input.teamMode, dueAt } });
-  const members = await campaignMembers(c.orgId, c.groupId);
+  const members = await campaignMembers(orgId, input.groupId ?? null);
+  // One participant seat per person per round (Phase 9).
+  const c = await db.$transaction(async (tx) => {
+    await consumeOrgSeats(tx, orgId, members.length);
+    return tx.orgCampaign.create({ data: { orgId, name: input.name, groupId: input.groupId ?? null, frameworkId: input.frameworkId, teamMode: input.teamMode, dueAt } });
+  });
   for (const m of members) await sendEmail(orgCampaignEmail({ to: m.email, orgName: admin.org.name, campaignName: c.name, link: appUrl(`/assessments/new?campaign=${c.id}`), dueAt }));
   await audit(adminId, "org.campaign", "OrgCampaign", c.id, { members: members.length });
   return c;

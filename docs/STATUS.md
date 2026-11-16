@@ -1,6 +1,6 @@
 # Mirror — build status
 
-_Last updated: 2026-11-16 (Phase 8, branch `phase-8`)_
+_Last updated: 2026-11-16 (Phase 9, branch `phase-9`)_
 
 ## Phases
 
@@ -17,10 +17,11 @@ _Last updated: 2026-11-16 (Phase 8, branch `phase-8`)_
 | 5 | Coach workspace — client portfolio, consent-based sharing, session prep (+AI), shared reports, notes, coaching sessions, cross-client analytics, white-label, coach questionnaires | ✅ Done (PR #10, merged) |
 | 6 | Teams and orgs — organizations, people, teams & cohorts, 360 rounds (incl. team 360), participation, team radar/heatmap, cohort comparison, opt-in talent grid (HRIS skipped by owner) | ✅ Done (PR #11, merged) |
 | 7 | Personalization v2 — AI coach chat (report Q&A + role-play), adaptive questions, personalized pulses, opt-in weekly nudges, sharing (badge, summary, full report) | ✅ Done (PR #12, merged) |
-| 8 | Analytics v2 — benchmarks, dashboard builder (personal/coach/org), plain-English questions, scheduled dashboard emails, CSV export, read-only API | ✅ Done (PR from `phase-8`) |
-| 9–10 | Payments and marketplace, enterprise | Not started |
+| 8 | Analytics v2 — benchmarks, dashboard builder (personal/coach/org), plain-English questions, scheduled dashboard emails, CSV export, read-only API | ✅ Done (PR #13, merged) |
+| 9 | Payments and marketplace — plans and limits, credit packs, coach plans and report credits, org seats, test checkout (Stripe ready behind a switch), coach marketplace with referral fees | ✅ Done (PR from `phase-9`) |
+| 10 | Enterprise | Not started |
 
-Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md), [`docs/phases/phase-4b-survey-sessions.md`](phases/phase-4b-survey-sessions.md), [`docs/phases/phase-5-coach.md`](phases/phase-5-coach.md), [`docs/phases/phase-6-teams-orgs.md`](phases/phase-6-teams-orgs.md), [`docs/phases/phase-7-personalization.md`](phases/phase-7-personalization.md), [`docs/phases/phase-8-analytics.md`](phases/phase-8-analytics.md).
+Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md), [`docs/phases/phase-4b-survey-sessions.md`](phases/phase-4b-survey-sessions.md), [`docs/phases/phase-5-coach.md`](phases/phase-5-coach.md), [`docs/phases/phase-6-teams-orgs.md`](phases/phase-6-teams-orgs.md), [`docs/phases/phase-7-personalization.md`](phases/phase-7-personalization.md), [`docs/phases/phase-8-analytics.md`](phases/phase-8-analytics.md), [`docs/phases/phase-9-payments-marketplace.md`](phases/phase-9-payments-marketplace.md).
 
 ## Run locally
 
@@ -94,6 +95,8 @@ Nothing paid has been added. Each item below is stubbed behind an interface so i
 | **PDF rendering on the host** | Playwright + local Chromium | Works as-is on containers (Azure/Docker). On Vercel: switch to `playwright-core` + `@sparticuz/chromium`, or fall back to browser print (already wired) | `src/lib/pdf/index.ts` (`PdfRenderer`) |
 | **Reminder scheduling** | `GET /api/cron/reminders` + `npm run jobs:reminders` | Vercel Cron (daily on Hobby), GitHub Actions schedule (free), Inngest / Trigger.dev free tiers | `src/lib/jobs/reminders.ts` (`runReminders`) |
 | **Google sign-in** | Hidden unless env vars are set | Free: create an OAuth client in Google Cloud Console | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` |
+| **Payment provider** — _owner chose to stub for now_ | `stub` provider: in-app Test checkout, nothing charged. **Anyone signed in can "buy" any plan for free while this is on.** | Stripe (no monthly fee; per-payment fees). Set `PAYMENTS_PROVIDER=stripe`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and add the webhook; see the Phase 9 demo script | `src/lib/billing/provider.ts` |
+| **Prices** | Defaults in the Phase 9 table | Change freely before real payments | `src/lib/billing/catalog.ts` |
 | SMS invites | Not built | Twilio etc. (paid) — suggest deferring | — |
 
 ## Defaults I chose (change any of these freely)
@@ -314,12 +317,35 @@ pulses were renamed by migration `rate_limit_pulse_titles`.
 - **CSV and read API** (owner decision). The API is read-only and uses personal tokens (hash stored, shown once,
   120 requests per minute). Endpoints: `/api/v1/me`, `/sessions`, `/dashboards`, `/dashboards/{id}`.
 
+## Phase 9 defaults (change freely)
+
+- **Payments simulated** (owner decision, option 2). The Billing page and the checkout say "Test mode". Stripe
+  Checkout + a signed webhook are implemented but only used when `PAYMENTS_PROVIDER=stripe`.
+- **Prices**:
+  - Full 360 $49
+  - Pro $99/year (+3 AI credits, 100 chat messages/day)
+  - 5 AI credits $19.99
+  - Coach Starter $29/month (10 clients) and Coach Pro $79/month (40 clients); Coach Free has 3 clients
+  - 5 client report credits $175
+  - Org seats: 25 for $299, 100 for $1,000; new orgs get 10 free
+- **Free plan**: up to 5 raters per 360, PDF needs an unlock or Pro, 1 pulse per survey. 360s created before Phase 9
+  are grandfathered as unlocked, and org-round 360s are always unlocked.
+- **Plans are fixed periods**, not auto-renewing: buying again extends; Cancel renewal keeps access to the end.
+- **Marketplace**: listing needs a paid coach plan and platform verification (`npm run coach:verify -- <email>`).
+  Referral fee is 10% of one session (min $15), recorded on accept and invoiced manually.
+- **Demo seed**:
+  - Alex is Pro.
+  - Jordan is Coach Starter, listed and verified, with 3 report credits.
+  - Priya Shah is a second listed coach (Coach Pro).
+  - Brightline has 100 seats.
+- `BILLING_ENFORCED=false` turns every limit off (unit/integration tests run with it off, except the billing tests).
+
 ## Known limitations / next up
 
 - Custom questions get a first-person wording by replacing `{name}` with "I" — grammar may need a manual edit.
 - Rater form is English-only by the owner's choice (2026-11-16); multi-language can come later.
 - Chat replies are not streamed (each reply arrives whole); streaming can come with a premium model.
-- Next: Phase 9 (payments and marketplace: Stripe plans, credits, coach marketplace). This needs a Stripe account — owner decision.
+- Next: Phase 10 (enterprise). Before charging real money: choose the payment provider (Stripe) and confirm prices.
 - Coaches who accept by email go through the subject onboarding first; a coach-specific onboarding would be nicer.
 - The header nav is hidden on small screens (no mobile menu yet).
 - Dependency audit (2026-11-16): `next-auth` upgraded to 5.0.0-beta.32 (fixes the email normalisation /
@@ -332,5 +358,5 @@ pulses were renamed by migration `rate_limit_pulse_titles`.
 - The Groq API couldn't be reached from the build sandbox, so real Groq calls were tested only with a stubbed HTTP layer; `GROQ_API_KEY` is set on Vercel Production (2026-11-16); not yet on Preview.
 - Comment themes are still keyword-based; the AI summary reads them but doesn't re-cluster comments yet.
 - Benchmarks need anonymised norms across many users (Phase 8).
-- Buying credits needs Stripe (Phase 9); until then credits are granted with `npm run credits:grant`.
+- Credits can be bought on Billing (simulated); `npm run credits:grant` still works for manual grants.
 - Dark-mode tokens exist but there is no theme toggle yet.
