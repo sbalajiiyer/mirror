@@ -17,7 +17,8 @@
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
     "jobs:reminders": "tsx scripts/run-reminders.ts",
-    "test:integration": "TEST_DATABASE_URL=${TEST_DATABASE_URL:-postgresql://mirror:mirror@localhost:5432/mirror_test?schema=public} vitest run tests/integration"
+    "test:integration": "TEST_DATABASE_URL=${TEST_DATABASE_URL:-postgresql://mirror:mirror@localhost:5432/mirror_test?schema=public} vitest run tests/integration",
+    "credits:grant": "tsx scripts/grant-credits.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",

@@ -17,10 +17,16 @@ export async function AppHeader() {
               <Link href="/dashboard" className="hidden rounded-md px-3 py-2 hover:bg-accent sm:block">
                 My 360s
               </Link>
+              <Link href="/progress" className="hidden rounded-md px-3 py-2 hover:bg-accent sm:block">
+                Progress
+              </Link>
+              <Link href="/questionnaires" className="hidden rounded-md px-3 py-2 hover:bg-accent md:block">
+                Questionnaires
+              </Link>
               <Link href="/settings" className="hidden rounded-md px-3 py-2 hover:bg-accent sm:block">
                 Settings
               </Link>
-              <span className="hidden max-w-48 truncate text-muted-foreground md:block">{session.user.email}</span>
+              <span className="hidden max-w-48 truncate text-muted-foreground lg:block">{session.user.email}</span>
               <form
                 action={async () => {
                   "use server";

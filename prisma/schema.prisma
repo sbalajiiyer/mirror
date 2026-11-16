@@ -94,6 +94,8 @@ model SubjectProfile {
   learningStyle String?
   /// AI model choice, see src/lib/ai/models.ts ("free" = Groq gpt-oss; premium ids are billed per use)
   aiModel       String    @default("free")
+  /// Prepaid credits for paid features (1 credit = one AI-generated questionnaire). See CreditLedger.
+  aiCredits     Int       @default(0)
   onboardedAt   DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
