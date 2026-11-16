@@ -15,13 +15,23 @@ import { scheduleNextPulse } from "@/lib/services/pulses";
 
 import { DomainError } from "@/lib/errors";
 import { assertCanUseFramework } from "@/lib/services/frameworks";
+import { campaignContext } from "@/lib/services/org";
 export { DomainError };
 
 export async function createAssessment(userId: string, input: WizardInput) {
   const framework = await db.framework.findUnique({ where: { id: input.frameworkId }, include: { competencies: true } });
   if (!framework) throw new DomainError("Unknown framework");
-  // Built-in frameworks are shared; custom questionnaires by their owner and, for a coach's, their active clients.
-  await assertCanUseFramework(userId, framework.id);
+  let orgCampaignId: string | null = null;
+  if (input.orgCampaignId) {
+    // An org 360 round: the member must belong to it, use its questionnaire, and start it only once.
+    const c = await campaignContext(userId, input.orgCampaignId);
+    if (c.existingAssessmentId) throw new DomainError("You've already started your 360 for this round.");
+    if (c.frameworkId !== framework.id) throw new DomainError("This 360 round uses a fixed questionnaire.");
+    orgCampaignId = c.id;
+  } else {
+    // Built-in frameworks are shared; custom questionnaires by their owner and, for a coach's, their active clients.
+    await assertCanUseFramework(userId, framework.id);
+  }
   const compName = new Map(framework.competencies.map((c) => [c.key, c.name]));
   for (const q of input.questions) if (!compName.has(q.competencyKey)) throw new DomainError("Question has an unknown competency");
   const subject = await db.user.findUnique({ where: { id: userId }, select: { email: true } });
@@ -35,6 +45,7 @@ export async function createAssessment(userId: string, input: WizardInput) {
         frameworkId: framework.id,
         title: input.title,
         company: input.company || null,
+        orgCampaignId,
         goal: input.goal,
         inviteMessage: input.inviteMessage,
         minRatersPerGroup: effectiveMinRaters(input.minRatersPerGroup),

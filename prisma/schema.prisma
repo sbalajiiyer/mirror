@@ -43,6 +43,7 @@ model User {
   coachNotes     CoachNote[]       @relation("CoachNotesWritten")
   coachMeetings  CoachMeeting[]    @relation("CoachMeetings")
   clientMeetings CoachMeeting[]    @relation("ClientMeetings")
+  orgMemberships OrgMember[]
 }
 
 model Account {
@@ -215,6 +216,8 @@ model Assessment {
   company               String?
   /// Free-form labels the subject adds (e.g. "promotion", "new role"). Lower-case, max 8.
   tags                  String[]         @default([])
+  /// Set when an organization's 360 campaign started this assessment (Phase 6).
+  orgCampaignId         String?
   /// On a full 360: how often to run pulses (1-3 months), and when the next one is due.
   cadenceMonths         Int?
   nextPulseDueAt        DateTime?
@@ -227,6 +230,7 @@ model Assessment {
   root        Assessment?          @relation("Series", fields: [rootAssessmentId], references: [id], onDelete: Cascade)
   pulses      Assessment[]         @relation("Series")
   goals       Goal[]
+  orgCampaign OrgCampaign?         @relation(fields: [orgCampaignId], references: [id], onDelete: SetNull)
   questions   AssessmentQuestion[]
   raterGroups RaterGroup[]
   invites     RaterInvite[]
@@ -607,4 +611,107 @@ model CoachMeeting {
 
   @@index([coachId, scheduledAt])
   @@index([clientId, scheduledAt])
+}
+
+// ---------------------------------------------------------------- Phase 6: teams and organizations
+
+/// An organization that runs 360s for its people. Free until payments (Phase 9).
+model Organization {
+  id           String   @id @default(cuid())
+  name         String
+  /// Smallest number of people behind any group-level figure an admin sees (never below 5).
+  minGroupSize Int      @default(5)
+  createdById  String
+  createdAt    DateTime @default(now())
+
+  members   OrgMember[]
+  groups    OrgGroup[]
+  campaigns OrgCampaign[]
+}
+
+enum OrgRole {
+  ADMIN
+  MEMBER
+}
+
+enum OrgMemberStatus {
+  INVITED
+  ACTIVE
+  REMOVED
+}
+
+/// A person in an organization. Admins see aggregates; individual results only with this member's consent.
+model OrgMember {
+  id              String          @id @default(cuid())
+  orgId           String
+  userId          String?
+  email           String
+  name            String          @default("")
+  role            OrgRole         @default(MEMBER)
+  status          OrgMemberStatus @default(INVITED)
+  inviteTokenHash String?         @unique
+  /// Consent: admins may open this member's closed org 360 reports (scores and themes, no verbatim comments).
+  shareReports    Boolean         @default(false)
+  /// Consent: this member appears by name on the talent grid.
+  shareTalentGrid Boolean         @default(false)
+  /// Admin-entered performance rating for the talent grid (1 low · 2 medium · 3 high). Never shown to raters.
+  performance     Int?
+  invitedAt       DateTime        @default(now())
+  joinedAt        DateTime?
+
+  org    Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user   User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  groups OrgGroupMember[]
+
+  @@unique([orgId, email])
+  @@index([userId])
+}
+
+enum OrgGroupKind {
+  TEAM
+  COHORT
+}
+
+/// A team (people who work together) or a cohort (e.g. a leadership programme intake).
+model OrgGroup {
+  id        String       @id @default(cuid())
+  orgId     String
+  kind      OrgGroupKind
+  name      String
+  createdAt DateTime     @default(now())
+
+  org       Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  members   OrgGroupMember[]
+  campaigns OrgCampaign[]
+
+  @@unique([orgId, kind, name])
+}
+
+model OrgGroupMember {
+  groupId  String
+  memberId String
+
+  group  OrgGroup  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  member OrgMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, memberId])
+}
+
+/// An org-run 360: every member of the group gets their own 360 on the same questionnaire.
+model OrgCampaign {
+  id          String    @id @default(cuid())
+  orgId       String
+  groupId     String?
+  name        String
+  frameworkId String
+  /// Team 360: teammates are suggested as peer raters for each other.
+  teamMode    Boolean   @default(false)
+  dueAt       DateTime?
+  createdAt   DateTime  @default(now())
+
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  group       OrgGroup?    @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  assessments Assessment[]
+
+  @@index([orgId])
 }

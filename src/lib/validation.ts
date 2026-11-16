@@ -48,6 +48,7 @@ export const wizardSchema = z.object({
   dueAt: z.string().nullable().optional(),
   minRatersPerGroup: z.number().int().min(3).max(10).default(3),
   showManagerSeparately: z.boolean().default(false),
+  orgCampaignId: z.string().nullable().optional(),
 });
 export type WizardInput = z.infer<typeof wizardSchema>;
 
