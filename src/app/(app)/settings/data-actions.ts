@@ -6,6 +6,8 @@ import { db } from "@/lib/db";
 import { requireUserId } from "@/lib/session";
 import { toActionError, type ActionResult } from "@/lib/action-result";
 import { createApiToken, revokeApiToken } from "@/lib/services/api-tokens";
+import { deleteMyAccount } from "@/lib/services/my-data";
+import { signOut } from "@/auth";
 
 export async function setBenchmarkOptOutAction(optOut: boolean): Promise<ActionResult> {
   try {
@@ -35,4 +37,14 @@ export async function revokeApiTokenAction(id: string): Promise<ActionResult> {
   } catch (e) {
     return toActionError(e);
   }
+}
+
+export async function deleteMyAccountAction(confirmEmail: string): Promise<ActionResult> {
+  try {
+    await deleteMyAccount(await requireUserId(), confirmEmail);
+  } catch (e) {
+    return toActionError(e);
+  }
+  await signOut({ redirectTo: "/" });
+  return { ok: true };
 }

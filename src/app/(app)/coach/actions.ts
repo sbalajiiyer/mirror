@@ -1,5 +1,7 @@
 "use server";
 
+import { regionForAssessment } from "@/lib/services/residency";
+
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireUserId } from "@/lib/session";
@@ -74,7 +76,7 @@ export async function aiBriefAction(clientId: string): Promise<ActionResult<AIBr
     const coachId = await requireUserId();
     const brief = await sessionPrep(coachId, clientId);
     const profile = await db.subjectProfile.findUnique({ where: { userId: coachId } });
-    const r = await generateCoachBrief({ brief, coachId, modelChoice: profile?.aiModel });
+    const r = await generateCoachBrief({ brief, coachId, modelChoice: profile?.aiModel, region: await regionForAssessment(brief.basedOn?.assessmentId) });
     if (!r.ok) return { ok: true, data: { ...r.fallback, generatedBy: "template" } };
     return { ok: true, data: { ...r.data, generatedBy: r.generatedBy } };
   } catch (e) {

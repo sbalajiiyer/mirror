@@ -456,11 +456,27 @@ model AuditLog {
   entity    String
   entityId  String?
   meta      Json?
+  /// Organization the event belongs to (org audit log, Phase 10).
+  orgId     String?
+  /// Whose data was touched (personal activity log, Phase 10).
+  subjectId String?
   createdAt DateTime @default(now())
 
   actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([entity, entityId])
+  @@index([orgId, createdAt])
+  @@index([subjectId, createdAt])
+}
+
+/// One-time, short-lived ticket that turns a verified SSO login into an app session.
+model SsoTicket {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 }
 
 /// Metering for every AI call. Never stores prompts or outputs (they may contain feedback),
@@ -648,6 +664,21 @@ model Organization {
   minGroupSize Int      @default(5)
   /// Participant seats for 360 rounds (Phase 9). New orgs get 10 free; one seat per person per round.
   seats        Int      @default(10)
+  /// Data residency (Phase 10): "us" | "eu". EU orgs never send round data to non-EU AI providers.
+  region          String    @default("us")
+  /// Raw rater answers in this org's rounds are deleted this many months after a 360 closes (null = keep).
+  retentionMonths Int?
+  /// Enterprise SSO (OIDC). The email domain must be verified by DNS before SSO can be switched on.
+  ssoDomain           String?   @unique
+  ssoDomainToken      String?
+  ssoDomainVerifiedAt DateTime?
+  ssoIssuer           String?
+  ssoClientId         String?
+  /// AES-256-GCM, key derived from AUTH_SECRET.
+  ssoClientSecret     String?
+  ssoEnabled          Boolean   @default(false)
+  /// People with the domain must use SSO (magic links are refused).
+  ssoRequired         Boolean   @default(false)
   createdById  String
   createdAt    DateTime @default(now())
 

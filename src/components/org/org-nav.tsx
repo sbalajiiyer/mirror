@@ -8,6 +8,8 @@ const TABS = [
   { key: "rounds", label: "360 rounds", path: "/rounds" },
   { key: "analytics", label: "Analytics", path: "/analytics" },
   { key: "talent", label: "Talent grid", path: "/talent" },
+  { key: "audit", label: "Audit log", path: "/audit" },
+  { key: "settings", label: "Settings", path: "/settings" },
 ] as const;
 
 export type OrgTab = (typeof TABS)[number]["key"];

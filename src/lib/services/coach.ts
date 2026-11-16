@@ -157,7 +157,7 @@ async function respond(userId: string, link: CoachClientLink | null, accept: boo
   await db.coachClientLink.update({ where: { id: link.id }, data: { coachId, clientId, status: "ACTIVE", acceptedAt: new Date(), inviteTokenHash: null } });
   // Marketplace intro accepted: the referral fee becomes due (Phase 9).
   await db.marketplaceReferral.updateMany({ where: { linkId: link.id, status: "PENDING" }, data: { status: "ACCEPTED", acceptedAt: new Date() } });
-  await audit(userId, "coach.accept", "CoachClientLink", link.id);
+  await audit(userId, "coach.accept", "CoachClientLink", link.id, undefined, { subjectId: clientId });
   return link.id;
 }
 
@@ -176,7 +176,7 @@ export async function endLink(userId: string, linkId: string) {
   if (!link || (link.coachId !== userId && link.clientId !== userId)) throw new DomainError("Not found", "not_found");
   if (link.status !== "ACTIVE" && link.status !== "PENDING") return;
   await db.coachClientLink.update({ where: { id: link.id }, data: { status: "REVOKED", endedAt: new Date(), inviteTokenHash: null } });
-  await audit(userId, "coach.end", "CoachClientLink", link.id);
+  await audit(userId, "coach.end", "CoachClientLink", link.id, undefined, { subjectId: link.clientId });
 }
 
 /** Only the client changes what is shared. */
@@ -185,7 +185,7 @@ export async function updateSharing(clientId: string, linkId: string, raw: unkno
   const link = await db.coachClientLink.findFirst({ where: { id: linkId, clientId } });
   if (!link) throw new DomainError("Not found", "not_found");
   await db.coachClientLink.update({ where: { id: link.id }, data: { ...input, shareComments: input.shareReports && input.shareComments } });
-  await audit(clientId, "coach.sharing", "CoachClientLink", link.id, input);
+  await audit(clientId, "coach.sharing", "CoachClientLink", link.id, input, { subjectId: clientId });
 }
 
 // ------------------------------------------------------------------ client side
@@ -352,7 +352,7 @@ export async function coachReport(coachId: string, clientId: string, assessmentI
   const s = await db.assessment.findFirst({ where: { id: assessmentId, subjectId: clientId }, include: { reports: { orderBy: { generatedAt: "desc" }, take: 1 } } });
   const data = s ? visibleReport({ ...s, invites: [] } as unknown as SessionRow) : null;
   if (!s || !data) throw new DomainError("Not found", "not_found");
-  await audit(coachId, "coach.view_report", "Assessment", s.id);
+  await audit(coachId, "coach.view_report", "Assessment", s.id, undefined, { subjectId: clientId });
   return { report: link.shareComments ? data : withoutComments(data), generatedAt: s.reports[0]!.generatedAt, session: { code: surveyCode(s.rootAssessmentId ?? s.id), sessionNumber: s.sessionNumber, kind: sessionKind(s.type), label: s.sessionLabel } };
 }
 

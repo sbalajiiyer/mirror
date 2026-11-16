@@ -1,4 +1,5 @@
 import "server-only";
+import type { Region } from "@/lib/residency";
 import { z } from "zod";
 import { actorKeyFor, runAI } from "../client";
 import { scrubIdentifiers } from "../scrub";
@@ -10,12 +11,13 @@ const schema = z.object({ texts: z.array(z.string().max(2500)) });
  * dates, unique events, distinctive phrasing) while keeping the meaning. Always uses the
  * free model: raters never pay, and the subject's model choice doesn't apply to raters.
  */
-export async function deidentifyComments(texts: string[], ctx: { inviteId: string; subjectFirstName: string }) {
+export async function deidentifyComments(texts: string[], ctx: { inviteId: string; subjectFirstName: string; region?: Region }) {
   const cleaned = texts.map(scrubIdentifiers);
   const nonEmpty = cleaned.filter((t) => t.trim());
   if (!nonEmpty.length) return { texts: cleaned, usedAI: false };
   const res = await runAI({
     feature: "deidentify",
+    region: ctx.region,
     actorKey: actorKeyFor(ctx.inviteId),
     modelChoice: "free",
     fast: true,

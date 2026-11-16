@@ -102,7 +102,10 @@ export async function publicShare(id: string, countView = true) {
   if (!l || l.revokedAt || (l.expiresAt && l.expiresAt < new Date())) return null;
   const d = l.assessment.reports[0]?.data as unknown as ReportData | undefined;
   if (!d?.anonymity.available) return null;
-  if (countView) await db.shareLink.update({ where: { id }, data: { views: { increment: 1 } } });
+  if (countView) {
+    await db.shareLink.update({ where: { id }, data: { views: { increment: 1 } } });
+    await audit(null, "share.view", "ShareLink", l.id, { kind: l.kind }, { subjectId: l.userId });
+  }
   const issued = l.assessment.closedAt ?? l.createdAt;
   return {
     id: l.id,

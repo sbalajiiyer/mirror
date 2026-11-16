@@ -6,6 +6,8 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: { default: "Mirror — 360° feedback for anyone", template: "%s · Mirror" },
   description: "Run credible, anonymous 360° feedback on yourself and see how others experience you.",
+  appleWebApp: { capable: true, title: "Mirror", statusBarStyle: "default" },
+  icons: { apple: "/icons/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#4338ca" };

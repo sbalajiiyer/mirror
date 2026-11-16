@@ -1,6 +1,6 @@
 # Mirror — build status
 
-_Last updated: 2026-11-16 (Phase 9, branch `phase-9`)_
+_Last updated: 2026-11-16 (Phase 10, branch `phase-10`)_
 
 ## Phases
 
@@ -18,10 +18,10 @@ _Last updated: 2026-11-16 (Phase 9, branch `phase-9`)_
 | 6 | Teams and orgs — organizations, people, teams & cohorts, 360 rounds (incl. team 360), participation, team radar/heatmap, cohort comparison, opt-in talent grid (HRIS skipped by owner) | ✅ Done (PR #11, merged) |
 | 7 | Personalization v2 — AI coach chat (report Q&A + role-play), adaptive questions, personalized pulses, opt-in weekly nudges, sharing (badge, summary, full report) | ✅ Done (PR #12, merged) |
 | 8 | Analytics v2 — benchmarks, dashboard builder (personal/coach/org), plain-English questions, scheduled dashboard emails, CSV export, read-only API | ✅ Done (PR #13, merged) |
-| 9 | Payments and marketplace — plans and limits, credit packs, coach plans and report credits, org seats, test checkout (Stripe ready behind a switch), coach marketplace with referral fees | ✅ Done (PR from `phase-9`) |
-| 10 | Enterprise | Not started |
+| 9 | Payments and marketplace — plans and limits, credit packs, coach plans and report credits, org seats, test checkout (Stripe ready behind a switch), coach marketplace with referral fees | ✅ Done (PR #14, merged) |
+| 10 | Enterprise and polish — OIDC SSO per org (DNS-verified domain, optional enforcement), data residency (US/EU, enforced for AI), retention, org audit log + CSV, personal activity log, data export and account deletion, mobile menu and installable app | ✅ Done (PR from `phase-10`) |
 
-Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md), [`docs/phases/phase-4b-survey-sessions.md`](phases/phase-4b-survey-sessions.md), [`docs/phases/phase-5-coach.md`](phases/phase-5-coach.md), [`docs/phases/phase-6-teams-orgs.md`](phases/phase-6-teams-orgs.md), [`docs/phases/phase-7-personalization.md`](phases/phase-7-personalization.md), [`docs/phases/phase-8-analytics.md`](phases/phase-8-analytics.md), [`docs/phases/phase-9-payments-marketplace.md`](phases/phase-9-payments-marketplace.md).
+Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md), [`docs/phases/phase-4b-survey-sessions.md`](phases/phase-4b-survey-sessions.md), [`docs/phases/phase-5-coach.md`](phases/phase-5-coach.md), [`docs/phases/phase-6-teams-orgs.md`](phases/phase-6-teams-orgs.md), [`docs/phases/phase-7-personalization.md`](phases/phase-7-personalization.md), [`docs/phases/phase-8-analytics.md`](phases/phase-8-analytics.md), [`docs/phases/phase-9-payments-marketplace.md`](phases/phase-9-payments-marketplace.md), [`docs/phases/phase-10-enterprise.md`](phases/phase-10-enterprise.md).
 
 ## Run locally
 
@@ -97,6 +97,8 @@ Nothing paid has been added. Each item below is stubbed behind an interface so i
 | **Google sign-in** | Hidden unless env vars are set | Free: create an OAuth client in Google Cloud Console | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` |
 | **Payment provider** — _owner chose to stub for now_ | `stub` provider: in-app Test checkout, nothing charged. **Anyone signed in can "buy" any plan for free while this is on.** | Stripe (no monthly fee; per-payment fees). Set `PAYMENTS_PROVIDER=stripe`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and add the webhook; see the Phase 9 demo script | `src/lib/billing/provider.ts` |
 | **Prices** | Defaults in the Phase 9 table | Change freely before real payments | `src/lib/billing/catalog.ts` |
+| **EU database** (residency) | One database (Neon, AWS us-east-1); EU orgs are recorded, labelled, and kept away from non-EU AI | A second Neon project in an EU region (free tier) with per-org routing, when a customer needs data stored in the EU | `src/lib/residency.ts`, `src/lib/db.ts` |
+| **SAML SSO** | OIDC only | BoxyHQ/Jackson (open source) inside the app, or WorkOS (paid) | `src/lib/sso/` |
 | SMS invites | Not built | Twilio etc. (paid) — suggest deferring | — |
 
 ## Defaults I chose (change any of these freely)
@@ -340,14 +342,38 @@ pulses were renamed by migration `rate_limit_pulse_titles`.
   - Brightline has 100 seats.
 - `BILLING_ENFORCED=false` turns every limit off (unit/integration tests run with it off, except the billing tests).
 
+## Phase 10 defaults (change freely)
+
+- **SSO is OIDC** (owner decision).
+  - A domain must pass a DNS TXT check (`mirror-verification=…` on the domain or `_mirror.<domain>`). Consumer
+    domains are blocked, and one org per domain.
+  - People who sign in via SSO join the organization automatically as members.
+  - "Require SSO" refuses email links and Google for the domain, but existing sessions aren't signed out.
+  - The pretend IdP at `/api/dev/oidc` only runs with `DEV_TOOLS_ENABLED=true`.
+- **Residency** (owner decision: record + document).
+  - US/EU per org.
+  - EU round data never goes to AI unless the provider is in `AI_EU_PROVIDERS` (empty by default).
+  - Storage is still US; the settings page says so.
+- **Retention** is per org: keep, or 12/24/36 months after close. Only raw answers and comments in org-round 360s
+  are deleted; reports keep aggregates. It runs daily with the cron.
+- **Audit**:
+  - The org log shows events tagged with the org.
+  - The personal log shows events tagged with you as the subject.
+  - Rater actions are never attributed to a person.
+- **Account deletion** is immediate (no grace period) and needs the email typed to confirm.
+- **Mobile**:
+  - The header switches to a menu below 1280px.
+  - Installable (manifest + icons), no service worker or offline mode.
+- **Demo seed**: Brightline's domain `brightline.mirror.local` is verified, with SSO on via the pretend IdP when
+  dev tools are on, and 24-month retention.
+
 ## Known limitations / next up
 
 - Custom questions get a first-person wording by replacing `{name}` with "I" — grammar may need a manual edit.
 - Rater form is English-only by the owner's choice (2026-11-16); multi-language can come later.
 - Chat replies are not streamed (each reply arrives whole); streaming can come with a premium model.
-- Next: Phase 10 (enterprise). Before charging real money: choose the payment provider (Stripe) and confirm prices.
+- All ten phases are built. Before charging real money: choose the payment provider (Stripe) and confirm prices.
 - Coaches who accept by email go through the subject onboarding first; a coach-specific onboarding would be nicer.
-- The header nav is hidden on small screens (no mobile menu yet).
 - Dependency audit (2026-11-16): `next-auth` upgraded to 5.0.0-beta.32 (fixes the email normalisation /
   misdelivery advisories). Sign-in emails also go through our own stricter normaliser (`src/lib/email-address.ts`:
   Unicode NFKC, ASCII only, exactly one "@"). `postcss` is pinned to ≥ 8.5.33 via `overrides` (it was bundled by

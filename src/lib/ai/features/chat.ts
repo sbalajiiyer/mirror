@@ -1,4 +1,5 @@
 import "server-only";
+import type { Region } from "@/lib/residency";
 import { z } from "zod";
 import type { ReportData } from "@/lib/report/compute";
 import { goalLabel } from "@/lib/constants";
@@ -71,6 +72,7 @@ function templateReply(mode: "REPORT" | "ROLEPLAY", ctx: ChatContext, last: stri
 }
 
 export async function generateChatReply(params: {
+  region?: Region;
   userId: string;
   mode: "REPORT" | "ROLEPLAY";
   scenario?: string | null;
@@ -85,6 +87,7 @@ export async function generateChatReply(params: {
   const last = params.history[params.history.length - 1]?.content ?? "";
   return runAI({
     feature: params.premium ? "chat_premium" : params.pro ? "chat_pro" : "chat",
+    region: params.region,
     userId: params.userId,
     modelChoice: params.premium ? params.modelChoice : "free",
     schema: chatReplySchema,

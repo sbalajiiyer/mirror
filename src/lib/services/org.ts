@@ -147,7 +147,7 @@ export async function updateConsent(userId: string, orgId: string, raw: unknown)
   const input = consentSchema.parse(raw);
   const m = await requireMember(userId, orgId);
   await db.orgMember.update({ where: { id: m.id }, data: input });
-  await audit(userId, "org.consent", "OrgMember", m.id, input);
+  await audit(userId, "org.consent", "OrgMember", m.id, input, { orgId, subjectId: userId });
 }
 
 async function adminCount(orgId: string) {
@@ -160,7 +160,7 @@ export async function setRole(adminId: string, orgId: string, memberId: string, 
   if (!m) throw new DomainError("Not found", "not_found");
   if (m.role === "ADMIN" && role === "MEMBER" && (await adminCount(orgId)) <= 1) throw new DomainError("An organization needs at least one admin.");
   await db.orgMember.update({ where: { id: m.id }, data: { role } });
-  await audit(adminId, "org.role", "OrgMember", m.id, { role });
+  await audit(adminId, "org.role", "OrgMember", m.id, { role }, { orgId, subjectId: m.userId });
 }
 
 export async function removeMember(adminId: string, orgId: string, memberId: string) {
@@ -170,7 +170,7 @@ export async function removeMember(adminId: string, orgId: string, memberId: str
   if (m.role === "ADMIN" && m.status === "ACTIVE" && (await adminCount(orgId)) <= 1) throw new DomainError("An organization needs at least one admin.");
   await db.orgMember.update({ where: { id: m.id }, data: { status: "REMOVED", inviteTokenHash: null, shareReports: false, shareTalentGrid: false } });
   await db.orgGroupMember.deleteMany({ where: { memberId: m.id } });
-  await audit(adminId, "org.remove", "OrgMember", m.id);
+  await audit(adminId, "org.remove", "OrgMember", m.id, undefined, { orgId, subjectId: m.userId });
 }
 
 export async function leaveOrg(userId: string, orgId: string) {
@@ -187,7 +187,7 @@ export async function setPerformance(adminId: string, orgId: string, memberId: s
   const m = await db.orgMember.findFirst({ where: { id: memberId, orgId, status: "ACTIVE" } });
   if (!m) throw new DomainError("Not found", "not_found");
   await db.orgMember.update({ where: { id: m.id }, data: { performance: value } });
-  await audit(adminId, "org.performance", "OrgMember", m.id);
+  await audit(adminId, "org.performance", "OrgMember", m.id, undefined, { orgId, subjectId: m.userId });
 }
 
 // ------------------------------------------------------------------ teams and cohorts
@@ -236,7 +236,7 @@ export async function createCampaign(adminId: string, orgId: string, raw: unknow
     return tx.orgCampaign.create({ data: { orgId, name: input.name, groupId: input.groupId ?? null, frameworkId: input.frameworkId, teamMode: input.teamMode, dueAt } });
   });
   for (const m of members) await sendEmail(orgCampaignEmail({ to: m.email, orgName: admin.org.name, campaignName: c.name, link: appUrl(`/assessments/new?campaign=${c.id}`), dueAt }));
-  await audit(adminId, "org.campaign", "OrgCampaign", c.id, { members: members.length });
+  await audit(adminId, "org.campaign", "OrgCampaign", c.id, { members: members.length }, { orgId });
   return c;
 }
 
@@ -384,7 +384,7 @@ export async function adminMemberReport(adminId: string, orgId: string, memberId
   const a = (await orgAssessments(orgId)).find((x) => x.id === assessmentId && x.subjectId === m.userId);
   const d = a ? visible(a) : null;
   if (!a || !d) throw new DomainError("Not found", "not_found");
-  await audit(adminId, "org.view_report", "Assessment", a.id);
+  await audit(adminId, "org.view_report", "Assessment", a.id, undefined, { orgId, subjectId: a.subjectId });
   const full = await db.assessment.findUniqueOrThrow({ where: { id: a.id }, include: { reports: { orderBy: { generatedAt: "desc" }, take: 1 } } });
   return {
     memberName: display(m),

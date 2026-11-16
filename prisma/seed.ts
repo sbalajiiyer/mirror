@@ -5,6 +5,7 @@
  * Run: npm run db:seed   (idempotent: wipes and recreates the demo user)
  */
 import "dotenv/config";
+import { encryptSecret } from "../src/lib/crypto";
 import { randomUUID } from "node:crypto";
 import type { RaterGroupKind } from "@prisma/client";
 import { db } from "../src/lib/db";
@@ -681,6 +682,27 @@ async function main() {
   });
   await db.subscription.create({ data: { userId: priya.id, plan: "COACH_PRO", currentPeriodEnd: new Date(Date.now() + 30 * DAY), provider: "seed" } });
   await db.organization.update({ where: { id: org.id }, data: { seats: 100 } });
+
+  // ---------------- Enterprise (Phase 10) ----------------
+  // Brightline's email domain is verified; SSO goes through the pretend identity provider when dev tools are on.
+  const devIdp = process.env.DEV_TOOLS_ENABLED === "true";
+  await db.organization.update({
+    where: { id: org.id },
+    data: {
+      retentionMonths: 24,
+      ssoDomain: "brightline.mirror.local",
+      ssoDomainToken: "demo-token",
+      ssoDomainVerifiedAt: new Date(),
+      ...(devIdp ? { ssoIssuer: `${(process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "")}/api/dev/oidc`, ssoClientId: "mirror-demo", ssoClientSecret: encryptSecret("demo-secret"), ssoEnabled: true } : {}),
+    },
+  });
+  await db.auditLog.createMany({
+    data: [
+      { actorId: orgAdmin.id, action: "org.create", entity: "Organization", entityId: org.id, orgId: org.id, createdAt: new Date(Date.now() - 300 * DAY) },
+      { actorId: orgAdmin.id, action: "sso.domain_verified", entity: "Organization", entityId: org.id, orgId: org.id, createdAt: new Date(Date.now() - 20 * DAY) },
+      { actorId: coach.id, action: "coach.view_report", entity: "Assessment", entityId: a.id, subjectId: user.id, createdAt: new Date(Date.now() - 3 * DAY) },
+    ],
+  });
   // Demo 360s predate plan limits, like real ones created before Phase 9.
   await db.assessment.updateMany({ where: { unlockedAt: null, subject: { email: { endsWith: "mirror.local" } } }, data: { unlockedAt: new Date() } });
   const w = (type: string, config: Record<string, string> = {}) => ({ id: randomUUID(), type, config });
