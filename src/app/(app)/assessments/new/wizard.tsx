@@ -18,6 +18,7 @@ import { EMAIL_RE, parseRaterLines, type Rater } from "@/lib/rater-input";
 import { createAssessmentAction } from "../actions";
 import { draftInviteAction, recommendFrameworkAction } from "../ai-actions";
 import type { FrameworkRecommendation } from "@/lib/ai/features/framework";
+import { adaptiveQuestions } from "@/lib/personalize";
 
 export type WizardFramework = {
   id: string;
@@ -45,6 +46,7 @@ export function Wizard({
   defaultMessage,
   subjectFirstName,
   campaign = null,
+  profile = { seniority: null, jobTitle: null },
 }: {
   frameworks: WizardFramework[];
   initialFrameworkId?: string;
@@ -52,6 +54,8 @@ export function Wizard({
   defaultMessage: string;
   subjectFirstName: string;
   /** An organization's 360 round: the questionnaire is fixed and teammates may be suggested as peers. */
+  /** Used by "Suggest for my goal and role" (adaptive question selection). */
+  profile?: { seniority: string | null; jobTitle: string | null };
   campaign?: { id: string; name: string; orgName: string; teamMode: boolean; groupName: string | null; teammates: { name: string; email: string }[] } | null;
 }) {
   const router = useRouter();
@@ -81,6 +85,7 @@ export function Wizard({
   const [pending, start] = useTransition();
   const [rec, setRec] = useState<(FrameworkRecommendation & { usedAI: boolean; warning?: string }) | null>(null);
   const [aiBusy, startAI] = useTransition();
+  const [adaptive, setAdaptive] = useState<string[] | null>(null);
   const [inviteNote, setInviteNote] = useState<string | null>(null);
 
   const recommend = () =>
@@ -289,6 +294,32 @@ export function Wizard({
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {!campaign && (
+                <div className="rounded-lg border bg-muted/30 p-3 text-sm" data-testid="adaptive">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span>Not sure which to keep? Get a suggestion for your goal ({goalLabel(goal)}) and role.</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        const r = adaptiveQuestions({ competencies: framework.competencies, goal, seniority: profile.seniority, jobTitle: profile.jobTitle });
+                        setQuestions((qs) => qs.map((q) => (q.questionKey ? { ...q, on: r.keep.includes(q.id) } : q)));
+                        setAdaptive(r.reasons);
+                      }}
+                    >
+                      Suggest for my goal and role
+                    </Button>
+                  </div>
+                  {adaptive && (
+                    <ul className="mt-2 list-disc pl-5 text-xs text-muted-foreground" role="status">
+                      {adaptive.map((x) => (
+                        <li key={x}>{x}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
               {framework.competencies.map((c) => (
                 <fieldset key={c.key} className="space-y-2">
                   <legend className="text-sm font-semibold">{c.name}</legend>

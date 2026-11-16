@@ -29,6 +29,7 @@ export default async function NewAssessmentPage({ searchParams }: { searchParams
       frameworks={frameworks}
       initialFrameworkId={campaign?.frameworkId ?? framework}
       campaign={campaign}
+      profile={{ seniority: user.profile.seniority ?? null, jobTitle: user.profile.jobTitle ?? null }}
       defaultGoal={(user.profile.goals[0] as string) ?? "self_awareness"}
       defaultMessage={DEFAULT_INVITE_MESSAGE(first)}
       subjectFirstName={first}

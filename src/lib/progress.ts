@@ -3,6 +3,7 @@
  * nothing here can expose more than the individual reports already do.
  */
 import type { ReportData } from "@/lib/report/compute";
+import { pulseFocus } from "@/lib/personalize";
 
 export type SeriesPoint = {
   assessmentId: string;
@@ -177,8 +178,9 @@ export function goalProgress(goal: { competencyKey: string; baseline: number | n
  * Default questions for a pulse: for each focus competency (active goals first, then the blind
  * spot and growth areas), its lowest-rated statements, until `max` are chosen (at least `min`).
  */
-export function defaultPulseQuestions(report: ReportData, goalKeys: string[], max = 10, min = 5): string[] {
-  const focus = [...new Set([...goalKeys, ...(report.summary.blindSpot ? [report.summary.blindSpot] : []), ...report.summary.growthAreas])];
+export function defaultPulseQuestions(report: ReportData, goalKeys: string[], max = 10, min = 5, profileGoals: string[] = []): string[] {
+  // Personalized (Phase 7): the person's chosen goals pull their related growth areas forward.
+  const focus = pulseFocus({ goalCompetencies: goalKeys, profileGoals, growthAreas: report.summary.growthAreas, blindSpot: report.summary.blindSpot });
   const byComp = (k: string) =>
     report.questions.filter((q) => q.competencyKey === k).sort((a, b) => (a.others.mean ?? 99) - (b.others.mean ?? 99) || a.id.localeCompare(b.id));
   const perComp = Math.max(2, Math.floor(max / Math.max(1, focus.length)));
