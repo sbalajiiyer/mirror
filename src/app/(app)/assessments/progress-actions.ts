@@ -5,7 +5,7 @@ import { requireUserId } from "@/lib/session";
 import { toActionError, type ActionResult } from "@/lib/action-result";
 import { createPulse, setCadence } from "@/lib/services/pulses";
 import { archiveGoal, createGoal, updateGoalTarget } from "@/lib/services/goals";
-import { renameSession, rerunSurvey } from "@/lib/services/sessions";
+import { renameSession, updateSessionDetails, rerunSurvey } from "@/lib/services/sessions";
 
 export async function createPulseAction(sourceId: string, input: unknown): Promise<ActionResult<{ id: string }>> {
   try {
@@ -62,6 +62,18 @@ export async function rerunSurveyAction(sourceId: string, input: unknown): Promi
     const s = await rerunSurvey(await requireUserId(), sourceId, input);
     revalidatePath("/dashboard");
     return { ok: true, data: { id: s.id } };
+  } catch (e) {
+    return toActionError(e);
+  }
+}
+
+export async function updateSessionDetailsAction(assessmentId: string, details: { label?: string; company?: string; tags?: string }): Promise<ActionResult> {
+  try {
+    await updateSessionDetails(await requireUserId(), assessmentId, details);
+    revalidatePath("/dashboard");
+    revalidatePath(`/assessments/${assessmentId}`);
+    revalidatePath("/progress");
+    return { ok: true };
   } catch (e) {
     return toActionError(e);
   }

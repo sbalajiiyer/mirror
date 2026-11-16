@@ -63,6 +63,8 @@ export async function createPulse(userId: string, sourceId: string, raw: unknown
         rootAssessmentId: rootId,
         sessionNumber,
         title: pulseTitle(root.title, sessionNumber),
+        company: source.company,
+        tags: source.tags,
         goal: source.goal,
         inviteMessage: pulseInviteMessage(name),
         minRatersPerGroup: source.minRatersPerGroup,

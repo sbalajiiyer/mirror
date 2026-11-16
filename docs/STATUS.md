@@ -11,7 +11,8 @@ _Last updated: 2026-11-16 (launch hardening, branch `launch-hardening`)_
 | 3 | AI layer — summaries, development plan, de-identification, framework recommendation | ✅ Done (PR #3, merged) |
 | 4 | Pulses and progress — pulse surveys, trend lines, before/after, goal tracker, streaks; plus custom questionnaires (free) and AI-generated questionnaires (credits) | ✅ Done (PR #4, merged) |
 | 4b | Survey IDs, numbered sessions, Run again (same questionnaire, same raters), session-based trends | ✅ Done (PR #5, merged) |
-| — | Launch hardening — rate limits, WCAG 2.2 AA audit and fixes, pulse titles by session | ✅ Done (PR from `launch-hardening`) |
+| — | Launch hardening — rate limits, WCAG 2.2 AA audit and fixes, pulse titles by session | ✅ Done (PR #6) |
+| — | Session grouping — company and tags on sessions; group and filter by company, year, quarter, theme, score range | ✅ Done (PR from `session-grouping`) |
 | 5–10 | Coach workspace, teams/orgs, personalization v2, analytics v2, payments, enterprise | Not started |
 
 Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md), [`docs/phases/phase-4b-survey-sessions.md`](phases/phase-4b-survey-sessions.md).
@@ -45,7 +46,7 @@ npm run build && npm run db:seed && npm run test:e2e   # Playwright (needs `npx 
 npm run lint && npm run typecheck
 ```
 
-Current results: **111 Vitest tests** and **26 Playwright tests** (including automated WCAG 2.2 AA checks with axe), all passing. CI runs everything
+Current results: **118 Vitest tests** and **28 Playwright tests** (including automated WCAG 2.2 AA checks with axe), all passing. CI runs everything
 on every PR (`.github/workflows/ci.yml`, GitHub Actions free tier, Postgres service container).
 
 ## Decisions made (2026-11-15)
@@ -209,6 +210,20 @@ questionnaires, new-360 wizard, settings and the rater form (phone size), in lig
 
 **Pulse titles** now follow the survey and session: "Pre-promotion 360 — Autumn 2026 · S4 Pulse check". Existing
 pulses were renamed by migration `rate_limit_pulse_titles`.
+
+## Session grouping (2026-11-16)
+
+- Each session can have a **company** (asked in the new-360 wizard, editable in the session header) and up to 8
+  **tags** (lower-cased). New sessions (Run again, pulses) copy them from the session they were started from.
+- **My 360s → Group by:** Survey (default), Company, Year, Quarter, Theme, Score range. Filters: company (including
+  "No company set"), year, tag, and score from/to. The settings live in the URL (`/dashboard?group=company&tag=promotion`),
+  so a view can be bookmarked.
+- **Theme** groups combine your tags (#tag), the 3 most-mentioned comment themes and the report's strengths and growth
+  areas. A session can appear under several themes.
+- **Score range** uses others' overall average in bands of 0.5 (1–5 scale). Sessions without a visible report (still
+  open, or too few responses) sit in "No visible scores yet". A group's average mixes full 360s and pulses, so treat it
+  as a rough guide; Progress stays the like-for-like view.
+- Only the subject's own, already-anonymised report figures are used, so grouping can't reveal anything about raters.
 
 ## Known limitations / next up
 

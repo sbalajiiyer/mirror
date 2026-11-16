@@ -52,7 +52,7 @@ export default async function AssessmentPage({ params }: { params: Promise<{ id:
             ← My 360s
           </Link>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">{a.title}</h1>
-          <SessionHeader assessmentId={a.id} code={surveyCode(a.rootAssessmentId ?? a.id)} sessionNumber={a.sessionNumber} kind={sessionKind(a.type)} label={a.sessionLabel} />
+          <SessionHeader assessmentId={a.id} code={surveyCode(a.rootAssessmentId ?? a.id)} sessionNumber={a.sessionNumber} kind={sessionKind(a.type)} label={a.sessionLabel} company={a.company} tags={a.tags} />
           <p className="text-muted-foreground">Goal: {goalLabel(a.goal)}</p>
         </div>
         <StatusBadge status={a.status} />

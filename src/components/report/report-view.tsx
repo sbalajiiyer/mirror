@@ -35,7 +35,7 @@ export function ReportView({
   pdfUrl?: string;
   print?: boolean;
   aiSummary?: StoredAISummary | null;
-  session?: { code: string; sessionNumber: number; kind: string; label: string | null } | null;
+  session?: { code: string; sessionNumber: number; kind: string; label: string | null; company?: string | null; tags?: string[] } | null;
 }) {
   const groups = report.anonymity.groups;
   const [visibleGroups, setVisibleGroups] = useState<string[]>([]);

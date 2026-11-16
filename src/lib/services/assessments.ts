@@ -32,6 +32,7 @@ export async function createAssessment(userId: string, input: WizardInput) {
         subjectId: userId,
         frameworkId: framework.id,
         title: input.title,
+        company: input.company || null,
         goal: input.goal,
         inviteMessage: input.inviteMessage,
         minRatersPerGroup: effectiveMinRaters(input.minRatersPerGroup),

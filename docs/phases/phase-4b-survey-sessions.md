@@ -52,3 +52,13 @@ The demo survey "Pre-promotion 360 — Autumn 2026" now has three sessions:
 - A re-run always copies the **first session's** questionnaire, even if started from a later report, so the series
   stays comparable. Want different questions? Start a new 360 instead.
 - Raters who declined are not re-invited. Rater groups and anonymity rules carry over unchanged.
+
+## Addendum: grouping sessions (company, period, theme, score)
+
+1. On **My 360s**, set **Group by → Company** and click **Apply**. The demo's three "Pre-promotion" sessions sit under
+   *Brightline Studio*, with their average. The Leadership check-in sits under *No company set*.
+2. Open the Leadership check-in, click **Edit session details**, set Company to "Contoso Health" and Tags to
+   "leadership, new team", then **Save**. Back on My 360s it now has its own company group.
+3. Try **Group by → Theme** (tags plus report themes), **Year / Quarter**, and **Score range** (bands such as
+   "3.5–4.0 out of 5").
+4. Filter with **Tag → #baseline** to see only S1, or **Score from 3.5**. **Clear** resets the view.
