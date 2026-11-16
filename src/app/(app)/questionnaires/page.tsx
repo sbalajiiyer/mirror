@@ -20,15 +20,15 @@ export default async function QuestionnairesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Questionnaires</h1>
-        <p className="text-muted-foreground">Use the built-in Mirror Core 360, build your own for free, or have AI write one tailored to you.</p>
+        <p className="text-muted-foreground">Use the built-in Mirror Core 360, build or import your own (Excel, CSV, Google or Microsoft Forms) for free, or have AI write one tailored to you.</p>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Plus className="size-4" /> Build your own
+              <Plus className="size-4" /> Build or import your own
             </CardTitle>
-            <CardDescription>Write your own sections and statements. Free, as many as you like.</CardDescription>
+            <CardDescription>Write your own sections and statements, or import them from Excel, CSV, Google Forms or Microsoft Forms. Free, as many as you like.</CardDescription>
           </CardHeader>
           <CardContent>
             <Button asChild>

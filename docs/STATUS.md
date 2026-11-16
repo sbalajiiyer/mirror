@@ -1,6 +1,6 @@
 # Mirror — build status
 
-_Last updated: 2026-11-16 (launch hardening, branch `launch-hardening`)_
+_Last updated: 2026-11-16 (questionnaire import, branch `questionnaire-import`)_
 
 ## Phases
 
@@ -11,8 +11,9 @@ _Last updated: 2026-11-16 (launch hardening, branch `launch-hardening`)_
 | 3 | AI layer — summaries, development plan, de-identification, framework recommendation | ✅ Done (PR #3, merged) |
 | 4 | Pulses and progress — pulse surveys, trend lines, before/after, goal tracker, streaks; plus custom questionnaires (free) and AI-generated questionnaires (credits) | ✅ Done (PR #4, merged) |
 | 4b | Survey IDs, numbered sessions, Run again (same questionnaire, same raters), session-based trends | ✅ Done (PR #5, merged) |
-| — | Launch hardening — rate limits, WCAG 2.2 AA audit and fixes, pulse titles by session | ✅ Done (PR #6) |
-| — | Session grouping — company and tags on sessions; group and filter by company, year, quarter, theme, score range | ✅ Done (PR from `session-grouping`) |
+| — | Launch hardening — rate limits, WCAG 2.2 AA audit and fixes, pulse titles by session | ✅ Done (PR #6, merged) |
+| — | Session grouping — company and tags on sessions; group and filter by company, year, quarter, theme, score range | ✅ Done (PR #7, merged) |
+| — | Questionnaire import — Excel (.xlsx) / CSV, including Google Forms and Microsoft Forms exports | ✅ Done (PR from `questionnaire-import`) |
 | 5–10 | Coach workspace, teams/orgs, personalization v2, analytics v2, payments, enterprise | Not started |
 
 Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md), [`docs/phases/phase-4b-survey-sessions.md`](phases/phase-4b-survey-sessions.md).
@@ -46,7 +47,7 @@ npm run build && npm run db:seed && npm run test:e2e   # Playwright (needs `npx 
 npm run lint && npm run typecheck
 ```
 
-Current results: **118 Vitest tests** and **28 Playwright tests** (including automated WCAG 2.2 AA checks with axe), all passing. CI runs everything
+Current results: **128 Vitest tests** and **30 Playwright tests** (including automated WCAG 2.2 AA checks with axe), all passing. CI runs everything
 on every PR (`.github/workflows/ci.yml`, GitHub Actions free tier, Postgres service container).
 
 ## Decisions made (2026-11-15)
@@ -225,11 +226,34 @@ pulses were renamed by migration `rate_limit_pulse_titles`.
   as a rough guide; Progress stays the like-for-like view.
 - Only the subject's own, already-anonymised report figures are used, so grouping can't reveal anything about raters.
 
+## Questionnaire import (2026-11-16)
+
+- **Questionnaires → Build or import your own** now starts with an import box. Supported files: `.xlsx` and `.csv`
+  (up to 1 MB). Old `.xls` files get a "save as .xlsx or .csv" message. Import is free, and nothing is saved until the
+  user reviews the draft in the builder and clicks Save.
+- **Layouts are detected automatically:**
+  - the Mirror template (`/templates/mirror-questionnaire-template.csv`: Section, Statement, optional self wording
+    and section description)
+  - Google Forms or Microsoft Forms response exports: column headers become statements, the
+    timestamp/email/ID/name columns are skipped, grid questions "Q [item]" become section Q, and **answers are never
+    read**
+  - two unlabelled columns (section, statement)
+  - a plain list
+- **Wording:** "Communicates clearly" becomes "{name} communicates clearly"; "1." and "Q3:" numbering is stripped; the
+  self-assessment wording is generated. Items that are questions, or don't mention the person, are flagged for review.
+- **Limits:** sections over 8 statements are split, with a note. Only the first 10 sections and 60 statements are kept.
+- **Libraries:** `read-excel-file` (xlsx) and `papaparse` (csv), both free and MIT-licensed. SheetJS's official
+  package couldn't be installed from its CDN here.
+- **Not done:** importing straight from a Google Forms link. That needs Google OAuth and Google's app verification
+  (weeks), so it stays an open option. Past responses from other tools are deliberately not imported (Mirror can't
+  vouch for their anonymity).
+
 ## Known limitations / next up
 
 - Custom questions get a first-person wording by replacing `{name}` with "I" — grammar may need a manual edit.
 - Rater form is English-only by the owner's choice (2026-11-16); multi-language can come later.
-- Next: Excel/CSV questionnaire import (proposed), then Phase 5 coach workspace (client opt-in sharing).
+- Next: Phase 5 coach workspace (client opt-in sharing).
+- Dependency audit: `next-auth` 5 beta has published advisories (email normalisation / misdelivery); upgrade to the latest beta before real users sign in by email.
 - `RaterInvite.submittedAt` is stored at day granularity like `Submission.submittedOn`, but row insertion order in Postgres
   could still correlate the two for someone with raw DB access; acceptable for now, revisit with an append-only shuffle job.
 - The Groq API couldn't be reached from the build sandbox, so real Groq calls were tested only with a stubbed HTTP layer; `GROQ_API_KEY` is set on Vercel Production (2026-11-16); not yet on Preview.
