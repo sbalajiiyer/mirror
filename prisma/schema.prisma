@@ -33,6 +33,9 @@ model User {
   auditLogs   AuditLog[]
   plans       DevelopmentPlan[]
   aiLogs      AIInteractionLog[]
+  frameworks  Framework[]
+  goals       Goal[]
+  credits     CreditLedger[]
 }
 
 model Account {
@@ -109,12 +112,19 @@ model Framework {
   name        String
   description String
   isBuiltIn   Boolean  @default(true)
+  /// Owner of a custom questionnaire (null for built-in frameworks).
+  ownerId     String?
+  /// builtin | custom (made in the free builder) | ai (generated, paid with a credit)
+  source      String   @default("builtin")
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
 
+  owner        User?        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   competencies Competency[]
   assessments  Assessment[]
 
   @@unique([slug, version])
+  @@index([ownerId])
 }
 
 model Competency {
@@ -158,6 +168,7 @@ model Question {
 
 enum AssessmentType {
   FULL_360
+  PULSE
 }
 
 enum AssessmentStatus {
@@ -185,11 +196,20 @@ model Assessment {
   selfLockedAt          DateTime?
   launchedAt            DateTime?
   closedAt              DateTime?
+  /// Pulses point at the full 360 that starts their series (null for a full 360).
+  rootAssessmentId      String?
+  /// On a full 360: how often to run pulses (1-3 months), and when the next one is due.
+  cadenceMonths         Int?
+  nextPulseDueAt        DateTime?
+  pulseReminderSentAt   DateTime?
   createdAt             DateTime         @default(now())
   updatedAt             DateTime         @updatedAt
 
   subject     User                 @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   framework   Framework            @relation(fields: [frameworkId], references: [id])
+  root        Assessment?          @relation("Series", fields: [rootAssessmentId], references: [id], onDelete: Cascade)
+  pulses      Assessment[]         @relation("Series")
+  goals       Goal[]
   questions   AssessmentQuestion[]
   raterGroups RaterGroup[]
   invites     RaterInvite[]
@@ -198,6 +218,7 @@ model Assessment {
   plans       DevelopmentPlan[]
 
   @@index([subjectId])
+  @@index([rootAssessmentId])
 }
 
 /// Snapshot of the questions used in one assessment, so framework edits never change past data.
@@ -428,4 +449,51 @@ model AIInteractionLog {
 
   @@index([userId, createdAt])
   @@index([actorKey, createdAt])
+}
+
+enum GoalStatus {
+  ACTIVE
+  ACHIEVED
+  ARCHIVED
+}
+
+/// A development goal on one competency, tracked against later pulses in the same series.
+model Goal {
+  id             String     @id @default(cuid())
+  userId         String
+  /// The full 360 (series root) the goal belongs to.
+  assessmentId   String
+  competencyKey  String
+  competencyName String
+  title          String
+  /// Others' average on this competency when the goal was set.
+  baseline       Float?
+  target         Float
+  status         GoalStatus @default(ACTIVE)
+  achievedAt     DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([assessmentId])
+}
+
+/// Append-only record of credit changes (grants now; purchases once payments launch).
+model CreditLedger {
+  id        String   @id @default(cuid())
+  userId    String
+  /// Positive = added, negative = spent.
+  delta     Int
+  /// grant | purchase | ai_questionnaire | refund
+  reason    String
+  /// e.g. the framework id a credit was spent on, or a payment id.
+  ref       String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
