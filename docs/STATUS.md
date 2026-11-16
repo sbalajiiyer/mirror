@@ -1,6 +1,6 @@
 # Mirror — build status
 
-_Last updated: 2026-11-15 (Phase 3, branch `phase-3`)_
+_Last updated: 2026-11-16 (Phase 4, branch `phase-4`)_
 
 ## Phases
 
@@ -8,10 +8,11 @@ _Last updated: 2026-11-15 (Phase 3, branch `phase-3`)_
 |---|-------|--------|
 | 1 | Foundation — auth, onboarding, framework, 360 setup, invites, rater form, reminders | ✅ Done (PR #1, merged) |
 | 2 | Report v1 — summary, radar, gap, Johari, heatmap, distributions, themes, PDF | ✅ Done (PR #1, merged) |
-| 3 | AI layer — summaries, development plan, de-identification, framework recommendation | ✅ Done (PR from `phase-3`) |
-| 4–10 | Pulses, coach workspace, teams/orgs, personalization v2, analytics v2, payments, enterprise | Not started |
+| 3 | AI layer — summaries, development plan, de-identification, framework recommendation | ✅ Done (PR #3, merged) |
+| 4 | Pulses and progress — pulse surveys, trend lines, before/after, goal tracker, streaks; plus custom questionnaires (free) and AI-generated questionnaires (credits) | ✅ Done (PR from `phase-4`) |
+| 5–10 | Coach workspace, teams/orgs, personalization v2, analytics v2, payments, enterprise | Not started |
 
-Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md).
+Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md).
 
 ## Run locally
 
@@ -42,7 +43,7 @@ npm run build && npm run db:seed && npm run test:e2e   # Playwright (needs `npx 
 npm run lint && npm run typecheck
 ```
 
-Current results: **63 Vitest tests** (45 unit + 18 integration) and **12 Playwright tests**, all passing. CI runs everything
+Current results: **99 Vitest tests** (71 unit + 28 integration) and **16 Playwright tests**, all passing. CI runs everything
 on every PR (`.github/workflows/ci.yml`, GitHub Actions free tier, Postgres service container).
 
 ## Decisions made (2026-11-15)
@@ -52,6 +53,7 @@ on every PR (`.github/workflows/ci.yml`, GitHub Actions free tier, Postgres serv
 | **AI provider (default, free)** | **Groq free tier running open-weight `gpt-oss`** (120b for reports, 20b for light tasks) | No card needed; rate-limited. Owner creates a free key at console.groq.com → `GROQ_API_KEY`. |
 | **AI for paying users** | **Premium model, billed per use** | Subjects can switch to a premium model (e.g. Claude or GPT) in settings and pay by usage. Phase 3 builds the provider interface, the model choice and usage metering; charging (Stripe) comes with Phase 9. |
 | **Hosted database** | **Neon free tier** | Works with the current driver-adapter setup by changing `DATABASE_URL` (pooled string + `?sslmode=require`). |
+| **Paid AI questionnaire** | **Credits, granted manually until Stripe (Phase 9); $4.99 = 1 credit** | Building your own questionnaire is free. `npm run credits:grant -- <email> <n>`; every change is in `CreditLedger`. Price via `NEXT_PUBLIC_AI_QUESTIONNAIRE_PRICE_CENTS`. |
 | **Hosting** | **Vercel Hobby** | Free, non-commercial. Needs: PDF via `playwright-core` + `@sparticuz/chromium`; reminders cron is daily on Hobby (or use a GitHub Actions schedule for hourly). |
 
 ## Deployment (Vercel + Neon)
@@ -141,6 +143,24 @@ Nothing paid has been added. Each item below is stubbed behind an interface so i
 - **Groq models:** `openai/gpt-oss-120b` for summaries/plans, `openai/gpt-oss-20b` for short tasks (overridable).
 - **Premium:** catalog and per-use metering only; nobody is charged until payments (Phase 9).
 
+## Phase 4 defaults (change freely)
+
+- **Pulses** are 5–10 statements picked from the 360 they follow (default: goals, then blind spot and growth areas,
+  lowest-rated statements first). They reuse the same raters with fresh links (declined raters are skipped), and follow
+  the same self-first, anonymity and close-to-report rules.
+- **Like-for-like progress:** trends, before/after and goals compare a competency only on statements both check-ins
+  asked, and show how many. Statements are matched by framework question key (or text for custom questions).
+- **Rhythm:** 1, 2 or 3 months, set when creating a pulse or on the Progress page. The next due date is counted from
+  the latest launch. The reminder email goes once per due date via the daily cron.
+- **Streak:** consecutive pulses each closed within 1.5× the rhythm of the previous one. It pauses when the latest is
+  older than that.
+- **Goals:** default target is the starting score + 0.5 (capped at the scale). Achieved automatically when a later
+  check-in reaches it. One active goal per competency per 360.
+- **Custom questionnaires:** 1–10 sections, 1–8 statements each, 5–60 in total. Editing a questionnaire never changes
+  past 360s, because each assessment keeps its own copy of the questions.
+- **AI questionnaire:** uses the subject's chosen model (free Groq gpt-oss by default) and costs 1 credit. Charged only
+  on success; daily cap 5.
+
 ## Known limitations / next up
 
 - Custom questions get a first-person wording by replacing `{name}` with "I" — grammar may need a manual edit.
@@ -151,5 +171,6 @@ Nothing paid has been added. Each item below is stubbed behind an interface so i
   could still correlate the two for someone with raw DB access; acceptable for now, revisit with an append-only shuffle job.
 - The Groq API couldn't be reached from the build sandbox, so real Groq calls were tested only with a stubbed HTTP layer; the first live call happens on Vercel once `GROQ_API_KEY` is set.
 - Comment themes are still keyword-based; the AI summary reads them but doesn't re-cluster comments yet.
-- Benchmarks, time filters and trends need more data/phases (2+ assessments → Phase 4).
+- Benchmarks need anonymised norms across many users (Phase 8).
+- Buying credits needs Stripe (Phase 9); until then credits are granted with `npm run credits:grant`.
 - Dark-mode tokens exist but there is no theme toggle yet.
