@@ -43,6 +43,9 @@ export async function raterLinksFromOutbox(page: Page, emails: string[]) {
  */
 export async function expectAccessible(page: Page, exclude: string[] = []) {
   const { default: AxeBuilder } = await import("@axe-core/playwright");
+  // After a client-side navigation Next.js streams the page metadata in, so the <title> can lag the
+  // content by a moment. Scan once the page has its title (a missing title still fails below).
+  await page.waitForFunction(() => document.title.trim().length > 0, null, { timeout: 5000 }).catch(() => {});
   let builder = new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]);
   for (const sel of exclude) builder = builder.exclude(sel);
   const { violations } = await builder.analyze();
