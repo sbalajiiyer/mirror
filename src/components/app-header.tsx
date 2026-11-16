@@ -27,6 +27,9 @@ export async function AppHeader() {
               <Link href="/questionnaires" className="hidden rounded-md px-3 py-2 hover:bg-accent md:block">
                 Questionnaires
               </Link>
+              <Link href="/dashboards" className="hidden rounded-md px-3 py-2 hover:bg-accent lg:block">
+                Dashboards
+              </Link>
               <Link href="/chat" className="hidden rounded-md px-3 py-2 hover:bg-accent lg:block">
                 AI coach
               </Link>

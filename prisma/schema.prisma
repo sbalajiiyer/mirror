@@ -46,6 +46,8 @@ model User {
   orgMemberships OrgMember[]
   chats          CoachChat[]
   shareLinks     ShareLink[]
+  dashboards     Dashboard[]
+  apiTokens      ApiToken[]
 }
 
 model Account {
@@ -109,6 +111,8 @@ model SubjectProfile {
   /// Weekly nudge email: day of week (0 = Sunday … 6 = Saturday), null = off (opt-in, Phase 7).
   nudgeDay        Int?
   nudgeLastSentAt DateTime?
+  /// Benchmarks (Phase 8): closed reports on the built-in framework count anonymously unless this is true.
+  benchmarkOptOut Boolean   @default(false)
   onboardedAt     DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -789,6 +793,73 @@ model ShareLink {
 
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------- Phase 8: analytics v2
+
+/// Anonymous benchmark norm for one competency on a built-in framework, for one slice of people.
+/// Only percentiles are stored (never individual values), and only when n meets the threshold.
+model BenchmarkNorm {
+  id            String   @id @default(cuid())
+  frameworkSlug String
+  competencyKey String
+  /// "all", "seniority:Senior", "goal:promotion", ...
+  slice         String
+  n             Int
+  mean          Float
+  p10           Float
+  p25           Float
+  p50           Float
+  p75           Float
+  p90           Float
+  computedAt    DateTime @default(now())
+
+  @@unique([frameworkSlug, competencyKey, slice])
+}
+
+enum DashboardScope {
+  PERSONAL
+  COACH
+  ORG
+}
+
+/// A user-built dashboard of widgets over data they can already see (same privacy rules).
+model Dashboard {
+  id          String         @id @default(cuid())
+  ownerId     String
+  scope       DashboardScope @default(PERSONAL)
+  orgId       String?
+  name        String
+  /// [{ id, type, config }] — see src/lib/dashboards/widgets.ts
+  widgets     Json           @default("[]")
+  /// Scheduled email of this dashboard: null (off) | weekly | monthly
+  schedule    String?
+  /// weekly: day of week 0–6; monthly: day of month 1–28
+  scheduleDay Int?
+  lastSentAt  DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+}
+
+/// Personal read-only API token. Only a hash is stored; the token is shown once.
+model ApiToken {
+  id         String    @id @default(cuid())
+  userId     String
+  name       String
+  tokenHash  String    @unique
+  /// First characters, to recognise the token in Settings.
+  prefix     String
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }

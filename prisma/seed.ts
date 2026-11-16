@@ -14,6 +14,7 @@ import { DEFAULT_INVITE_MESSAGE } from "../src/lib/constants";
 import { DEMO_COACH_EMAIL, DEMO_EMAIL, DEMO_ORG_ADMIN_EMAIL } from "../src/lib/demo";
 import { derivedToken, hashToken, newToken } from "../src/lib/tokens";
 import { buildAndStoreReport } from "../src/lib/services/reports";
+import { rebuildNorms } from "../src/lib/services/benchmarks";
 
 // Deterministic PRNG so the demo report always looks the same.
 function mulberry32(seed: number) {
@@ -646,6 +647,24 @@ async function main() {
   }
   void adminMember;
 
+  // ---------------- Phase 8: anonymous benchmark sample ----------------
+  // Extra sample people so benchmark norms (30+ people, 10+ per career stage) exist in the demo.
+  const STAGES = ["Senior", "Senior", "Senior", "Senior", "Senior", "Senior", "Senior", "Senior", "Senior", "Mid level", "Mid level", "Manager", "Director", "Entry level"];
+  await db.user.deleteMany({ where: { email: { endsWith: "@benchmark.mirror.local" } } });
+  for (const [i, stage] of STAGES.entries()) {
+    const u = await db.user.create({
+      data: { email: `sample${i + 1}@benchmark.mirror.local`, name: `Sample ${i + 1}`, profile: { create: { displayName: `Sample ${i + 1}`, seniority: stage, goals: ["promotion"], onboardedAt: new Date() } } },
+    });
+    const base = Object.fromEntries(Object.keys(OTHERS_BASE).map((k, j) => [k, 3.0 + ((i * 7 + j * 3) % 10) * 0.12]));
+    await sampleClosed360(u.id, "Benchmark sample 360", null, 1, 30 + i * 4, base, 0);
+  }
+  const norms = await rebuildNorms();
+  const w = (type: string, config: Record<string, string> = {}) => ({ id: randomUUID(), type, config });
+  await db.dashboard.create({ data: { ownerId: user.id, name: "My growth", widgets: [w("latest_scores"), w("trend", { surveyId: a.id }), w("goals"), w("benchmarks")] } });
+  await db.dashboard.create({
+    data: { ownerId: orgAdmin.id, scope: "ORG", orgId: org.id, name: "People overview", widgets: [w("org_participation"), w("org_strengths"), w("team_profile", { groupId: engineering.id }), w("cohort_compare", { aGroupId: cohort.id, aRoundId: spring.id, bGroupId: cohort.id, bRoundId: autumn.id })] },
+  });
+
   // Print a working rater link for manual testing of the rater form.
   const open = await db.raterInvite.findFirst({ where: { assessmentId: b.id, status: "INVITED" } });
   console.log(`Seeded demo subject ${DEMO_EMAIL}`);
@@ -653,6 +672,7 @@ async function main() {
   console.log(`  pulse check:    /assessments/${pulse.id}/report  (progress: /progress)`);
   console.log(`  full re-run:    /assessments/${rerun.id}/report`);
   console.log(`  collecting 360: /assessments/${b.id}`);
+  console.log(`Benchmarks: ${norms.norms} norms from ${norms.people} people`);
   console.log(`Seeded demo org admin ${DEMO_ORG_ADMIN_EMAIL} (Brightline Studio, ${EMPLOYEES.length + 2} people) (/orgs)`);
   console.log(`Seeded demo coach ${DEMO_COACH_EMAIL} with ${SAMPLE_CLIENTS.length + 1} clients (/coach)`);
   if (open) console.log(`  rater link (${open.name}): /r/${derivedToken("invite", open.id)}`);
