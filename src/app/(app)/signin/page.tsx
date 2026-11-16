@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { clientIp, hit } from "@/lib/rate-limit";
+import { normalizeEmail } from "@/lib/email-address";
 
 export const metadata = { title: "Sign in" };
 
@@ -21,8 +22,8 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
 
   async function emailSignIn(formData: FormData) {
     "use server";
-    const email = String(formData.get("email") ?? "").trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) redirect("/signin?error=email");
+    const email = normalizeEmail(String(formData.get("email") ?? ""));
+    if (!email) redirect("/signin?error=email");
     const [byIp, byEmail] = await Promise.all([hit("magicLinkIp", await clientIp()), hit("magicLinkEmail", email)]);
     if (!byIp.ok || !byEmail.ok) redirect("/signin?error=rate");
     try {

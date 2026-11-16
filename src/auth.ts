@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { magicLinkEmail } from "@/lib/email/templates";
 import { DEMO_EMAIL } from "@/lib/demo";
+import { normalizeEmail } from "@/lib/email-address";
 
 export const googleEnabled = !!(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET);
 export const demoLoginEnabled = process.env.DEMO_LOGIN_ENABLED === "true";
@@ -18,6 +19,12 @@ const magicLink: EmailConfig = {
   name: "Email",
   from: process.env.EMAIL_FROM ?? "Mirror <no-reply@mirror.local>",
   maxAge: 24 * 60 * 60,
+  // Our own stricter normaliser (Unicode-folded, ASCII-only, exactly one "@"), see lib/email-address.
+  normalizeIdentifier(identifier) {
+    const email = normalizeEmail(identifier);
+    if (!email) throw new Error("Invalid email address");
+    return email;
+  },
   async sendVerificationRequest({ identifier, url }) {
     await sendEmail(magicLinkEmail({ to: identifier, url }));
   },
