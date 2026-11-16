@@ -503,3 +503,14 @@ model CreditLedger {
 
   @@index([userId, createdAt])
 }
+
+/// Fixed-window request counters for public endpoints. Keys are HMACs of a scope + identifier
+/// (IP, token hash or email), never raw values, and per-IP and per-token counters are separate
+/// rows so they can't be joined to link a rater to a network address.
+model RateLimit {
+  key         String   @id
+  windowStart DateTime
+  count       Int      @default(0)
+
+  @@index([windowStart])
+}

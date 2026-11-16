@@ -22,7 +22,7 @@ export function GapChart({ report, onSelect }: { report: ReportData; onSelect?: 
   const zero = x(0);
   return (
     <div className="relative" data-tip-host>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Self versus others gap by competency">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="group" aria-label="Self versus others gap by competency. Positive means you rate yourself higher than others do.">
         {x.ticks(5).map((t) => (
           <g key={t}>
             <line x1={x(t)} x2={x(t)} y1={0} y2={H - 22} stroke="var(--border)" strokeDasharray={t === 0 ? undefined : "2 3"} />
@@ -43,11 +43,17 @@ export function GapChart({ report, onSelect }: { report: ReportData; onSelect?: 
               key={r.key}
               {...bind(r)}
               tabIndex={0}
-              className="cursor-pointer outline-none focus-visible:opacity-80"
+              role="button"
+              className="group cursor-pointer outline-none"
               onClick={() => onSelect?.(r.key)}
-              onKeyDown={(e) => e.key === "Enter" && onSelect?.(r.key)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSelect?.(r.key);
+                }
+              }}
             >
-              <rect x={0} y={y - 4} width={W} height={rowH} fill="transparent" />
+              <rect x={1} y={y - 4} width={W - 2} height={rowH} rx={6} fill="transparent" className="stroke-transparent group-focus-visible:stroke-[var(--ring)]" strokeWidth={2} />
               <text x={labelW - 10} y={y + 15} textAnchor="end" fontSize={12} fill="var(--foreground)">
                 {r.name}
               </text>

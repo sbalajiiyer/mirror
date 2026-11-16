@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { demoLogin, rateAllSections, rateStep, raterLinksFromOutbox } from "./helpers";
+import { demoLogin, expectAccessible, rateAllSections, rateStep, raterLinksFromOutbox } from "./helpers";
 
 test("subject sets up a 360, rates self, invites raters; raters respond anonymously; report appears on close", async ({ page, browser }) => {
   const stamp = Date.now();
@@ -45,7 +45,9 @@ test("subject sets up a 360, rates self, invites raters; raters respond anonymou
     await r.goto(link);
     await expect(r.getByText(/would value your feedback/)).toBeVisible();
     await expect(r.getByText(/Anonymous:/)).toBeVisible();
+    if (i === 0) await expectAccessible(r); // rater intro, on a phone
     await r.getByRole("button", { name: "Start" }).click();
+    if (i === 0) await expectAccessible(r); // a rating section
 
     if (i === 0) {
       // Save & resume: answer one section, wait for autosave, reload.
@@ -66,6 +68,7 @@ test("subject sets up a 360, rates self, invites raters; raters respond anonymou
       await expect(r.getByTestId("deidentify-preview")).toContainText("Start delegating");
     }
     await r.getByRole("button", { name: /^Next/ }).click();
+    if (i === 0) await expectAccessible(r); // open-text step
     await r.getByRole("button", { name: "Submit feedback" }).click();
     await expect(r.getByText("Thank you!")).toBeVisible();
 

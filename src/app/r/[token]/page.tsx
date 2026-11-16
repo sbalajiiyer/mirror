@@ -1,4 +1,5 @@
 import { getRaterContext } from "@/lib/services/raters";
+import { clientIp, hit, peek } from "@/lib/rate-limit";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RaterForm } from "./rater-form";
 
@@ -18,7 +19,13 @@ function Message({ title, body }: { title: string; body: string }) {
 
 export default async function RaterPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
+  const ip = await clientIp();
+  const tooMany = <Message title="Please slow down" body="We've had a lot of requests from your network. Please wait a few minutes and open your link again." />;
+  // Too many unrecognised links from this network: stop looking links up at all for a while.
+  if (!(await peek("raterInvalidIp", ip)).ok) return tooMany;
+  if (!(await hit("raterViewIp", ip)).ok) return tooMany;
   const ctx = await getRaterContext(token);
+  if (ctx.state === "invalid") await hit("raterInvalidIp", ip);
   switch (ctx.state) {
     case "invalid":
       return <Message title="Link not recognised" body="This feedback link isn't valid. Please check you copied the whole link from your invitation." />;
