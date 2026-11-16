@@ -6,7 +6,7 @@ import { CORE_360 } from "@/lib/frameworks/core-360";
 import { syncFramework } from "@/lib/frameworks/sync";
 import { generateQuestionnaire } from "@/lib/ai/features/questionnaire";
 import { aiBriefSchema, customFrameworkSchema, slugify, type CustomFrameworkInput } from "@/lib/questionnaire";
-import { DomainError } from "@/lib/services/assessments";
+import { DomainError } from "@/lib/errors";
 
 export type FrameworkView = {
   id: string;

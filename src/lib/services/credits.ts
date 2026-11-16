@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { DomainError } from "@/lib/services/assessments";
+import { DomainError } from "@/lib/errors";
 
 export async function creditBalance(userId: string) {
   const p = await db.subjectProfile.findUnique({ where: { userId }, select: { aiCredits: true } });

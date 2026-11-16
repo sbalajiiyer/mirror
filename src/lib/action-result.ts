@@ -1,5 +1,5 @@
 import { ZodError } from "zod";
-import { DomainError } from "@/lib/services/assessments";
+import { DomainError } from "@/lib/errors";
 
 export type ActionResult<T = undefined> = { ok: true; data?: T } | { ok: false; error: string };
 

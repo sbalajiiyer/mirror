@@ -9,7 +9,7 @@ import { generatePlan, type StoredPlan } from "@/lib/ai/features/plan";
 import { recommendFramework } from "@/lib/ai/features/framework";
 import { draftInviteMessage } from "@/lib/ai/features/invite";
 import { getReportForOwner } from "@/lib/services/reports";
-import { DomainError } from "@/lib/services/assessments";
+import { DomainError } from "@/lib/errors";
 import { firstName } from "@/lib/utils";
 
 export type StoredAISummary = AISummary & { modelId: string; generatedBy: "ai" | "mock" | "template"; generatedAt: string };

@@ -11,12 +11,10 @@ import { appUrl } from "@/lib/url";
 import { firstName } from "@/lib/utils";
 import { answersSchema, raterSchema, type Answers, type WizardInput } from "@/lib/validation";
 import { buildAndStoreReport } from "@/lib/services/reports";
+import { scheduleNextPulse } from "@/lib/services/pulses";
 
-export class DomainError extends Error {
-  constructor(message: string, public code = "invalid") {
-    super(message);
-  }
-}
+import { DomainError } from "@/lib/errors";
+export { DomainError };
 
 export async function createAssessment(userId: string, input: WizardInput) {
   const framework = await db.framework.findUnique({ where: { id: input.frameworkId }, include: { competencies: true } });
@@ -158,7 +156,7 @@ export function today() {
 async function sendPendingInvites(assessmentId: string) {
   const a = await db.assessment.findUniqueOrThrow({
     where: { id: assessmentId },
-    include: { subject: { include: { profile: true } }, invites: { where: { invitedAt: null, email: { not: null } } } },
+    include: { subject: { include: { profile: true } }, questions: { select: { id: true } }, invites: { where: { invitedAt: null, email: { not: null } } } },
   });
   const subjectName = a.subject.profile?.displayName ?? a.subject.name ?? "Someone";
   for (const inv of a.invites) {
@@ -170,6 +168,8 @@ async function sendPendingInvites(assessmentId: string) {
         message: a.inviteMessage,
         link: appUrl(`/r/${derivedToken("invite", inv.id)}`),
         dueAt: a.dueAt,
+        pulse: a.type === "PULSE",
+        minutes: Math.max(2, Math.round(a.questions.length * 0.2 + 1)),
       }),
     );
     await db.raterInvite.update({ where: { id: inv.id }, data: { invitedAt: new Date() } });
@@ -184,6 +184,7 @@ export async function launchAssessment(userId: string, assessmentId: string) {
   if (a.status !== "READY") throw new DomainError("This 360 has already been launched.");
   await db.assessment.update({ where: { id: a.id }, data: { status: "COLLECTING", launchedAt: new Date() } });
   const sent = await sendPendingInvites(a.id);
+  await scheduleNextPulse(a.id);
   await audit(userId, "assessment.launch", "Assessment", a.id, { invites: sent });
   return { sent };
 }

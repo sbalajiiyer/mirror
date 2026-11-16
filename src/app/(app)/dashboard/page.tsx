@@ -23,13 +23,18 @@ export default async function Dashboard() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Hi {user.profile.displayName.split(" ")[0]}</h1>
-          <p className="text-muted-foreground">Your 360s and reports.</p>
+          <p className="text-muted-foreground">Your 360s, pulse checks and reports.</p>
         </div>
+        <div className="flex gap-2">
+        <Button asChild variant="outline">
+          <Link href="/progress">Progress</Link>
+        </Button>
         <Button asChild>
           <Link href="/assessments/new">
             <Plus /> New 360
           </Link>
         </Button>
+        </div>
       </div>
 
       {assessments.length === 0 ? (
@@ -57,7 +62,9 @@ export default async function Dashboard() {
                       <CardTitle className="text-base leading-snug">{a.title}</CardTitle>
                       <StatusBadge status={a.status} />
                     </div>
-                    <CardDescription>Goal: {goalLabel(a.goal)}</CardDescription>
+                    <CardDescription>
+                      {a.type === "PULSE" ? "Pulse check · " : ""}Goal: {goalLabel(a.goal)}
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-2">
                     <div className="flex justify-between text-xs text-muted-foreground">
