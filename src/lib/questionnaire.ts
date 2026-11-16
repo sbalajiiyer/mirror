@@ -60,8 +60,9 @@ const IRREGULAR: Record<string, string> = { is: "am", has: "have", does: "do", w
  */
 export function toFirstPerson(text: string): string {
   const t = text.trim();
-  const m = t.match(/^\{name\}\s+(\S+)(.*)$/);
-  if (!m) return t.replaceAll("{name}'s", "my").replaceAll("{name}", "I");
+  const m = t.match(/^\{name\}\s+([A-Za-z'-]+)(.*)$/);
+  // {name} elsewhere in the sentence is usually an object ("…run by {name}") → "me".
+  if (!m) return t.replaceAll("{name}'s", "my").replaceAll("{name}", "me");
   const [, verb, rest] = m;
   const lower = verb.toLowerCase();
   let v = verb;
