@@ -25,6 +25,7 @@ export type WizardFramework = {
   description: string;
   version: number;
   source: "builtin" | "custom" | "ai";
+  sharedBy?: string | null;
   competencies: { key: string; name: string; description: string; questions: { key: string; text: string; selfText: string }[] }[];
 };
 
@@ -212,7 +213,7 @@ export function Wizard({
                           <input type="radio" name="framework" checked={on} onChange={() => chooseFramework(fw.id)} className="size-4" />
                           {fw.name}
                         </span>
-                        <Badge variant="secondary">{fw.source === "builtin" ? `v${fw.version} · built-in` : fw.source === "ai" ? "Your questionnaire · AI-generated" : "Your questionnaire"}</Badge>
+                        <Badge variant="secondary">{fw.source === "builtin" ? `v${fw.version} · built-in` : fw.sharedBy ? `From your coach ${fw.sharedBy}` : fw.source === "ai" ? "Your questionnaire · AI-generated" : "Your questionnaire"}</Badge>
                       </div>
                       <p className="mt-1 text-sm text-muted-foreground">{fw.description}</p>
                       {on && (

@@ -14,12 +14,14 @@ import { buildAndStoreReport } from "@/lib/services/reports";
 import { scheduleNextPulse } from "@/lib/services/pulses";
 
 import { DomainError } from "@/lib/errors";
+import { assertCanUseFramework } from "@/lib/services/frameworks";
 export { DomainError };
 
 export async function createAssessment(userId: string, input: WizardInput) {
   const framework = await db.framework.findUnique({ where: { id: input.frameworkId }, include: { competencies: true } });
-  // Built-in frameworks are shared; custom questionnaires only by their owner.
-  if (!framework || (!framework.isBuiltIn && framework.ownerId !== userId)) throw new DomainError("Unknown framework");
+  if (!framework) throw new DomainError("Unknown framework");
+  // Built-in frameworks are shared; custom questionnaires by their owner and, for a coach's, their active clients.
+  await assertCanUseFramework(userId, framework.id);
   const compName = new Map(framework.competencies.map((c) => [c.key, c.name]));
   for (const q of input.questions) if (!compName.has(q.competencyKey)) throw new DomainError("Question has an unknown competency");
   const subject = await db.user.findUnique({ where: { id: userId }, select: { email: true } });

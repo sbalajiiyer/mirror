@@ -6,7 +6,7 @@ import type { EmailConfig } from "next-auth/providers";
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { magicLinkEmail } from "@/lib/email/templates";
-import { DEMO_EMAIL } from "@/lib/demo";
+import { DEMO_COACH_EMAIL, DEMO_EMAIL } from "@/lib/demo";
 import { normalizeEmail } from "@/lib/email-address";
 
 export const googleEnabled = !!(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET);
@@ -41,6 +41,15 @@ if (demoLoginEnabled) {
       credentials: {},
       async authorize() {
         const user = await db.user.findUnique({ where: { email: DEMO_EMAIL } });
+        return user ? { id: user.id, email: user.email, name: user.name } : null;
+      },
+    }),
+    Credentials({
+      id: "demo-coach",
+      name: "Demo coach",
+      credentials: {},
+      async authorize() {
+        const user = await db.user.findUnique({ where: { email: DEMO_COACH_EMAIL } });
         return user ? { id: user.id, email: user.email, name: user.name } : null;
       },
     }),

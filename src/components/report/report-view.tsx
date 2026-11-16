@@ -7,7 +7,13 @@ import { goalLabel } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { SscBoard, ThemeList, WordCloud } from "./comments";
 import { QuestionDistribution } from "./distribution";
 import { GapChart } from "./gap-chart";
@@ -29,30 +35,57 @@ export function ReportView({
   print = false,
   aiSummary = null,
   session = null,
+  mode = "owner",
+  branding = null,
 }: {
   report: ReportData;
   generatedAt: string;
   pdfUrl?: string;
   print?: boolean;
   aiSummary?: StoredAISummary | null;
-  session?: { code: string; sessionNumber: number; kind: string; label: string | null; company?: string | null; tags?: string[] } | null;
+  session?: {
+    code: string;
+    sessionNumber: number;
+    kind: string;
+    label: string | null;
+    company?: string | null;
+    tags?: string[];
+  } | null;
+  /** "coach": read-only view of a report a client shared (no owner actions, no AI summary). */
+  mode?: "owner" | "coach";
+  /** White-label line from the client's coach, e.g. { name: "Lee Leadership Coaching", color: "#0f766e" }. */
+  branding?: { name: string; color: string | null; coach?: string } | null;
 }) {
+  const coach = mode === "coach";
+  const commentsHidden =
+    (report as ReportData & { commentsHidden?: boolean }).commentsHidden ===
+    true;
   const groups = report.anonymity.groups;
   const [visibleGroups, setVisibleGroups] = useState<string[]>([]);
-  const [selected, setSelected] = useState<string>(report.competencies[0]?.key ?? "");
+  const [selected, setSelected] = useState<string>(
+    report.competencies[0]?.key ?? "",
+  );
   const [pdfState, setPdfState] = useState<"idle" | "busy" | "error">("idle");
-  const qById = useMemo(() => new Map(report.questions.map((q) => [q.id, q])), [report.questions]);
-  const compName = (k: string) => report.competencies.find((c) => c.key === k)?.name ?? k;
+  const qById = useMemo(
+    () => new Map(report.questions.map((q) => [q.id, q])),
+    [report.questions],
+  );
+  const compName = (k: string) =>
+    report.competencies.find((c) => c.key === k)?.name ?? k;
 
   const select = (k: string) => {
     setSelected(k);
-    if (!print) document.getElementById("drilldown")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!print)
+      document
+        .getElementById("drilldown")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   if (!report.anonymity.available) {
     return (
       <Alert tone="warning">
-        Not enough responses to show results without risking anyone&apos;s anonymity. {report.anonymity.notes.join(" ")}
+        Not enough responses to show results without risking anyone&apos;s
+        anonymity. {report.anonymity.notes.join(" ")}
       </Alert>
     );
   }
@@ -79,18 +112,54 @@ export function ReportView({
 
   return (
     <div className="space-y-6" data-testid="report">
+      {branding && (
+        <div
+          className="flex items-center gap-2 border-l-4 pl-3 text-sm"
+          style={{ borderColor: branding.color ?? "var(--primary)" }}
+          data-testid="report-branding"
+        >
+          <span className="text-muted-foreground">Prepared with</span>
+          <span className="font-medium">{branding.name}</span>
+          {branding.coach && (
+            <span className="text-muted-foreground">
+              · coach {branding.coach}
+            </span>
+          )}
+        </div>
+      )}
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-sm text-muted-foreground">360° feedback report · {goalLabel(report.assessment.goal)}</p>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{report.assessment.title}</h1>
-          {session && <SessionHeader assessmentId={report.assessment.id} editable={!print} {...session} />}
+          <p className="text-sm text-muted-foreground">
+            360° feedback report · {goalLabel(report.assessment.goal)}
+          </p>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            {report.assessment.title}
+          </h1>
+          {session && (
+            <SessionHeader
+              assessmentId={report.assessment.id}
+              editable={!print && !coach}
+              {...session}
+            />
+          )}
           <p className="mt-1 flex flex-wrap items-center gap-x-3 text-sm text-muted-foreground">
             <span>{report.anonymity.othersN} raters</span>
             <span>{groups.map((g) => `${g.label} (${g.n})`).join(" · ")}</span>
             <span>Generated {new Date(generatedAt).toLocaleDateString()}</span>
           </p>
         </div>
-        {!print && (
+        {!print && coach && (
+          <div className="no-print flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => window.print()}
+              aria-label="Print"
+            >
+              <Printer />
+            </Button>
+          </div>
+        )}
+        {!print && !coach && (
           <div className="no-print flex flex-wrap gap-2">
             <Button asChild variant="secondary">
               <Link href={`/assessments/${report.assessment.id}/plan`}>
@@ -113,11 +182,20 @@ export function ReportView({
               </Link>
             </Button>
             {pdfUrl && (
-              <Button onClick={downloadPdf} disabled={pdfState === "busy"} data-testid="pdf">
-                <Download /> {pdfState === "busy" ? "Preparing PDF…" : "Download PDF"}
+              <Button
+                onClick={downloadPdf}
+                disabled={pdfState === "busy"}
+                data-testid="pdf"
+              >
+                <Download />{" "}
+                {pdfState === "busy" ? "Preparing PDF…" : "Download PDF"}
               </Button>
             )}
-            <Button variant="outline" onClick={() => window.print()} aria-label="Print">
+            <Button
+              variant="outline"
+              onClick={() => window.print()}
+              aria-label="Print"
+            >
               <Printer />
             </Button>
           </div>
@@ -125,38 +203,68 @@ export function ReportView({
       </header>
       {pdfState === "error" && (
         <Alert tone="error" className="no-print">
-          PDF export isn&apos;t available on this server (needs a headless browser). Use the print button and “Save as PDF” instead.
+          PDF export isn&apos;t available on this server (needs a headless
+          browser). Use the print button and “Save as PDF” instead.
         </Alert>
       )}
 
       <Alert tone="info" className="flex items-start gap-2">
         <ShieldCheck className="mt-0.5 size-4 shrink-0" />
         <span>
-          Results for a group are shown only when at least {report.anonymity.min} people in it responded
-          {groups.some((g) => g.exempt) ? "; your manager agreed to be shown separately" : ""}. {report.anonymity.notes.join(" ")}
+          Results for a group are shown only when at least{" "}
+          {report.anonymity.min} people in it responded
+          {groups.some((g) => g.exempt)
+            ? "; your manager agreed to be shown separately"
+            : ""}
+          . {report.anonymity.notes.join(" ")}
         </span>
       </Alert>
 
-      <AISummaryCard assessmentId={report.assessment.id} summary={aiSummary} print={print} />
+      {!coach && (
+        <AISummaryCard
+          assessmentId={report.assessment.id}
+          summary={aiSummary}
+          print={print}
+        />
+      )}
 
       <SummaryCard report={report} />
 
       <Card className="avoid-break">
         <CardHeader>
           <CardTitle>Competency profile</CardTitle>
-          <CardDescription>Your self-rating against the average of everyone else{groups.length ? " — add rater groups to compare" : ""}.</CardDescription>
+          <CardDescription>
+            Your self-rating against the average of everyone else
+            {groups.length ? " — add rater groups to compare" : ""}.
+          </CardDescription>
           {!print && groups.length > 0 && (
-            <div className="flex flex-wrap gap-2 pt-2" role="group" aria-label="Filter by rater group">
+            <div
+              className="flex flex-wrap gap-2 pt-2"
+              role="group"
+              aria-label="Filter by rater group"
+            >
               {groups.map((g, i) => {
                 const on = visibleGroups.includes(g.id);
                 return (
                   <button
                     key={g.id}
                     aria-pressed={on}
-                    onClick={() => setVisibleGroups((v) => (on ? v.filter((x) => x !== g.id) : [...v, g.id]))}
-                    className={cn("flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs", on ? "border-foreground bg-accent" : "text-muted-foreground")}
+                    onClick={() =>
+                      setVisibleGroups((v) =>
+                        on ? v.filter((x) => x !== g.id) : [...v, g.id],
+                      )
+                    }
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs",
+                      on
+                        ? "border-foreground bg-accent"
+                        : "text-muted-foreground",
+                    )}
                   >
-                    <span className="size-2 rounded-full" style={{ background: groupColor(i) }} />
+                    <span
+                      className="size-2 rounded-full"
+                      style={{ background: groupColor(i) }}
+                    />
                     {g.label}
                   </button>
                 );
@@ -165,7 +273,11 @@ export function ReportView({
           )}
         </CardHeader>
         <CardContent>
-          <CompetencyRadar report={report} visibleGroups={print ? groups.map((g) => g.id) : visibleGroups} print={print} />
+          <CompetencyRadar
+            report={report}
+            visibleGroups={print ? groups.map((g) => g.id) : visibleGroups}
+            print={print}
+          />
         </CardContent>
       </Card>
 
@@ -173,7 +285,10 @@ export function ReportView({
         <Card className="avoid-break">
           <CardHeader>
             <CardTitle>Self vs. others</CardTitle>
-            <CardDescription>Where your view of yourself differs from how others see you. Click a bar for detail.</CardDescription>
+            <CardDescription>
+              Where your view of yourself differs from how others see you. Click
+              a bar for detail.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <GapChart report={report} onSelect={select} />
@@ -182,7 +297,9 @@ export function ReportView({
         <Card className="avoid-break">
           <CardHeader>
             <CardTitle>Johari window</CardTitle>
-            <CardDescription>What&apos;s known to you and to others.</CardDescription>
+            <CardDescription>
+              What&apos;s known to you and to others.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <JohariWindow report={report} onSelect={select} />
@@ -193,10 +310,17 @@ export function ReportView({
       <Card className="avoid-break print-break">
         <CardHeader>
           <CardTitle>By rater group</CardTitle>
-          <CardDescription>Average score (1–{report.assessment.scaleMax}) per competency for each group. Click a row to drill down.</CardDescription>
+          <CardDescription>
+            Average score (1–{report.assessment.scaleMax}) per competency for
+            each group. Click a row to drill down.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <GroupHeatmap report={report} selected={print ? null : selected} onSelect={select} />
+          <GroupHeatmap
+            report={report}
+            selected={print ? null : selected}
+            onSelect={select}
+          />
         </CardContent>
       </Card>
 
@@ -217,12 +341,18 @@ export function ReportView({
                   const q = qById.get(id)!;
                   return (
                     <li key={id} className="flex gap-3 text-sm">
-                      <span className="w-4 shrink-0 text-muted-foreground">{i + 1}</span>
+                      <span className="w-4 shrink-0 text-muted-foreground">
+                        {i + 1}
+                      </span>
                       <span className="flex-1">
                         {q.text}
-                        <span className="block text-xs text-muted-foreground">{compName(q.competencyKey)}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {compName(q.competencyKey)}
+                        </span>
                       </span>
-                      <span className="font-semibold tabular-nums">{fmt(q.others.mean)}</span>
+                      <span className="font-semibold tabular-nums">
+                        {fmt(q.others.mean)}
+                      </span>
                     </li>
                   );
                 })}
@@ -232,22 +362,38 @@ export function ReportView({
         ))}
       </div>
 
-      <Card id="drilldown" data-testid="drilldown" className="scroll-mt-20 print-break">
+      <Card
+        id="drilldown"
+        data-testid="drilldown"
+        className="scroll-mt-20 print-break"
+      >
         <CardHeader>
           <CardTitle>Question detail</CardTitle>
           <CardDescription>
-            How each statement was rated: <span style={{ color: "var(--chart-others)" }}>●</span> one dot per rating, <span style={{ color: "var(--chart-others)" }}>|</span> others&apos; average,{" "}
+            How each statement was rated:{" "}
+            <span style={{ color: "var(--chart-others)" }}>●</span> one dot per
+            rating, <span style={{ color: "var(--chart-others)" }}>|</span>{" "}
+            others&apos; average,{" "}
             <span style={{ color: "var(--chart-self)" }}>◆</span> your rating.
           </CardDescription>
           {!print && (
-            <div className="flex flex-wrap gap-1.5 pt-2" role="group" aria-label="Show competency">
+            <div
+              className="flex flex-wrap gap-1.5 pt-2"
+              role="group"
+              aria-label="Show competency"
+            >
               {report.competencies.map((c) => (
                 <button
                   key={c.key}
                   type="button"
                   aria-pressed={selected === c.key}
                   onClick={() => setSelected(c.key)}
-                  className={cn("rounded-md px-2.5 py-1 text-xs", selected === c.key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground")}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 text-xs",
+                    selected === c.key
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:text-foreground",
+                  )}
                 >
                   {c.name}
                 </button>
@@ -257,22 +403,35 @@ export function ReportView({
         </CardHeader>
         <CardContent className="space-y-6">
           {sections.map((key) => (
-            <section key={key} className="avoid-break" aria-label={compName(key)}>
+            <section
+              key={key}
+              className="avoid-break"
+              aria-label={compName(key)}
+            >
               {print && <h4 className="font-semibold">{compName(key)}</h4>}
               <div className="divide-y">
                 {report.questions
                   .filter((q) => q.competencyKey === key)
                   .map((q) => (
-                    <QuestionDistribution key={q.id} q={q} scaleMax={report.assessment.scaleMax} />
+                    <QuestionDistribution
+                      key={q.id}
+                      q={q}
+                      scaleMax={report.assessment.scaleMax}
+                    />
                   ))}
               </div>
               {(report.comments.competency[key] ?? []).length > 0 && (
                 <div className="mt-3 rounded-lg bg-muted/50 p-3">
-                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Comments on {compName(key).toLowerCase()}</p>
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Comments on {compName(key).toLowerCase()}
+                  </p>
                   <ul className="space-y-1.5 text-sm">
                     {report.comments.competency[key].map((c, i) => (
                       <li key={i}>
-                        &ldquo;{c.text}&rdquo; <span className="text-xs text-muted-foreground">— {c.group}</span>
+                        &ldquo;{c.text}&rdquo;{" "}
+                        <span className="text-xs text-muted-foreground">
+                          — {c.group}
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -283,36 +442,53 @@ export function ReportView({
         </CardContent>
       </Card>
 
-      <Card className="print-break">
-        <CardHeader>
-          <CardTitle>What people said</CardTitle>
-          <CardDescription>
-            {report.comments.total} comments, grouped into themes by keyword and shown only with the rater group. Raters can choose to have AI remove identifying details before submitting.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <ThemeList themes={report.comments.themes} />
-          {report.comments.wordCloud.length > 0 && (
-            <div>
-              <h4 className="mb-2 text-sm font-medium">Most used words</h4>
-              <WordCloud words={report.comments.wordCloud} />
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {commentsHidden ? (
+        <Alert tone="info" data-testid="comments-hidden">
+          {report.comments.total} written comments aren&apos;t shown:{" "}
+          {report.assessment.subjectFirstName} shares scores and themes but not
+          rater comments word for word.
+        </Alert>
+      ) : (
+        <>
+          <Card className="print-break">
+            <CardHeader>
+              <CardTitle>What people said</CardTitle>
+              <CardDescription>
+                {report.comments.total} comments, grouped into themes by keyword
+                and shown only with the rater group. Raters can choose to have
+                AI remove identifying details before submitting.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <ThemeList themes={report.comments.themes} />
+              {report.comments.wordCloud.length > 0 && (
+                <div>
+                  <h4 className="mb-2 text-sm font-medium">Most used words</h4>
+                  <WordCloud words={report.comments.wordCloud} />
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-      <Card className="avoid-break">
-        <CardHeader>
-          <CardTitle>Start · Stop · Continue</CardTitle>
-          <CardDescription>Suggestions from your raters, grouped by theme.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <SscBoard ssc={report.comments.ssc} />
-        </CardContent>
-      </Card>
+          <Card className="avoid-break">
+            <CardHeader>
+              <CardTitle>Start · Stop · Continue</CardTitle>
+              <CardDescription>
+                Suggestions from your raters, grouped by theme.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SscBoard ssc={report.comments.ssc} />
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       <p className="pb-6 text-center text-xs text-muted-foreground">
-        This report is development feedback for {report.assessment.subjectFirstName}, not a performance or hiring assessment. It belongs to {report.assessment.subjectFirstName} and is private unless they choose to share it.
+        This report is development feedback for{" "}
+        {report.assessment.subjectFirstName}, not a performance or hiring
+        assessment. It belongs to {report.assessment.subjectFirstName} and is
+        private unless they choose to share it.
       </p>
     </div>
   );
