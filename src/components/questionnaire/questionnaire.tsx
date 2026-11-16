@@ -98,7 +98,10 @@ export function Questionnaire({
     }
     dirty.current = true;
     setStep(s);
-    topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    topRef.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+    // Move keyboard and screen-reader focus to the new step instead of leaving it on the button.
+    requestAnimationFrame(() => topRef.current?.focus({ preventScroll: true }));
   };
 
   const submit = () =>
@@ -125,7 +128,7 @@ export function Questionnaire({
   }
 
   return (
-    <div ref={topRef} className="scroll-mt-20">
+    <div ref={topRef} tabIndex={-1} className="scroll-mt-20 outline-none">
       <div className="sticky top-0 z-10 -mx-4 mb-6 border-b bg-background/95 px-4 py-3 backdrop-blur">
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>

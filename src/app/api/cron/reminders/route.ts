@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runPulseReminders, runReminders } from "@/lib/jobs/reminders";
+import { pruneRateLimits } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -11,5 +12,6 @@ export async function GET(req: Request) {
   }
   const raters = await runReminders();
   const pulses = await runPulseReminders();
-  return NextResponse.json({ raters, pulses });
+  const rateLimitRowsPruned = await pruneRateLimits();
+  return NextResponse.json({ raters, pulses, rateLimitRowsPruned });
 }

@@ -36,3 +36,16 @@ export async function raterLinksFromOutbox(page: Page, emails: string[]) {
   }
   return links;
 }
+
+/**
+ * WCAG 2.2 A/AA checks with axe. Fails with a readable list of rule ids, targets and help text.
+ * `exclude` is for third-party widgets we don't control; keep it empty where possible.
+ */
+export async function expectAccessible(page: Page, exclude: string[] = []) {
+  const { default: AxeBuilder } = await import("@axe-core/playwright");
+  let builder = new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]);
+  for (const sel of exclude) builder = builder.exclude(sel);
+  const { violations } = await builder.analyze();
+  const report = violations.map((v) => `${v.id} (${v.impact}): ${v.help}\n    ${v.nodes.slice(0, 5).map((n) => n.target.join(" ")).join("\n    ")}`);
+  expect(report, `Accessibility violations on ${page.url()}`).toEqual([]);
+}

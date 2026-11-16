@@ -31,7 +31,7 @@ test("group filter overlays a rater group on the radar, and drill-down switches 
   await expect(page.getByLabel("Legend").first()).toContainText("Peers");
 
   await page.getByRole("row", { name: /^Communication/ }).click();
-  await expect(page.getByRole("tab", { name: "Communication" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByTestId("drilldown").getByRole("button", { name: "Communication", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("distribution-row").filter({ hasText: "listens carefully before responding" })).toBeVisible();
   await expect(page.getByTestId("distribution-row").first()).toBeVisible();
 });

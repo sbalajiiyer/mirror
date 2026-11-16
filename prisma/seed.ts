@@ -130,6 +130,7 @@ async function main() {
   });
 
   await db.user.deleteMany({ where: { email: DEMO_EMAIL } });
+  await db.rateLimit.deleteMany(); // fresh counters for demos and e2e runs
   const user = await db.user.create({
     data: {
       email: DEMO_EMAIL,
@@ -297,7 +298,7 @@ async function main() {
       rootAssessmentId: a.id,
       sessionNumber: 2,
       sessionLabel: "1-month check-in",
-      title: "Pulse check 1 — October 2026",
+      title: `${a.title} · S2 Pulse check`,
       goal: "promotion",
       status: "CLOSED",
       inviteMessage: "Quick check-in on what's changed — about 2 minutes. — Alex",

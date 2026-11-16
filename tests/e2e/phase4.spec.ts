@@ -73,6 +73,6 @@ test("start a pulse check from a report with suggested statements and the same r
   await rateAllSections(page, [4]);
   await page.getByRole("button", { name: "Submit & lock" }).click();
   await page.waitForURL(/\/assessments\/[^/]+$/);
-  await expect(page.getByRole("heading", { name: /Pulse check 2/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Pre-promotion 360.*· S\d+ Pulse check/ })).toBeVisible();
   await expect(page.getByText("12 people will get an email")).toBeVisible();
 });

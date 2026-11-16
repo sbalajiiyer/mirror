@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { clientIp, hit } from "@/lib/rate-limit";
 
 export const metadata = { title: "Sign in" };
 
@@ -22,6 +23,8 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
     "use server";
     const email = String(formData.get("email") ?? "").trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) redirect("/signin?error=email");
+    const [byIp, byEmail] = await Promise.all([hit("magicLinkIp", await clientIp()), hit("magicLinkEmail", email)]);
+    if (!byIp.ok || !byEmail.ok) redirect("/signin?error=rate");
     try {
       await signIn("email", { email, redirectTo });
     } catch (e) {
@@ -38,7 +41,11 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
           <CardDescription>We&apos;ll email you a magic link — no password needed.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {error && <Alert tone="error">{error === "email" ? "Please enter a valid email address." : "Sign-in failed. Please try again."}</Alert>}
+          {error && <Alert tone="error">{error === "email"
+                ? "Please enter a valid email address."
+                : error === "rate"
+                  ? "Too many sign-in attempts. Please wait a few minutes and try again."
+                  : "Sign-in failed. Please try again."}</Alert>}
           <form action={emailSignIn} className="space-y-3">
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
@@ -64,6 +71,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
             <form
               action={async () => {
                 "use server";
+                if (!(await hit("demoLoginIp", await clientIp())).ok) redirect("/signin?error=rate");
                 await signIn("demo", { redirectTo });
               }}
               className="border-t pt-4"

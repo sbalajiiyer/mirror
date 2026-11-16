@@ -34,7 +34,13 @@ export function GroupHeatmap({ report, selected, onSelect }: { report: ReportDat
           {report.competencies.map((comp) => (
             <tr key={comp.key} className={cn(onSelect && "cursor-pointer", selected === comp.key && "outline outline-2 outline-primary")} onClick={() => onSelect?.(comp.key)}>
               <th scope="row" className="pr-2 text-left font-medium">
-                {comp.name}
+                {onSelect ? (
+                  <button type="button" className="rounded text-left hover:underline focus-visible:outline-2 focus-visible:outline-ring" onClick={() => onSelect(comp.key)} aria-pressed={selected === comp.key}>
+                    {comp.name}
+                  </button>
+                ) : (
+                  comp.name
+                )}
               </th>
               {cols.map((col) => {
                 const cell = col.get(comp);

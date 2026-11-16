@@ -1,6 +1,6 @@
 # Mirror — build status
 
-_Last updated: 2026-11-16 (survey sessions, branch `survey-sessions`)_
+_Last updated: 2026-11-16 (launch hardening, branch `launch-hardening`)_
 
 ## Phases
 
@@ -10,7 +10,8 @@ _Last updated: 2026-11-16 (survey sessions, branch `survey-sessions`)_
 | 2 | Report v1 — summary, radar, gap, Johari, heatmap, distributions, themes, PDF | ✅ Done (PR #1, merged) |
 | 3 | AI layer — summaries, development plan, de-identification, framework recommendation | ✅ Done (PR #3, merged) |
 | 4 | Pulses and progress — pulse surveys, trend lines, before/after, goal tracker, streaks; plus custom questionnaires (free) and AI-generated questionnaires (credits) | ✅ Done (PR #4, merged) |
-| 4b | Survey IDs, numbered sessions, Run again (same questionnaire, same raters), session-based trends | ✅ Done (PR from `survey-sessions`) |
+| 4b | Survey IDs, numbered sessions, Run again (same questionnaire, same raters), session-based trends | ✅ Done (PR #5, merged) |
+| — | Launch hardening — rate limits, WCAG 2.2 AA audit and fixes, pulse titles by session | ✅ Done (PR from `launch-hardening`) |
 | 5–10 | Coach workspace, teams/orgs, personalization v2, analytics v2, payments, enterprise | Not started |
 
 Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md), [`docs/phases/phase-4b-survey-sessions.md`](phases/phase-4b-survey-sessions.md).
@@ -44,7 +45,7 @@ npm run build && npm run db:seed && npm run test:e2e   # Playwright (needs `npx 
 npm run lint && npm run typecheck
 ```
 
-Current results: **105 Vitest tests** and **19 Playwright tests**, all passing. CI runs everything
+Current results: **111 Vitest tests** and **26 Playwright tests** (including automated WCAG 2.2 AA checks with axe), all passing. CI runs everything
 on every PR (`.github/workflows/ci.yml`, GitHub Actions free tier, Postgres service container).
 
 ## Decisions made (2026-11-15)
@@ -172,15 +173,51 @@ Nothing paid has been added. Each item below is stubbed behind an interface so i
 - **Progress** uses the report's own competency score when a comparison covers all of a session's statements, so
   Progress and the report always show the same number.
 
+## Launch hardening (2026-11-16)
+
+**Rate limits** (fixed windows, counted in Postgres; no extra service). Over the limit, people see a friendly
+"Please slow down" message, and saves and submits return an error asking them to wait.
+
+| What | Limit |
+|------|-------|
+| Unrecognised rater links per network | 10 / 15 min (then rater links are blocked for that network until the window ends) |
+| Rater page views per network | 120 / 10 min |
+| Draft saves, submits, declines per network / per link | 300 / 10 min · 120 / 10 min |
+| AI de-identify previews per link | 15 / hour |
+| New invites from a group share link, per network / per link | 10 / hour · 200 / day |
+| Sign-in emails per address / per network | 5 / hour · 20 / hour |
+| Demo sign-ins per network | 60 / 10 min |
+
+- Privacy: counters are keyed by HMAC(scope + IP/token/email), never raw values. Per-network and per-link counters are
+  separate rows and can't be joined. Rows are pruned by the daily cron after about a day.
+- If the counter database call fails, the request is allowed (fail-open) and the error is logged.
+- `RATE_LIMIT_DISABLED=true` turns it off (load tests only). The demo seed clears the counters.
+
+**Accessibility (WCAG 2.2 AA).** Automated axe checks run in CI on sign-in, dashboard, report, Progress,
+questionnaires, new-360 wizard, settings and the rater form (phone size), in light and dark mode. Manual review and fixes:
+- Heatmap text colour is now picked for contrast on each cell. One ramp colour was darkened, and a unit test checks
+  every cell meets 4.5:1.
+- "Skip to content" link on every page; `main` is focusable.
+- Rater form: moving between sections moves focus to the new section, so keyboard and screen-reader users start at
+  the top. Rating scales are native radio groups.
+- Report: gap-chart rows are keyboard buttons (Enter or Space opens details) with a visible focus ring. Heatmap rows
+  have a button on the competency name. The competency picker uses toggle buttons with `aria-pressed`. The radar
+  chart's accessible label lists every competency's self and others' scores.
+- "Reduce motion" is respected: CSS transitions and chart animations are switched off, and scrolling is instant.
+- Still worth doing before a big launch: a session with a real screen-reader user (VoiceOver/NVDA) and a 200%-zoom
+  pass on the report charts.
+
+**Pulse titles** now follow the survey and session: "Pre-promotion 360 — Autumn 2026 · S4 Pulse check". Existing
+pulses were renamed by migration `rate_limit_pulse_titles`.
+
 ## Known limitations / next up
 
 - Custom questions get a first-person wording by replacing `{name}` with "I" — grammar may need a manual edit.
-- Rater form is English-only; multi-language and a full WCAG 2.2 AA audit are still to do (semantic radios, labels,
-  focus rings and contrast are in place).
-- No rate limiting yet on the public rater endpoints (tokens are 256-bit, so guessing isn't practical; add limits before launch).
+- Rater form is English-only by the owner's choice (2026-11-16); multi-language can come later.
+- Next: Excel/CSV questionnaire import (proposed), then Phase 5 coach workspace (client opt-in sharing).
 - `RaterInvite.submittedAt` is stored at day granularity like `Submission.submittedOn`, but row insertion order in Postgres
   could still correlate the two for someone with raw DB access; acceptable for now, revisit with an append-only shuffle job.
-- The Groq API couldn't be reached from the build sandbox, so real Groq calls were tested only with a stubbed HTTP layer; the first live call happens on Vercel once `GROQ_API_KEY` is set.
+- The Groq API couldn't be reached from the build sandbox, so real Groq calls were tested only with a stubbed HTTP layer; `GROQ_API_KEY` is set on Vercel Production (2026-11-16); not yet on Preview.
 - Comment themes are still keyword-based; the AI summary reads them but doesn't re-cluster comments yet.
 - Benchmarks need anonymised norms across many users (Phase 8).
 - Buying credits needs Stripe (Phase 9); until then credits are granted with `npm run credits:grant`.

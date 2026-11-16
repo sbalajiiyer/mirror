@@ -232,7 +232,7 @@ export function ReportView({
         ))}
       </div>
 
-      <Card id="drilldown" className="scroll-mt-20 print-break">
+      <Card id="drilldown" data-testid="drilldown" className="scroll-mt-20 print-break">
         <CardHeader>
           <CardTitle>Question detail</CardTitle>
           <CardDescription>
@@ -240,12 +240,12 @@ export function ReportView({
             <span style={{ color: "var(--chart-self)" }}>◆</span> your rating.
           </CardDescription>
           {!print && (
-            <div className="flex flex-wrap gap-1.5 pt-2" role="tablist" aria-label="Competency">
+            <div className="flex flex-wrap gap-1.5 pt-2" role="group" aria-label="Show competency">
               {report.competencies.map((c) => (
                 <button
                   key={c.key}
-                  role="tab"
-                  aria-selected={selected === c.key}
+                  type="button"
+                  aria-pressed={selected === c.key}
                   onClick={() => setSelected(c.key)}
                   className={cn("rounded-md px-2.5 py-1 text-xs", selected === c.key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground")}
                 >

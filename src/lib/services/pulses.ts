@@ -27,6 +27,11 @@ export { seriesRootId };
  * comparable), optionally the same raters, as a new DRAFT that follows the normal flow
  * (self-assessment first, then invites).
  */
+/** "Pre-promotion 360 · S4 Pulse check": the survey's title plus this session's number. */
+export function pulseTitle(surveyTitle: string, sessionNumber: number) {
+  return `${surveyTitle} · S${sessionNumber} Pulse check`;
+}
+
 export async function createPulse(userId: string, sourceId: string, raw: unknown) {
   const input = pulseSchema.parse(raw);
   const r = await getReportForOwner(userId, sourceId);
@@ -43,7 +48,7 @@ export async function createPulse(userId: string, sourceId: string, raw: unknown
   const rootId = seriesRootId(source);
   const chosen = source.questions.filter((q) => input.questionIds.includes(q.id) && q.type === "RATING");
   if (chosen.length !== new Set(input.questionIds).size) throw new DomainError("Unknown statement selected");
-  const pulseNo = (await db.assessment.count({ where: { rootAssessmentId: rootId, type: "PULSE" } })) + 1;
+  const root = rootId === source.id ? source : await db.assessment.findUniqueOrThrow({ where: { id: rootId }, select: { title: true } });
   const open = await db.assessment.count({ where: { OR: [{ id: rootId }, { rootAssessmentId: rootId }], status: { in: ["DRAFT", "READY", "COLLECTING"] } } });
   if (open > 0) throw new DomainError("This survey already has a session in progress. Finish or close it first.");
   const name = firstName(source.subject.profile?.displayName ?? source.subject.name);
@@ -57,7 +62,7 @@ export async function createPulse(userId: string, sourceId: string, raw: unknown
         type: "PULSE",
         rootAssessmentId: rootId,
         sessionNumber,
-        title: `Pulse check ${pulseNo} — ${new Date().toLocaleDateString("en", { month: "long", year: "numeric" })}`,
+        title: pulseTitle(root.title, sessionNumber),
         goal: source.goal,
         inviteMessage: pulseInviteMessage(name),
         minRatersPerGroup: source.minRatersPerGroup,
