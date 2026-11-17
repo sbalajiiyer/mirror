@@ -20,7 +20,7 @@ export default async function OrgHome({ params }: { params: Promise<{ orgId: str
   const user = await requireOnboardedUser(`/orgs/${orgId}`);
   const me = await db.orgMember.findFirst({ where: { orgId, userId: user.id, status: "ACTIVE" } });
   if (!me) notFound();
-  if (me.role !== "ADMIN") return <MemberHome orgId={orgId} userId={user.id} />;
+  if (me.role === "MEMBER") return <MemberHome orgId={orgId} userId={user.id} />;
 
   const o = await or404(orgOverview(user.id, orgId));
   const active = o.members.filter((m) => m.status === "ACTIVE").length;
@@ -83,7 +83,15 @@ export default async function OrgHome({ params }: { params: Promise<{ orgId: str
         <CardContent className="space-y-5">
           {o.campaigns.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              No 360 rounds yet. <Link href={`/orgs/${orgId}/rounds`} className="underline">Start one</Link>.
+              No 360 rounds yet.{" "}
+              {me.role !== "ANALYST" && (
+                <>
+                  <Link href={`/orgs/${orgId}/rounds`} className="underline">
+                    Start one
+                  </Link>
+                  .
+                </>
+              )}
             </p>
           )}
           {o.campaigns.map((c) => (

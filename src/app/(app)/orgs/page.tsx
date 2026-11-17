@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ROLE_LABEL } from "@/lib/org/roles";
 import { Building } from "lucide-react";
 import { requireOnboardedUser } from "@/lib/session";
 import { memberTasks, myOrgs } from "@/lib/services/org";
@@ -61,7 +62,7 @@ export default async function OrgsPage() {
                     <span className="flex items-center gap-2 font-medium">
                       <Building className="size-4 text-muted-foreground" aria-hidden /> {m.org.name}
                     </span>
-                    <Badge variant={m.role === "ADMIN" ? "default" : "secondary"}>{m.role === "ADMIN" ? "Admin" : "Member"}</Badge>
+                    <Badge variant={m.role === "MEMBER" ? "secondary" : "default"}>{ROLE_LABEL[m.role]}</Badge>
                   </Link>
                 </li>
               ))}

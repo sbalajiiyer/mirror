@@ -1,4 +1,5 @@
 import "server-only";
+import { withAiWorkspace } from "@/lib/ai/context";
 import { localize } from "@/lib/services/translations";
 import type { RaterLocale } from "@/lib/i18n/rater";
 import { regionForAssessment } from "@/lib/services/residency";
@@ -136,7 +137,7 @@ export async function submitRaterResponse(token: string, raw: unknown) {
   // opted in, AI also rewrites the comments; the original text is never stored.
   const subjectFirstName = firstName(a.subject.profile?.displayName ?? a.subject.name);
   const rewritten = answers.deidentify
-    ? (await deidentifyComments(comments.map((c) => c.text), { inviteId: inv.id, subjectFirstName, region: await regionForAssessment(a.id) })).texts
+    ? (await withAiWorkspace(a.workspaceId, async () => deidentifyComments(comments.map((c) => c.text), { inviteId: inv.id, subjectFirstName, region: await regionForAssessment(a.id) }))).texts
     : comments.map((c) => scrubIdentifiers(c.text));
   comments.forEach((c, i) => (c.text = rewritten[i]?.trim() || scrubIdentifiers(c.text)));
 
@@ -190,5 +191,5 @@ export async function previewDeidentify(token: string, texts: unknown) {
   const list = Array.isArray(texts) ? texts.filter((t): t is string => typeof t === "string").slice(0, 12).map((t) => t.slice(0, 2000)) : [];
   const inv = await openInviteOrThrow(token);
   const name = firstName(inv.assessment.subject.profile?.displayName ?? inv.assessment.subject.name);
-  return deidentifyComments(list, { inviteId: inv.id, subjectFirstName: name, region: await regionForAssessment(inv.assessmentId) });
+  return withAiWorkspace(inv.assessment.workspaceId, async () => deidentifyComments(list, { inviteId: inv.id, subjectFirstName: name, region: await regionForAssessment(inv.assessmentId) }));
 }

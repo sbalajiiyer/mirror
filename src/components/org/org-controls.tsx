@@ -1,5 +1,8 @@
 "use client";
 
+import { ORG_ROLES, ROLE_HELP, ROLE_LABEL, type CompanyRole } from "@/lib/org/roles";
+import { selectClassSm } from "@/components/ui/field-classes";
+
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
@@ -176,14 +179,28 @@ export function InviteMembersForm({ orgId }: { orgId: string }) {
   );
 }
 
-export function MemberRowActions({ orgId, memberId, role, status, isSelf }: { orgId: string; memberId: string; role: "ADMIN" | "MEMBER"; status: string; isSelf: boolean }) {
+export function MemberRowActions({ orgId, memberId, role, status, isSelf, canSetRoles }: { orgId: string; memberId: string; role: CompanyRole; status: string; isSelf: boolean; canSetRoles: boolean }) {
   const { pending, error, run } = useRun();
   return (
     <div className="flex flex-wrap items-center gap-1">
-      {status === "ACTIVE" && (
-        <Button size="sm" variant="ghost" disabled={pending} onClick={() => run(() => setRoleAction(orgId, memberId, role === "ADMIN" ? "MEMBER" : "ADMIN"))}>
-          {role === "ADMIN" ? "Make member" : "Make admin"}
-        </Button>
+      {status === "ACTIVE" && canSetRoles && (
+        <label className="inline-flex items-center">
+          <span className="sr-only">Role</span>
+          <select
+            className={selectClassSm}
+            value={role}
+            disabled={pending}
+            data-testid="member-role"
+            title={ROLE_HELP[role]}
+            onChange={(e) => run(() => setRoleAction(orgId, memberId, e.target.value as CompanyRole))}
+          >
+            {ORG_ROLES.map((r) => (
+              <option key={r} value={r}>
+                {ROLE_LABEL[r]}
+              </option>
+            ))}
+          </select>
+        </label>
       )}
       {!isSelf && (
         <Button size="sm" variant="ghost" disabled={pending} onClick={() => confirm("Remove this person from the organization?") && run(() => removeMemberAction(orgId, memberId))}>

@@ -723,10 +723,14 @@ model Organization {
   roundResults      RoundResult[]
   /// Phase 11: people who leave may copy their own round reports to Personal (without raw comments).
   allowPersonalCopy Boolean       @default(true)
+  /// Phase 11e: premium AI models people may use in this workspace (the free model is always allowed).
+  allowedAiModels   String[]      @default([])
 }
 
 enum OrgRole {
+  OWNER
   ADMIN
+  ANALYST
   MEMBER
 }
 

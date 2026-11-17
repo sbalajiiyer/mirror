@@ -6,7 +6,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { saveSsoConfigAction, setSsoDomainAction, updateOrgDataAction, verifySsoDomainAction } from "@/app/(app)/orgs/[orgId]/settings/actions";
+import { saveSsoConfigAction, setSsoDomainAction, updateOrgDataAction, updateOrgAiAction, verifySsoDomainAction } from "@/app/(app)/orgs/[orgId]/settings/actions";
 
 type Msg = { tone: "error" | "success"; text: string } | null;
 
@@ -147,6 +147,47 @@ export function SsoConfigForm({ orgId, initial, verified }: { orgId: string; ini
       </div>
       <Button type="submit" disabled={pending}>
         {pending ? "Checking your identity provider…" : "Save SSO settings"}
+      </Button>
+      {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
+    </form>
+  );
+}
+
+/** Phase 11e: owners choose which premium AI models people may use here. The free model is always on. */
+export function OrgAiForm({ orgId, models, allowed }: { orgId: string; models: { id: string; label: string; description: string }[]; allowed: string[] }) {
+  const [on, setOn] = useState(new Set(allowed));
+  const { msg, pending, run } = useRun();
+  if (models.length === 0) return <p className="text-sm text-muted-foreground">Only the free model is available on this installation.</p>;
+  return (
+    <form
+      className="space-y-3"
+      data-testid="org-ai-form"
+      onSubmit={(e) => {
+        e.preventDefault();
+        run(() => updateOrgAiAction(orgId, { allowedAiModels: [...on] }), "Saved.");
+      }}
+    >
+      {models.map((m) => (
+        <label key={m.id} className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1 size-4"
+            checked={on.has(m.id)}
+            onChange={(e) => {
+              const next = new Set(on);
+              if (e.target.checked) next.add(m.id);
+              else next.delete(m.id);
+              setOn(next);
+            }}
+          />
+          <span>
+            {m.label}
+            <span className="block text-muted-foreground">{m.description}</span>
+          </span>
+        </label>
+      ))}
+      <Button type="submit" disabled={pending}>
+        {pending ? "Saving…" : "Save AI settings"}
       </Button>
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
     </form>

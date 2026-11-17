@@ -13,7 +13,7 @@ import { DomainError } from "@/lib/errors";
  */
 export const WORKSPACE_COOKIE = "mirror-ws";
 
-export type WorkspaceRole = "OWNER" | OrgRole;
+export type WorkspaceRole = OrgRole;
 export type WorkspaceSummary = {
   id: string;
   kind: "PERSONAL" | "COMPANY";
@@ -24,7 +24,7 @@ export type WorkspaceSummary = {
   role: WorkspaceRole;
 };
 
-const RANK: Record<WorkspaceRole, number> = { MEMBER: 1, ADMIN: 2, OWNER: 3 };
+const RANK: Record<WorkspaceRole, number> = { MEMBER: 1, ANALYST: 2, ADMIN: 3, OWNER: 4 };
 
 /** Personal first, then each company the user is an active member of. */
 export async function listWorkspaces(userId: string): Promise<WorkspaceSummary[]> {
@@ -66,4 +66,5 @@ export async function setActiveWorkspace(userId: string, key: string): Promise<W
   return w;
 }
 
-export const isCompanyAdmin = (w: WorkspaceSummary) => w.kind === "COMPANY" && RANK[w.role] >= RANK.ADMIN;
+/** Analysts, admins and owners see the company pages. */
+export const isCompanyAdmin = (w: WorkspaceSummary) => w.kind === "COMPANY" && RANK[w.role] >= RANK.ANALYST;

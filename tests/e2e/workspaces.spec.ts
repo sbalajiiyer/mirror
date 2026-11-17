@@ -70,3 +70,24 @@ test("a company admin can switch off copying reports for people who leave", asyn
   await page.getByRole("button", { name: "Save data settings" }).click();
   await expect(page.getByTestId("org-data-form")).toContainText("Saved.");
 });
+
+test("owners set company roles and choose AI models; tabs follow the role", async ({ page }) => {
+  await page.goto("/signin");
+  await page.getByTestId("demo-admin-login").click();
+  await page.waitForURL("**/orgs");
+  await page.getByTestId("org-row").filter({ hasText: "Brightline Studio" }).click();
+  await page.waitForURL(/\/orgs\/[^/]+$/);
+  const base = page.url();
+  const tabs = page.getByRole("navigation", { name: "Organization" });
+  await expect(tabs.getByRole("link", { name: "Settings" })).toBeVisible();
+  await expect(page.getByText("· owner")).toBeVisible();
+
+  await page.goto(`${base}/people`);
+  const role = page.getByTestId("member-role").first();
+  await expect(role).toBeVisible();
+  await expect(role.locator("option")).toHaveText(["Member", "Analyst", "Admin", "Owner"]);
+
+  await page.goto(`${base}/settings`);
+  await expect(page.getByTestId("ai-card")).toBeVisible();
+  await expectAccessible(page);
+});

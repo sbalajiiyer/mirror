@@ -9,7 +9,7 @@ import { normalizeEmail } from "@/lib/email-address";
 import { hashToken, newToken, signPayload, verifySignedPayload } from "@/lib/tokens";
 import { appUrl } from "@/lib/url";
 import { authorizationUrl, discover, exchangeCode, newAuthRequest, validIssuer } from "@/lib/sso/oidc";
-import { requireAdmin } from "@/lib/services/org";
+import { requireOwner } from "@/lib/services/org";
 
 /*
  * Enterprise SSO per organization (Phase 10, OIDC). An admin proves the email domain with a DNS
@@ -48,7 +48,7 @@ export async function ssoRequiredFor(email: string) {
 }
 
 export async function ssoSettings(adminId: string, orgId: string) {
-  await requireAdmin(adminId, orgId);
+  await requireOwner(adminId, orgId);
   const o = await db.organization.findUniqueOrThrow({ where: { id: orgId } });
   return {
     domain: o.ssoDomain,
@@ -64,7 +64,7 @@ export async function ssoSettings(adminId: string, orgId: string) {
 }
 
 export async function setSsoDomain(adminId: string, orgId: string, raw: string) {
-  await requireAdmin(adminId, orgId);
+  await requireOwner(adminId, orgId);
   const domain = domainSchema.parse(raw);
   if (PUBLIC_EMAIL_DOMAINS.has(domain)) throw new DomainError("Personal email domains can't be used for SSO.");
   const taken = await db.organization.findFirst({ where: { ssoDomain: domain, id: { not: orgId } } });
@@ -75,7 +75,7 @@ export async function setSsoDomain(adminId: string, orgId: string, raw: string) 
 
 /** Look for the TXT record on the domain itself or on _mirror.<domain>. */
 export async function verifySsoDomain(adminId: string, orgId: string, resolver: (host: string) => Promise<string[][]> = resolveTxt) {
-  await requireAdmin(adminId, orgId);
+  await requireOwner(adminId, orgId);
   const o = await db.organization.findUniqueOrThrow({ where: { id: orgId } });
   if (!o.ssoDomain || !o.ssoDomainToken) throw new DomainError("Add your domain first.");
   const want = `${VERIFY_PREFIX}${o.ssoDomainToken}`;
@@ -101,7 +101,7 @@ export const ssoConfigSchema = z.object({
 });
 
 export async function saveSsoConfig(adminId: string, orgId: string, raw: unknown, fetchImpl: typeof fetch = fetch) {
-  await requireAdmin(adminId, orgId);
+  await requireOwner(adminId, orgId);
   const input = ssoConfigSchema.parse(raw);
   const issuer = validIssuer(input.issuer);
   if (!issuer) throw new DomainError("The issuer must be an https URL, e.g. https://acme.okta.com");

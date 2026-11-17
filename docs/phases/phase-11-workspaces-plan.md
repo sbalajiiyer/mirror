@@ -263,3 +263,20 @@ Built together: the switcher is only safe because of the checks.
 - People who left before this change keep their old data (no exit was recorded for them).
 - Tests: leaving, copy without comments, company switch-off, purge after grace with unchanged round
   analytics and comparisons, rejoining (integration); company setting (e2e).
+
+### 11e (part 1) — Roles, company AI models, retention (2026-11-17)
+- **Roles:** `OrgRole` is now OWNER > ADMIN > ANALYST > MEMBER (`src/lib/org/roles.ts`). Migrations
+  add the values and make each company's creator (or longest-standing admin) its Owner.
+  - Owner: sign-in (SSO), data region and retention, AI models, seats, roles.
+  - Admin: people, teams, rounds, talent grid, audit log; can't remove an owner.
+  - Analyst: read-only overview, analytics and company dashboards.
+  - A company always keeps at least one owner; only owners change roles (role menu on People).
+  - Company tabs are filtered by role; `adminPage(orgId, path, min)` guards each page.
+- **Company AI models:** owners choose which premium models are allowed (Company settings → AI
+  models). In a company workspace, a premium choice that isn't allowed falls back to the free
+  model. AI calls know their workspace via `withAiWorkspace` (request context; passed explicitly for
+  streamed chat), and `AIInteractionLog.workspaceId` records it, which the AI budgets in part 2 use.
+- **Retention** now also deletes AI chats and development plans in the company workspace once
+  untouched for the retention period (Personal is never affected).
+- Tests: roles (unit + integration), AI model rules and usage attribution, retention (integration),
+  owner screens (e2e).

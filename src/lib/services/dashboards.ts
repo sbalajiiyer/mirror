@@ -1,4 +1,5 @@
 import "server-only";
+import { withAiWorkspace } from "@/lib/ai/context";
 import { regionForOrg } from "@/lib/services/residency";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -8,7 +9,7 @@ import { DomainError } from "@/lib/errors";
 import { sendEmail } from "@/lib/email";
 import { appUrl } from "@/lib/url";
 import { getCoachProfile } from "@/lib/services/coach";
-import { requireAdmin } from "@/lib/services/org";
+import { requireAnalyst } from "@/lib/services/org";
 import { questionToWidget } from "@/lib/ai/features/nl-query";
 import { widgetData } from "@/lib/dashboards/data";
 import { toText, WIDGETS, type Scope, type Widget, type WidgetData } from "@/lib/dashboards/widgets";
@@ -32,7 +33,7 @@ async function assertScope(userId: string, scope: Scope, orgId?: string | null) 
   if (scope === "COACH" && !(await getCoachProfile(userId))) throw new DomainError("Set up your coach workspace first.");
   if (scope === "ORG") {
     if (!orgId) throw new DomainError("Pick an organization.");
-    await requireAdmin(userId, orgId);
+    await requireAnalyst(userId, orgId);
   }
 }
 
@@ -129,7 +130,7 @@ export async function askDashboard(userId: string, id: string, question: string)
   const q = z.string().trim().min(3, "Ask a question first").max(300).parse(question);
   const d = await getDashboard(userId, id);
   const opts = await dashboardOptions(d);
-  const pick = await questionToWidget({ userId, question: q, scope: d.scope as Scope, groups: opts.groups.map((g) => ({ id: g.id, name: g.name })), surveys: opts.surveys, region: d.scope === "ORG" ? await regionForOrg(d.orgId) : "us" });
+  const pick = await withAiWorkspace(d.workspaceId, async () => questionToWidget({ userId, question: q, scope: d.scope as Scope, groups: opts.groups.map((g) => ({ id: g.id, name: g.name })), surveys: opts.surveys, region: d.scope === "ORG" ? await regionForOrg(d.orgId) : "us" }));
   const widget: Widget = { id: randomUUID(), type: pick.type, config: { ...(pick.groupId ? { groupId: pick.groupId } : {}), ...(pick.surveyId ? { surveyId: pick.surveyId } : {}) } };
   const [r] = await renderWidgets({ ...d, widgets: [widget] as unknown as Prisma.JsonValue });
   return { widget, data: r.data, error: r.error, explanation: pick.explanation };

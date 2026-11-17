@@ -8,6 +8,7 @@ import type { ThemeGroup } from "@/lib/text/themes";
 import { sentimentOf } from "@/lib/text/themes";
 import { groupCommentsWithAI } from "@/lib/ai/features/themes";
 import { regionForAssessment } from "@/lib/services/residency";
+import { withAiWorkspace } from "@/lib/ai/context";
 
 export type StoredAIThemes = { themes: (ThemeGroup & { summary: string })[]; modelId: string; generatedBy: string; generatedAt: string };
 
@@ -28,9 +29,11 @@ export async function createAIThemes(userId: string, assessmentId: string) {
     ...Object.values(data.comments.competency).flatMap((cs) => cs.map((c) => ({ ...c, sentiment: sentimentOf(c.text).label }))),
   ];
   if (comments.length < 3) throw new DomainError("There aren't enough written comments to group.");
-  const res = await groupCommentsWithAI(
-    comments.map((c) => c.text),
-    { userId, subjectFirstName: data.assessment.subjectFirstName, modelChoice: a.subject.profile?.aiModel, region: await regionForAssessment(a.id) },
+  const res = await withAiWorkspace(a.workspaceId, async () =>
+    groupCommentsWithAI(
+      comments.map((c) => c.text),
+      { userId, subjectFirstName: data.assessment.subjectFirstName, modelChoice: a.subject.profile?.aiModel, region: await regionForAssessment(a.id) },
+    ),
   );
   if (!res.ok) throw new DomainError(res.error.includes("limit") ? res.error : `${res.error.replace(/, so a standard version was used\.?/, ".")} Keyword themes are still shown.`, "ai_unavailable");
   const seen = new Set<number>();

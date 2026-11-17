@@ -2,13 +2,14 @@ import "server-only";
 import { notFound } from "next/navigation";
 import { DomainError } from "@/lib/errors";
 import { requireOnboardedUser } from "@/lib/session";
-import { requireAdmin } from "@/lib/services/org";
+import { requireRole } from "@/lib/services/org";
+import type { CompanyRole } from "@/lib/org/roles";
 
-/** For admin pages: signed-in, onboarded admin of this org, otherwise 404 (no hint that the org exists). */
-export async function adminPage(orgId: string, path = "") {
+/** For company pages: signed-in, onboarded member with at least `min`, otherwise 404 (no hint that the org exists). */
+export async function adminPage(orgId: string, path = "", min: CompanyRole = "ADMIN") {
   const user = await requireOnboardedUser(`/orgs/${orgId}${path}`);
   try {
-    const admin = await requireAdmin(user.id, orgId);
+    const admin = await requireRole(user.id, orgId, min);
     return { user, admin };
   } catch (e) {
     if (e instanceof DomainError) notFound();

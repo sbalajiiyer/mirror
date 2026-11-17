@@ -109,7 +109,7 @@ describe.skipIf(!hasDb)("workspaces (integration)", async () => {
     const ws = await import("@/lib/workspace");
     const list = await ws.listWorkspaces(people[0].id);
     expect(list.map((w) => [w.kind, w.role])).toEqual([["PERSONAL", "OWNER"], ["COMPANY", "MEMBER"]]);
-    expect((await ws.listWorkspaces(admin.id))[1]).toMatchObject({ kind: "COMPANY", role: "ADMIN", orgId });
+    expect((await ws.listWorkspaces(admin.id))[1]).toMatchObject({ kind: "COMPANY", role: "OWNER", orgId });
     await expect(ws.requireWorkspaceRole(people[0].id, companyWs, "ADMIN")).rejects.toThrow(/Not found/);
     await expect(ws.requireWorkspaceRole(people[0].id, await personalWs(people[1].id))).rejects.toThrow(/Not found/);
     expect((await ws.requireWorkspaceRole(admin.id, companyWs, "ADMIN")).orgId).toBe(orgId);
@@ -173,7 +173,8 @@ describe.skipIf(!hasDb)("workspaces (integration)", async () => {
       const before = await org.teamAnalytics(admin.id, orgId, teamId, campaignId);
       const cmp = await org.compareCohorts(admin.id, orgId, { groupId: teamId, campaignId }, { campaignId });
       expect(await leaving.purgeExits(new Date(Date.now() + 6 * DAY))).toBe(0);
-      expect(await leaving.purgeExits(new Date(Date.now() + 8 * DAY))).toBe(2);
+      // Other test files may have their own leavers in the same database.
+      expect(await leaving.purgeExits(new Date(Date.now() + 8 * DAY))).toBeGreaterThanOrEqual(2);
       expect(await db.assessment.count({ where: { subjectId: { in: [people[2].id, people[3].id] }, workspaceId: companyWs } })).toBe(0);
       expect(await db.assessment.count({ where: { subjectId: people[2].id, copiedFrom: "Workspace Co" } })).toBe(1);
       expect((await org.teamAnalytics(admin.id, orgId, teamId, campaignId)).profile).toEqual(before.profile);
@@ -185,8 +186,86 @@ describe.skipIf(!hasDb)("workspaces (integration)", async () => {
       await org.leaveOrg(people[4].id, orgId);
       await org.inviteMembers(admin.id, orgId, people[4].email!);
       await org.respondOrgInviteToken(people[4].id, await tokenFor(people[4].email!), true);
-      expect(await leaving.purgeExits(new Date(Date.now() + 8 * DAY))).toBe(0);
+      await leaving.purgeExits(new Date(Date.now() + 8 * DAY));
       expect(await db.assessment.count({ where: { subjectId: people[4].id, workspaceId: companyWs } })).toBe(1);
+    });
+  });
+
+  describe("company roles", () => {
+    it("owners set roles; analysts read results only; admins can't touch owner settings", async () => {
+      const member = (id: string) => db.orgMember.findFirstOrThrow({ where: { orgId, userId: id, status: "ACTIVE" } });
+      const analyst = people[0];
+      const adminP = people[1];
+      await org.setRole(admin.id, orgId, (await member(analyst.id)).id, "ANALYST");
+      await org.setRole(admin.id, orgId, (await member(adminP.id)).id, "ADMIN");
+      // Only owners change roles.
+      await expect(org.setRole(adminP.id, orgId, (await member(analyst.id)).id, "OWNER")).rejects.toThrow(/Only organization owners/);
+      // Analysts see group results, but can't manage people or rounds.
+      expect((await org.orgOverview(analyst.id, orgId)).profile).toBeDefined();
+      expect((await org.teamAnalytics(analyst.id, orgId, teamId, campaignId)).profile.available).toBe(true);
+      await expect(org.inviteMembers(analyst.id, orgId, "x@y.com")).rejects.toThrow(/Only organization admins/);
+      await expect(org.talentGrid(analyst.id, orgId)).rejects.toThrow(/Only organization admins/);
+      // Admins manage people but not data settings or billing, and can't remove an owner.
+      const settings = await import("@/lib/services/org-settings");
+      await expect(settings.updateOrgData(adminP.id, orgId, { region: "us", retentionMonths: null, allowPersonalCopy: true })).rejects.toThrow(/Only organization owners/);
+      await expect(org.removeMember(adminP.id, orgId, (await member(admin.id)).id)).rejects.toThrow(/Only owners can remove an owner/);
+      // Workspace roles follow.
+      const ws = await import("@/lib/workspace");
+      const w = (await ws.listWorkspaces(analyst.id)).find((x) => x.orgId === orgId)!;
+      expect(w.role).toBe("ANALYST");
+      expect(ws.isCompanyAdmin(w)).toBe(true);
+      // A second owner lets the first one step down.
+      await org.setRole(admin.id, orgId, (await member(adminP.id)).id, "OWNER");
+      await org.setRole(adminP.id, orgId, (await member(admin.id)).id, "ADMIN");
+      await expect(org.setRole(adminP.id, orgId, (await member(adminP.id)).id, "MEMBER")).rejects.toThrow(/at least one owner/);
+    });
+  });
+
+  describe("company AI rules and retention", () => {
+    it("uses premium models only where the company allows them, and records usage against the workspace", async () => {
+      const ctx = await import("@/lib/ai/context");
+      const { runAI } = await import("@/lib/ai/client");
+      const { z } = await import("zod");
+      Object.assign(process.env, { PREMIUM_AI_ENABLED: "true", ANTHROPIC_API_KEY: "test", ANTHROPIC_MODEL: "claude-test" });
+      try {
+        expect((await ctx.modelForWorkspace("premium-claude", await personalWs(admin.id))).id).toBe("premium-claude");
+        expect((await ctx.modelForWorkspace("premium-claude", companyWs)).id).toBe("free");
+        const settings = await import("@/lib/services/org-settings");
+        const owner = (await db.orgMember.findFirstOrThrow({ where: { orgId, role: "OWNER", status: "ACTIVE" } })).userId!;
+        await expect(settings.updateOrgAi(owner, orgId, { allowedAiModels: ["made-up"] })).rejects.toThrow(/Unknown AI model/);
+        await settings.updateOrgAi(owner, orgId, { allowedAiModels: ["premium-claude"] });
+        expect((await ctx.modelForWorkspace("premium-claude", companyWs)).id).toBe("premium-claude");
+      } finally {
+        delete process.env.PREMIUM_AI_ENABLED;
+        delete process.env.ANTHROPIC_API_KEY;
+        delete process.env.ANTHROPIC_MODEL;
+      }
+      // Usage inside withAiWorkspace is logged against that workspace.
+      process.env.AI_PROVIDER = "mock";
+      try {
+        await ctx.withAiWorkspace(companyWs, () => runAI({ feature: "nl_query", userId: people[0].id, request: { system: "s", messages: [] }, schema: z.object({ x: z.string() }), mock: () => ({ x: "m" }), fallback: () => ({ x: "f" }) }));
+      } finally {
+        delete process.env.AI_PROVIDER;
+      }
+      const log = await db.aIInteractionLog.findFirstOrThrow({ where: { userId: people[0].id, feature: "nl_query" }, orderBy: { createdAt: "desc" } });
+      expect(log.workspaceId).toBe(companyWs);
+    });
+
+    it("retention also removes old AI chats and plans in the company workspace, not in Personal", async () => {
+      const { runRetention } = await import("@/lib/jobs/retention");
+      await db.organization.update({ where: { id: orgId }, data: { retentionMonths: 12 } });
+      const old = new Date(Date.now() - 400 * 24 * 3600 * 1000);
+      const a = await db.assessment.findFirstOrThrow({ where: { workspaceId: companyWs } });
+      const chat = await db.coachChat.create({ data: { userId: a.subjectId, assessmentId: a.id, mode: "REPORT", title: "old" } });
+      await db.$executeRaw`UPDATE "CoachChat" SET "updatedAt" = ${old} WHERE "id" = ${chat.id}`;
+      const mine = await db.coachChat.create({ data: { userId: a.subjectId, mode: "REPORT", title: "personal" } });
+      await db.$executeRaw`UPDATE "CoachChat" SET "updatedAt" = ${old} WHERE "id" = ${mine.id}`;
+      expect(chat.workspaceId).toBe(companyWs);
+      const r = await runRetention();
+      expect(r.chats).toBeGreaterThanOrEqual(1);
+      expect(await db.coachChat.findUnique({ where: { id: chat.id } })).toBeNull();
+      expect(await db.coachChat.findUnique({ where: { id: mine.id } })).not.toBeNull();
+      await db.organization.update({ where: { id: orgId }, data: { retentionMonths: null } });
     });
   });
 });

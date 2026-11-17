@@ -1,5 +1,6 @@
 import "server-only";
 import { regionForAssessment } from "@/lib/services/residency";
+import { withAiWorkspace } from "@/lib/ai/context";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
@@ -107,7 +108,7 @@ export async function sendMessage(userId: string, chatId: string, rawText: strin
   if (chat.messages.length >= 80) throw new DomainError("This conversation is long; start a new one to keep answers sharp.");
   const { ctx, tone, aiModel } = await context(userId, chat.assessmentId);
   const history = [...chat.messages.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })), { role: "user" as const, content: text }];
-  const res = await generateChatReply({ region: await regionForAssessment(chat.assessmentId ?? ctx.report?.assessment.id), userId, mode: chat.mode, scenario: chat.scenario, ctx, history, tone, modelChoice: aiModel, premium: chat.tier === "premium", pro: (await chatFeature(userId)) === "chat_pro" });
+  const res = await withAiWorkspace(chat.workspaceId, async () => generateChatReply({ region: await regionForAssessment(chat.assessmentId ?? ctx.report?.assessment.id), userId, mode: chat.mode, scenario: chat.scenario, ctx, history, tone, modelChoice: aiModel, premium: chat.tier === "premium", pro: (await chatFeature(userId)) === "chat_pro" }));
   if (!res.ok && /limit/i.test(res.error)) throw new DomainError(`${res.error} Your message wasn't sent.`, "rate_limited");
   const reply = res.ok ? res.data : res.fallback;
   await db.$transaction([
@@ -129,7 +130,7 @@ export async function* sendMessageStream(userId: string, chatId: string, rawText
   const history = [...chat.messages.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })), { role: "user" as const, content: text }];
   const filter = citationFilter();
   let end: { ok: boolean; generatedBy: string; error?: string; limited?: boolean } | null = null;
-  for await (const ev of streamChatReply({ region: await regionForAssessment(chat.assessmentId ?? ctx.report?.assessment.id), userId, mode: chat.mode, scenario: chat.scenario, ctx, history, tone, modelChoice: aiModel, premium: chat.tier === "premium", pro: (await chatFeature(userId)) === "chat_pro" })) {
+  for await (const ev of streamChatReply({ workspaceId: chat.workspaceId, region: await regionForAssessment(chat.assessmentId ?? ctx.report?.assessment.id), userId, mode: chat.mode, scenario: chat.scenario, ctx, history, tone, modelChoice: aiModel, premium: chat.tier === "premium", pro: (await chatFeature(userId)) === "chat_pro" })) {
     if (ev.type === "text") {
       const out = filter.push(ev.text);
       if (out) yield { t: "delta", v: out };

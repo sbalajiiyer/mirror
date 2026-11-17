@@ -103,8 +103,8 @@ export async function startCheckout(userId: string, product: ProductKey, context
   }
   if (product.startsWith("org_seats")) {
     if (!context.orgId) throw new DomainError("Pick an organization.");
-    const m = await db.orgMember.findFirst({ where: { orgId: context.orgId, userId, role: "ADMIN", status: "ACTIVE" } });
-    if (!m) throw new DomainError("Only organization admins can buy seats.");
+    const m = await db.orgMember.findFirst({ where: { orgId: context.orgId, userId, role: "OWNER", status: "ACTIVE" } });
+    if (!m) throw new DomainError("Only organization owners can buy seats.");
   }
   if (product.startsWith("coach_") && !(await db.coachProfile.findUnique({ where: { userId } }))) throw new DomainError("Set up your coach workspace first.");
   const user = await db.user.findUniqueOrThrow({ where: { id: userId } });
@@ -211,7 +211,7 @@ export async function billingOverview(userId: string) {
     db.coachProfile.findUnique({ where: { userId } }),
   ]);
   const count = (k: string) => ents.filter((e) => e.kind === k).reduce((n, e) => n + e.remaining, 0);
-  const adminOrgs = await db.orgMember.findMany({ where: { userId, role: "ADMIN", status: "ACTIVE" }, include: { org: true } });
+  const adminOrgs = await db.orgMember.findMany({ where: { userId, role: "OWNER", status: "ACTIVE" }, include: { org: true } });
   return {
     plan,
     coachPlan: coach ? cPlan : null,
