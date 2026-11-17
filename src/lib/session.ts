@@ -2,10 +2,19 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 
+/**
+ * The signed-in user's id, only if that user still exists. A session can outlive its user (account
+ * deleted, demo data re-seeded); treating it as signed in would bounce between /signin and the app.
+ */
+export async function liveSessionUserId(): Promise<string | null> {
+  const id = (await auth())?.user?.id;
+  if (!id) return null;
+  return (await db.user.findUnique({ where: { id }, select: { id: true } })) ? id : null;
+}
+
 /** Current user id or redirect to sign-in. Use in server components and server actions. */
 export async function requireUserId(callbackUrl?: string): Promise<string> {
-  const session = await auth();
-  const id = session?.user?.id;
+  const id = await liveSessionUserId();
   if (!id) redirect(`/signin${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`);
   return id;
 }
@@ -14,7 +23,7 @@ export async function requireUserId(callbackUrl?: string): Promise<string> {
 export async function requireOnboardedUser(callbackUrl?: string) {
   const id = await requireUserId(callbackUrl);
   const user = await db.user.findUnique({ where: { id }, include: { profile: true } });
-  if (!user) redirect("/signin");
+  if (!user) redirect(`/signin?stale=1${callbackUrl ? `&callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`);
   if (!user.profile?.onboardedAt) redirect("/onboarding");
   return { ...user, profile: user.profile };
 }

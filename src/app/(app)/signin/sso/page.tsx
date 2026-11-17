@@ -1,6 +1,6 @@
+import { liveSessionUserId } from "@/lib/session";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,7 +19,7 @@ const MESSAGES: Record<string, string> = {
 
 export default async function SsoSignInPage({ searchParams }: { searchParams: Promise<{ error?: string; message?: string; email?: string; callbackUrl?: string }> }) {
   const sp = await searchParams;
-  if (await auth()) redirect("/dashboard");
+  if (await liveSessionUserId()) redirect("/dashboard");
   const error = sp.error ? (sp.error === "failed" && sp.message ? sp.message.slice(0, 200) : (MESSAGES[sp.error] ?? MESSAGES.failed)) : null;
   return (
     <div className="mx-auto max-w-sm py-8">

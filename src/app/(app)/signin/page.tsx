@@ -1,6 +1,7 @@
+import { liveSessionUserId } from "@/lib/session";
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
-import { auth, demoLoginEnabled, googleEnabled, signIn } from "@/auth";
+import { demoLoginEnabled, googleEnabled, signIn } from "@/auth";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,10 +18,10 @@ function safeCallback(url: string | undefined) {
   return url && url.startsWith("/") && !url.startsWith("//") ? url : "/dashboard";
 }
 
-export default async function SignInPage({ searchParams }: { searchParams: Promise<{ callbackUrl?: string; error?: string }> }) {
-  const { callbackUrl, error } = await searchParams;
+export default async function SignInPage({ searchParams }: { searchParams: Promise<{ callbackUrl?: string; error?: string; stale?: string }> }) {
+  const { callbackUrl, error, stale } = await searchParams;
   const redirectTo = safeCallback(callbackUrl);
-  if (await auth()) redirect(redirectTo);
+  if (await liveSessionUserId()) redirect(redirectTo);
 
   async function emailSignIn(formData: FormData) {
     "use server";
@@ -46,6 +47,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
           <CardDescription>We&apos;ll email you a magic link — no password needed.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {stale && !error && <Alert tone="info">Your session has ended. Please sign in again.</Alert>}
           {error && <Alert tone="error">{error === "email"
                 ? "Please enter a valid email address."
                 : error === "rate"

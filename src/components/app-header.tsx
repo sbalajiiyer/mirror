@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
+import { liveSessionUserId } from "@/lib/session";
 import { db } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/logo";
@@ -7,8 +8,8 @@ import { MobileMenu } from "@/components/mobile-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export async function AppHeader() {
-  const session = await auth();
-  const uid = session?.user?.id;
+  const uid = await liveSessionUserId();
+  const session = uid ? await auth() : null;
   const isCoach = uid ? !!(await db.coachProfile.findUnique({ where: { userId: uid }, select: { userId: true } })) : false;
   const inOrg = uid ? (await db.orgMember.count({ where: { userId: uid, status: "ACTIVE" } })) > 0 : false;
   const links = [
