@@ -205,3 +205,24 @@ Each step is its own PR, tested and deployed before the next.
    and the coach sees only what each employee chooses to share, as today.
 5. **Company pricing:** both seats and a monthly platform fee. Default fee in `catalog.ts`
    (placeholder, change freely); payments stay stubbed until Stripe is switched on.
+
+## Build log
+
+### 11a — Model and data move (2026-11-17)
+- `Workspace` table (PERSONAL / COMPANY) and a required `workspaceId` on 360s, plans, goals, AI chats,
+  dashboards, share links, API tokens, credits, subscriptions, payments and entitlements (optional on
+  questionnaires, where built-ins have none, and on AI logs, where rater-side calls have no account).
+- **The database assigns workspaces.** New users and organizations get theirs from an `AFTER INSERT`
+  trigger; content rows get one from a `BEFORE INSERT` trigger when the app doesn't pass it (round
+  360s → the company; plans, goals and share links → their 360's workspace; everything else →
+  Personal). Existing code keeps working unchanged; 11b starts passing workspaces explicitly.
+- **Frozen round results:** `RoundResult` keeps anonymous running totals (counts and sums only) per
+  round, for the whole round and per team. A round 360 adds to them once when it closes
+  (`contributeToRound`, called from `buildAndStoreReport`). They are never reduced. A backfill runs
+  on every deploy (`scripts/backfill-round-results.ts`) and in the daily cron; both are idempotent.
+- Nothing visible changes yet: analytics still read live reports until 11d.
+- **Rehearsed on a Neon branch copy of production** (`rehearse-11a-workspaces`): 35 users → 35
+  Personal workspaces, 1 company workspace, 24 of 52 360s in the company, 0 mismatches.
+- Tests: `tests/unit/round-totals.test.ts` (frozen totals give exactly the live group profile),
+  `tests/integration/workspaces.test.ts` (assignment rules, explicit workspace kept, totals match,
+  idempotent, unchanged after an account is deleted, personal 360s never count).

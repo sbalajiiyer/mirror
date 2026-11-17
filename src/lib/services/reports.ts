@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import { contributeToRound } from "@/lib/services/round-results";
 import type { StoredAIThemes } from "@/lib/services/ai-themes";
 import { computeReport, type ReportData, type ReportInput } from "@/lib/report/compute";
 import { firstName } from "@/lib/utils";
@@ -48,7 +49,10 @@ export async function loadReportInput(assessmentId: string): Promise<ReportInput
 
 export async function buildAndStoreReport(assessmentId: string) {
   const data = computeReport(await loadReportInput(assessmentId));
-  return db.report.create({ data: { assessmentId, data: data as unknown as Prisma.InputJsonValue } });
+  const report = await db.report.create({ data: { assessmentId, data: data as unknown as Prisma.InputJsonValue } });
+  // Company round 360s also add to the round's frozen, anonymous totals (Phase 11).
+  await contributeToRound(assessmentId, data);
+  return report;
 }
 
 /**
