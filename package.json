@@ -17,6 +17,7 @@
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
     "jobs:reminders": "tsx scripts/run-reminders.ts",
+    "jobs:round-results": "tsx scripts/backfill-round-results.ts",
     "test:integration": "TEST_DATABASE_URL=${TEST_DATABASE_URL:-postgresql://mirror:mirror@localhost:5432/mirror_test?schema=public} vitest run tests/integration",
     "credits:grant": "tsx scripts/grant-credits.ts",
     "coach:verify": "tsx scripts/verify-coach.ts",

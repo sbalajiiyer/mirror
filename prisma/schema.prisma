@@ -16,15 +16,15 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
+  id                  String    @id @default(cuid())
+  name                String?
+  email               String?   @unique
+  emailVerified       DateTime?
+  image               String?
   /// Account deletion requested: everything is removed at this time unless the person signs in first.
   deletionScheduledAt DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   accounts    Account[]
   sessions    Session[]
@@ -37,20 +37,21 @@ model User {
   goals       Goal[]
   credits     CreditLedger[]
 
-  coachProfile   CoachProfile?
-  coachLinks     CoachClientLink[] @relation("CoachLinks")
-  clientLinks    CoachClientLink[] @relation("ClientLinks")
-  coachNotes     CoachNote[]       @relation("CoachNotesWritten")
-  coachMeetings  CoachMeeting[]    @relation("CoachMeetings")
-  clientMeetings CoachMeeting[]    @relation("ClientMeetings")
-  orgMemberships OrgMember[]
-  chats          CoachChat[]
-  shareLinks     ShareLink[]
-  dashboards     Dashboard[]
-  apiTokens      ApiToken[]
-  subscriptions  Subscription[]
-  payments       Payment[]
-  entitlements   Entitlement[]
+  coachProfile      CoachProfile?
+  coachLinks        CoachClientLink[] @relation("CoachLinks")
+  clientLinks       CoachClientLink[] @relation("ClientLinks")
+  coachNotes        CoachNote[]       @relation("CoachNotesWritten")
+  coachMeetings     CoachMeeting[]    @relation("CoachMeetings")
+  clientMeetings    CoachMeeting[]    @relation("ClientMeetings")
+  orgMemberships    OrgMember[]
+  chats             CoachChat[]
+  shareLinks        ShareLink[]
+  dashboards        Dashboard[]
+  apiTokens         ApiToken[]
+  subscriptions     Subscription[]
+  payments          Payment[]
+  entitlements      Entitlement[]
+  personalWorkspace Workspace?        @relation("PersonalWorkspace")
 }
 
 model Account {
@@ -144,6 +145,10 @@ model Framework {
   owner        User?        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   competencies Competency[]
   assessments  Assessment[]
+
+  /// Phase 11: the workspace this belongs to (null for built-in frameworks). Filled by a database trigger.
+  workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([slug, version])
   @@index([ownerId])
@@ -253,6 +258,12 @@ model Assessment {
   submissions Submission[]
   reports     Report[]
   plans       DevelopmentPlan[]
+
+  /// Phase 11: the workspace this belongs to. Filled by a database trigger when not given.
+  workspaceId        String    @default(dbgenerated())
+  workspace          Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  /// Phase 11: when this round 360's anonymous scores were added to RoundResult (never removed).
+  roundContributedAt DateTime?
 
   @@index([subjectId])
   @@index([rootAssessmentId])
@@ -424,6 +435,10 @@ model DevelopmentPlan {
   assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  /// Phase 11: the workspace this belongs to. Filled by a database trigger when not given.
+  workspaceId String    @default(dbgenerated())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
   @@index([assessmentId])
   @@index([userId])
 }
@@ -504,6 +519,10 @@ model AIInteractionLog {
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
+  /// Phase 11: the workspace this belongs to (null for rater-side calls with no account). Filled by a database trigger.
+  workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
   @@index([userId, createdAt])
   @@index([actorKey, createdAt])
 }
@@ -534,6 +553,10 @@ model Goal {
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
 
+  /// Phase 11: the workspace this belongs to. Filled by a database trigger when not given.
+  workspaceId String    @default(dbgenerated())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
   @@index([userId])
   @@index([assessmentId])
 }
@@ -551,6 +574,10 @@ model CreditLedger {
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Phase 11: the workspace this belongs to. Filled by a database trigger when not given.
+  workspaceId String    @default(dbgenerated())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
 }
@@ -662,16 +689,16 @@ model CoachMeeting {
 
 /// An organization that runs 360s for its people. Free until payments (Phase 9).
 model Organization {
-  id           String   @id @default(cuid())
-  name         String
+  id                  String    @id @default(cuid())
+  name                String
   /// Smallest number of people behind any group-level figure an admin sees (never below 5).
-  minGroupSize Int      @default(5)
+  minGroupSize        Int       @default(5)
   /// Participant seats for 360 rounds (Phase 9). New orgs get 10 free; one seat per person per round.
-  seats        Int      @default(10)
+  seats               Int       @default(10)
   /// Data residency (Phase 10): "us" | "eu". EU orgs never send round data to non-EU AI providers.
-  region          String    @default("us")
+  region              String    @default("us")
   /// Raw rater answers in this org's rounds are deleted this many months after a 360 closes (null = keep).
-  retentionMonths Int?
+  retentionMonths     Int?
   /// Enterprise SSO (OIDC). The email domain must be verified by DNS before SSO can be switched on.
   ssoDomain           String?   @unique
   ssoDomainToken      String?
@@ -683,12 +710,14 @@ model Organization {
   ssoEnabled          Boolean   @default(false)
   /// People with the domain must use SSO (magic links are refused).
   ssoRequired         Boolean   @default(false)
-  createdById  String
-  createdAt    DateTime @default(now())
+  createdById         String
+  createdAt           DateTime  @default(now())
 
-  members   OrgMember[]
-  groups    OrgGroup[]
-  campaigns OrgCampaign[]
+  members      OrgMember[]
+  groups       OrgGroup[]
+  campaigns    OrgCampaign[]
+  workspace    Workspace?    @relation("CompanyWorkspace")
+  roundResults RoundResult[]
 }
 
 enum OrgRole {
@@ -803,6 +832,10 @@ model CoachChat {
   assessment Assessment?   @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   messages   ChatMessage[]
 
+  /// Phase 11: the workspace this belongs to. Filled by a database trigger when not given.
+  workspaceId String    @default(dbgenerated())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
   @@index([userId, updatedAt])
 }
 
@@ -844,6 +877,10 @@ model ShareLink {
 
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  /// Phase 11: the workspace this belongs to. Filled by a database trigger when not given.
+  workspaceId String    @default(dbgenerated())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -895,6 +932,10 @@ model Dashboard {
 
   owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
+  /// Phase 11: the workspace this belongs to. Filled by a database trigger when not given.
+  workspaceId String    @default(dbgenerated())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
   @@index([ownerId])
 }
 
@@ -911,6 +952,10 @@ model ApiToken {
   createdAt  DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Phase 11: the workspace this belongs to. Filled by a database trigger when not given.
+  workspaceId String    @default(dbgenerated())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -930,6 +975,10 @@ model Subscription {
   canceledAt       DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Phase 11: the workspace this belongs to. Filled by a database trigger when not given.
+  workspaceId String    @default(dbgenerated())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([userId, status])
 }
@@ -952,6 +1001,10 @@ model Payment {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  /// Phase 11: the workspace this belongs to. Filled by a database trigger when not given.
+  workspaceId String    @default(dbgenerated())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
   @@index([userId, createdAt])
 }
 
@@ -966,6 +1019,10 @@ model Entitlement {
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Phase 11: the workspace this belongs to. Filled by a database trigger when not given.
+  workspaceId String    @default(dbgenerated())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([userId, kind])
 }
@@ -986,16 +1043,73 @@ model MarketplaceReferral {
 
 /// A server error, grouped by fingerprint (built-in monitoring; no third-party service).
 model ErrorEvent {
-  id          String   @id @default(cuid())
-  fingerprint String   @unique
+  id          String    @id @default(cuid())
+  fingerprint String    @unique
   message     String
   stack       String?
   route       String?
-  kind        String   @default("server") // server | client | job
-  count       Int      @default(1)
-  firstSeen   DateTime @default(now())
-  lastSeen    DateTime @default(now())
+  kind        String    @default("server") // server | client | job
+  count       Int       @default(1)
+  firstSeen   DateTime  @default(now())
+  lastSeen    DateTime  @default(now())
   resolvedAt  DateTime?
 
   @@index([lastSeen])
+}
+
+// ---------------------------------------------------------------- Phase 11: workspaces
+
+enum WorkspaceKind {
+  PERSONAL
+  COMPANY
+}
+
+/// Every piece of user content belongs to exactly one workspace: the owner's Personal space or a company.
+model Workspace {
+  id        String        @id @default(cuid())
+  kind      WorkspaceKind
+  /// PERSONAL: the owner.
+  ownerId   String?       @unique
+  /// COMPANY: the organization (1:1).
+  orgId     String?       @unique
+  createdAt DateTime      @default(now())
+
+  owner User?         @relation("PersonalWorkspace", fields: [ownerId], references: [id], onDelete: Cascade)
+  org   Organization? @relation("CompanyWorkspace", fields: [orgId], references: [id], onDelete: Cascade)
+
+  assessments   Assessment[]
+  frameworks    Framework[]
+  plans         DevelopmentPlan[]
+  goals         Goal[]
+  chats         CoachChat[]
+  dashboards    Dashboard[]
+  shareLinks    ShareLink[]
+  apiTokens     ApiToken[]
+  aiLogs        AIInteractionLog[]
+  creditLedger  CreditLedger[]
+  subscriptions Subscription[]
+  payments      Payment[]
+  entitlements  Entitlement[]
+}
+
+/// Frozen, anonymous running totals of a company round, per scope ("org" or an OrgGroup id).
+/// Added to when a round 360 closes; never reduced when someone leaves or deletes their account.
+/// No user or assessment id is stored. Shown only when `people` meets the org's minimum group size.
+model RoundResult {
+  id           String   @id @default(cuid())
+  orgId        String
+  campaignId   String
+  /// "org" for everyone in the round, or an OrgGroup id (membership at the time the 360 closed).
+  scope        String
+  people       Int      @default(0)
+  /// { [competencyKey]: { name, n, sum, sumSq, selfN, selfSum } }
+  competencies Json     @default("{}")
+  overallN     Int      @default(0)
+  overallSum   Float    @default(0)
+  updatedAt    DateTime @updatedAt
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, scope])
+  @@index([orgId])
 }
