@@ -265,6 +265,9 @@ model Assessment {
   /// Phase 11: when this round 360's anonymous scores were added to RoundResult (never removed).
   roundContributedAt DateTime?
 
+  /// Phase 11: set on a Personal copy of a company round report (the company's name at the time).
+  copiedFrom String?
+
   @@index([subjectId])
   @@index([rootAssessmentId])
 }
@@ -713,11 +716,13 @@ model Organization {
   createdById         String
   createdAt           DateTime  @default(now())
 
-  members      OrgMember[]
-  groups       OrgGroup[]
-  campaigns    OrgCampaign[]
-  workspace    Workspace?    @relation("CompanyWorkspace")
-  roundResults RoundResult[]
+  members           OrgMember[]
+  groups            OrgGroup[]
+  campaigns         OrgCampaign[]
+  workspace         Workspace?    @relation("CompanyWorkspace")
+  roundResults      RoundResult[]
+  /// Phase 11: people who leave may copy their own round reports to Personal (without raw comments).
+  allowPersonalCopy Boolean       @default(true)
 }
 
 enum OrgRole {
@@ -754,8 +759,16 @@ model OrgMember {
   user   User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
   groups OrgGroupMember[]
 
+  /// Phase 11: when the person left or was removed.
+  exitedAt     DateTime?
+  /// Phase 11: their company-workspace data is deleted at this time (7-day grace). Cleared once done or if they rejoin.
+  exitPurgeAt  DateTime?
+  /// Phase 11: when they copied their reports to Personal.
+  exitCopiedAt DateTime?
+
   @@unique([orgId, email])
   @@index([userId])
+  @@index([exitPurgeAt])
 }
 
 enum OrgGroupKind {

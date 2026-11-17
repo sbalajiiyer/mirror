@@ -245,3 +245,21 @@ Built together: the switcher is only safe because of the checks.
   action must check the caller or be on a reasoned public list.
 - Tests: `workspace-nav`, `route-inventory` (unit); access and cookie rules (integration);
   `tests/e2e/workspaces.spec.ts`.
+
+### 11d — Leaving and deleting (2026-11-17)
+- Leaving or being removed sets `OrgMember.exitedAt` and `exitPurgeAt` (+7 days). Rejoining in that
+  time cancels it; a re-invite keeps the link to the person's data until then.
+- **Copy to Personal** (banner on the Personal dashboard, once): closed round reports are copied
+  with `copiedFrom` set, sessions kept together, scores, themes and AI summaries kept, and **all
+  written comments removed** (`withoutComments`: theme/SSC comment lists, competency comments and
+  the word cloud). Copies can't be run again or get pulse checks. Companies can switch copying off
+  (Company settings → Data, `allowPersonalCopy`).
+- Daily cron `companyExits` deletes the leaver's company-workspace 360s (plans, goals, share links
+  cascade) and AI chats after the grace period.
+- **Analytics for a chosen round now read the frozen totals** (team view, cohort comparison), so
+  they don't change when people leave. Views without a round still show current members' latest
+  results; the named heatmap always uses current members.
+- Privacy policy: new line on what happens when you leave a company.
+- People who left before this change keep their old data (no exit was recorded for them).
+- Tests: leaving, copy without comments, company switch-off, purge after grace with unchanged round
+  analytics and comparisons, rejoining (integration); company setting (e2e).

@@ -3,6 +3,8 @@ import { z } from "zod";
 import type { OrgMember } from "@prisma/client";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
+import { roundProfile } from "@/lib/services/round-results";
+import { cancelExit, startExit } from "@/lib/services/leaving";
 import { DomainError } from "@/lib/errors";
 import { consumeOrgSeats } from "@/lib/services/billing";
 import { normalizeEmail } from "@/lib/email-address";
@@ -12,7 +14,7 @@ import { hashToken, newToken } from "@/lib/tokens";
 import { appUrl } from "@/lib/url";
 import type { ReportData } from "@/lib/report/compute";
 import { withoutComments } from "@/lib/coach/brief";
-import { compareGroups, groupProfile, minFor, nineBox, participation, strengthsAndGaps, teamHeatmap, type MemberReport } from "@/lib/org/analytics";
+import { compareProfiles, groupProfile, minFor, nineBox, participation, strengthsAndGaps, teamHeatmap, type MemberReport } from "@/lib/org/analytics";
 import { assertCanUseFramework } from "@/lib/services/frameworks";
 import { sessionKind, surveyCode } from "@/lib/survey";
 
@@ -98,10 +100,12 @@ export async function inviteMembers(adminId: string, orgId: string, text: string
   for (const p of people) {
     if (existing.has(p.email)) continue;
     const token = newToken();
+    // Someone who left recently keeps their link to their data until it is deleted (Phase 11d).
+    const previous = await db.orgMember.findUnique({ where: { orgId_email: { orgId, email: p.email } }, select: { exitPurgeAt: true } });
     await db.orgMember.upsert({
       where: { orgId_email: { orgId, email: p.email } },
       create: { orgId, email: p.email, name: p.name, inviteTokenHash: hashToken(token) },
-      update: { name: p.name, status: "INVITED", inviteTokenHash: hashToken(token), userId: null, role: "MEMBER", shareReports: false, shareTalentGrid: false, performance: null, invitedAt: new Date(), joinedAt: null },
+      update: { name: p.name, status: "INVITED", inviteTokenHash: hashToken(token), ...(previous?.exitPurgeAt ? {} : { userId: null }), role: "MEMBER", shareReports: false, shareTalentGrid: false, performance: null, invitedAt: new Date(), joinedAt: null },
     });
     await sendEmail(orgInviteEmail({ to: p.email, orgName: admin.org.name, fromName: display(admin), link: appUrl(`/orgs/invite/${token}`) }));
     added.push(p.email);
@@ -127,6 +131,7 @@ async function respond(userId: string, m: OrgMember | null, accept: boolean) {
     return m.orgId;
   }
   await db.orgMember.update({ where: { id: m.id }, data: { userId, status: "ACTIVE", joinedAt: new Date(), inviteTokenHash: null, name: m.name || user.profile?.displayName || user.name || "" } });
+  await cancelExit(userId, m.orgId);
   await audit(userId, "org.join", "Organization", m.orgId);
   return m.orgId;
 }
@@ -170,6 +175,7 @@ export async function removeMember(adminId: string, orgId: string, memberId: str
   if (m.role === "ADMIN" && m.status === "ACTIVE" && (await adminCount(orgId)) <= 1) throw new DomainError("An organization needs at least one admin.");
   await db.orgMember.update({ where: { id: m.id }, data: { status: "REMOVED", inviteTokenHash: null, shareReports: false, shareTalentGrid: false } });
   await db.orgGroupMember.deleteMany({ where: { memberId: m.id } });
+  if (m.status === "ACTIVE") await startExit(m);
   await audit(adminId, "org.remove", "OrgMember", m.id, undefined, { orgId, subjectId: m.userId });
 }
 
@@ -178,6 +184,7 @@ export async function leaveOrg(userId: string, orgId: string) {
   if (m.role === "ADMIN" && (await adminCount(orgId)) <= 1) throw new DomainError("Make someone else an admin before you leave.");
   await db.orgMember.update({ where: { id: m.id }, data: { status: "REMOVED", shareReports: false, shareTalentGrid: false } });
   await db.orgGroupMember.deleteMany({ where: { memberId: m.id } });
+  await startExit(m);
   await audit(userId, "org.leave", "Organization", orgId);
 }
 
@@ -332,9 +339,14 @@ export async function teamAnalytics(adminId: string, orgId: string, groupId: str
   const members = await db.orgMember.findMany({ where: { orgId, status: "ACTIVE", groups: { some: { groupId } } } });
   const reports = await memberReports(orgId, members, campaignId);
   const min = minFor(admin.org.minGroupSize);
-  const all = await db.orgMember.findMany({ where: { orgId, status: "ACTIVE" } });
-  const orgProfile = groupProfile((await memberReports(orgId, all, campaignId)).map((m) => m.report), min);
-  return { group: g, min, members: members.length, withResults: reports.length, profile: groupProfile(reports.map((r) => r.report), min), orgProfile, heatmap: teamHeatmap(reports, min) };
+  const campaign = campaignId ? await db.orgCampaign.findFirst({ where: { id: campaignId, orgId }, select: { id: true } }) : null;
+  if (campaignId && !campaign) throw new DomainError("Not found", "not_found");
+  // One round: frozen totals. Without a round: everyone's latest results, current members only.
+  const profile = campaign ? await roundProfile(orgId, campaign.id, groupId, min) : groupProfile(reports.map((r) => r.report), min);
+  const all = campaign ? [] : await db.orgMember.findMany({ where: { orgId, status: "ACTIVE" } });
+  const orgProfile = campaign ? await roundProfile(orgId, campaign.id, "org", min) : groupProfile((await memberReports(orgId, all)).map((m) => m.report), min);
+  // The heatmap names people who opted in, so it always uses current members.
+  return { group: g, min, members: members.length, withResults: reports.length, profile, orgProfile, heatmap: teamHeatmap(reports, min) };
 }
 
 export async function compareCohorts(adminId: string, orgId: string, a: { groupId?: string | null; campaignId?: string | null }, b: { groupId?: string | null; campaignId?: string | null }) {
@@ -343,11 +355,14 @@ export async function compareCohorts(adminId: string, orgId: string, a: { groupI
     const group = s.groupId ? await db.orgGroup.findFirst({ where: { id: s.groupId, orgId } }) : null;
     const campaign = s.campaignId ? await db.orgCampaign.findFirst({ where: { id: s.campaignId, orgId } }) : null;
     if ((s.groupId && !group) || (s.campaignId && !campaign)) throw new DomainError("Not found", "not_found");
+    const label = [group?.name ?? "Everyone", campaign?.name].filter(Boolean).join(" · ");
+    // A round's results are frozen when each 360 closes (Phase 11): people leaving don't change them.
+    if (campaign) return { label, profile: await roundProfile(orgId, campaign.id, group?.id ?? "org", min) };
     const members = await db.orgMember.findMany({ where: { orgId, status: "ACTIVE", ...(group ? { groups: { some: { groupId: group.id } } } : {}) } });
-    const reports = await memberReports(orgId, members, campaign?.id);
-    return { label: [group?.name ?? "Everyone", campaign?.name].filter(Boolean).join(" · "), reports: reports.map((r) => r.report) };
+    return { label, profile: groupProfile((await memberReports(orgId, members)).map((r) => r.report), min) };
   };
-  return compareGroups(await side(a), await side(b), minFor(admin.org.minGroupSize));
+  const min = minFor(admin.org.minGroupSize);
+  return compareProfiles(await side(a), await side(b));
 }
 
 export async function talentGrid(adminId: string, orgId: string) {

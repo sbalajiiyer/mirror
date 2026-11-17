@@ -86,8 +86,13 @@ export type Comparison = {
 
 /** Cohort vs cohort, or before vs after (same cohort, two campaigns). Each side needs `min` people. */
 export function compareGroups(a: { label: string; reports: ReportData[] }, b: { label: string; reports: ReportData[] }, min: number): Comparison {
-  const pa = groupProfile(a.reports, min);
-  const pb = groupProfile(b.reports, min);
+  return compareProfiles({ label: a.label, profile: groupProfile(a.reports, min) }, { label: b.label, profile: groupProfile(b.reports, min) });
+}
+
+/** Compare two group profiles (live or frozen round totals). */
+export function compareProfiles(a: { label: string; profile: GroupProfile }, b: { label: string; profile: GroupProfile }): Comparison {
+  const pa = a.profile;
+  const pb = b.profile;
   const rows = pa.competencies
     .map((c) => {
       const o = pb.competencies.find((x) => x.key === c.key);
@@ -95,7 +100,7 @@ export function compareGroups(a: { label: string; reports: ReportData[] }, b: { 
     })
     .filter((x): x is NonNullable<typeof x> => !!x)
     .sort((x, y) => y.delta - x.delta);
-  return { a: { label: a.label, people: a.reports.length }, b: { label: b.label, people: b.reports.length }, available: pa.available && pb.available && rows.length > 0, rows };
+  return { a: { label: a.label, people: pa.people }, b: { label: b.label, people: pb.people }, available: pa.available && pb.available && rows.length > 0, rows };
 }
 
 /** Org-wide strengths (top 3) and gaps (bottom 3) by others' average. */

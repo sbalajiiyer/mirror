@@ -7,6 +7,7 @@ import { runScheduledDashboards } from "@/lib/services/dashboards";
 import { runRetention } from "@/lib/jobs/retention";
 import { pruneSsoTickets } from "@/lib/services/sso";
 import { purgeScheduledDeletions } from "@/lib/services/my-data";
+import { purgeExits } from "@/lib/services/leaving";
 import { backfillRoundResults } from "@/lib/services/round-results";
 import { pruneErrors, recordError } from "@/lib/monitoring";
 
@@ -31,6 +32,7 @@ export async function GET(req: Request) {
     accounts: () => purgeScheduledDeletions(),
     errorsPruned: () => pruneErrors(),
     roundResults: () => backfillRoundResults(),
+    companyExits: () => purgeExits(),
   };
   const out: Record<string, unknown> = {};
   let failed = 0;

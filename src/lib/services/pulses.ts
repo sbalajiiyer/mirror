@@ -46,6 +46,7 @@ export async function createPulse(userId: string, sourceId: string, raw: unknown
       subject: { include: { profile: true } },
     },
   });
+  if (source.copiedFrom) throw new DomainError("This is a copy of a company report, so it can't have pulse checks. Start a new 360 instead.");
   const rootId = seriesRootId(source);
   const chosen = source.questions.filter((q) => input.questionIds.includes(q.id) && q.type === "RATING");
   if (chosen.length !== new Set(input.questionIds).size) throw new DomainError("Unknown statement selected");

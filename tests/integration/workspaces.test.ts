@@ -35,7 +35,7 @@ describe.skipIf(!hasDb)("workspaces (integration)", async () => {
   async function run360(userId: string, i: number, extra: { orgCampaignId?: string; title: string }) {
     const a = await svc.createAssessment(userId, { ...base, ...extra, groups: [{ kind: "PEER", name: "Peers", shareLink: false, raters: [1, 2, 3].map((k) => ({ name: `R${k}`, email: `r${k}-${i}-${extra.title.length}-${stamp}@t.local` })) }] });
     const aq = await db.assessmentQuestion.findMany({ where: { assessmentId: a.id } });
-    const ans = (v: number) => ({ ratings: Object.fromEntries(aq.map((q) => [q.id, v])), competencyComments: {}, start: "", stop: "", continue: "", general: "", deidentify: false });
+    const ans = (v: number) => ({ ratings: Object.fromEntries(aq.map((q) => [q.id, v])), competencyComments: {}, start: `Share plans earlier please ${stamp}`, stop: "", continue: "", general: "", deidentify: false });
     await svc.submitSelfAssessment(userId, a.id, ans(4));
     await svc.launchAssessment(userId, a.id);
     for (const inv of await db.raterInvite.findMany({ where: { assessmentId: a.id } })) await raters.submitRaterResponse(derivedToken("invite", inv.id), ans(2 + (i % 3)));
@@ -130,5 +130,63 @@ describe.skipIf(!hasDb)("workspaces (integration)", async () => {
   it("personal 360s never add to round totals", async () => {
     await run360(people[1].id, 9, { title: "Just me" });
     expect((await rr.roundProfile(orgId, campaignId, "org", 5)).people).toBe(6);
+  });
+
+  describe("leaving a company", async () => {
+    const leaving = await import("@/lib/services/leaving");
+    const DAY = 24 * 3600 * 1000;
+
+    it("keeps the leaver's data for 7 days and offers a copy without raw comments", async () => {
+      const before = await org.teamAnalytics(admin.id, orgId, teamId, campaignId);
+      await org.leaveOrg(people[2].id, orgId);
+      const [x] = await leaving.pendingExits(people[2].id);
+      expect(x).toMatchObject({ orgName: "Workspace Co", copyAllowed: true, copied: false, reports: 1 });
+      expect(x.deleteAt.getTime() - Date.now()).toBeGreaterThan(6.9 * DAY);
+
+      expect(await leaving.copyReportsToPersonal(people[2].id, x.memberId)).toBe(1);
+      const copy = await db.assessment.findFirstOrThrow({ where: { subjectId: people[2].id, copiedFrom: "Workspace Co" }, include: { reports: true } });
+      expect(copy.workspaceId).toBe(await personalWs(people[2].id));
+      expect(copy.orgCampaignId).toBeNull();
+      const text = JSON.stringify(copy.reports[0].data);
+      expect(text).not.toContain(String(stamp));
+      expect((copy.reports[0].data as { competencies: unknown[] }).competencies.length).toBeGreaterThan(0);
+      await expect(leaving.copyReportsToPersonal(people[2].id, x.memberId)).rejects.toThrow(/already copied/);
+      // The copy can't start new sessions (it has no questions or raters).
+      const sessions = await import("@/lib/services/sessions");
+      await expect(sessions.rerunSurvey(people[2].id, copy.id, {})).rejects.toThrow(/copy of a company report/);
+
+      // Round results for that round don't move.
+      expect((await org.teamAnalytics(admin.id, orgId, teamId, campaignId)).profile).toEqual(before.profile);
+    });
+
+    it("refuses copies when the company switched them off", async () => {
+      await db.organization.update({ where: { id: orgId }, data: { allowPersonalCopy: false } });
+      const m = await db.orgMember.findFirstOrThrow({ where: { orgId, userId: people[3].id } });
+      await org.removeMember(admin.id, orgId, m.id);
+      const [x] = await leaving.pendingExits(people[3].id);
+      expect(x.copyAllowed).toBe(false);
+      await expect(leaving.copyReportsToPersonal(people[3].id, x.memberId)).rejects.toThrow(/doesn't allow/);
+      await db.organization.update({ where: { id: orgId }, data: { allowPersonalCopy: true } });
+    });
+
+    it("deletes company data after the grace period; copies, round results and comparisons stay", async () => {
+      const before = await org.teamAnalytics(admin.id, orgId, teamId, campaignId);
+      const cmp = await org.compareCohorts(admin.id, orgId, { groupId: teamId, campaignId }, { campaignId });
+      expect(await leaving.purgeExits(new Date(Date.now() + 6 * DAY))).toBe(0);
+      expect(await leaving.purgeExits(new Date(Date.now() + 8 * DAY))).toBe(2);
+      expect(await db.assessment.count({ where: { subjectId: { in: [people[2].id, people[3].id] }, workspaceId: companyWs } })).toBe(0);
+      expect(await db.assessment.count({ where: { subjectId: people[2].id, copiedFrom: "Workspace Co" } })).toBe(1);
+      expect((await org.teamAnalytics(admin.id, orgId, teamId, campaignId)).profile).toEqual(before.profile);
+      expect(await org.compareCohorts(admin.id, orgId, { groupId: teamId, campaignId }, { campaignId })).toEqual(cmp);
+      expect(await leaving.pendingExits(people[2].id)).toEqual([]);
+    });
+
+    it("rejoining within the grace period keeps everything", async () => {
+      await org.leaveOrg(people[4].id, orgId);
+      await org.inviteMembers(admin.id, orgId, people[4].email!);
+      await org.respondOrgInviteToken(people[4].id, await tokenFor(people[4].email!), true);
+      expect(await leaving.purgeExits(new Date(Date.now() + 8 * DAY))).toBe(0);
+      expect(await db.assessment.count({ where: { subjectId: people[4].id, workspaceId: companyWs } })).toBe(1);
+    });
   });
 });

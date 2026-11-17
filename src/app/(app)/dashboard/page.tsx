@@ -18,6 +18,8 @@ import {
 } from "@/lib/session-groups";
 import { memberTasks } from "@/lib/services/org";
 import { activeWorkspace } from "@/lib/workspace";
+import { pendingExits } from "@/lib/services/leaving";
+import { ExitNotice } from "@/components/workspace/exit-notice";
 import { StatusBadge } from "@/components/assessment/status-badge";
 import { Alert } from "@/components/ui/alert";
 import { recentlyCancelledDeletion } from "@/lib/services/my-data";
@@ -100,7 +102,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               {" · "}
               {done}/{total} responded
               {g.score != null && ` · others' avg ${g.score.toFixed(1)}`}
-              {s.company && ` · ${s.company}`}
+              {s.copiedFrom ? ` · copied from ${s.copiedFrom}` : s.company && ` · ${s.company}`}
               {s.tags.length > 0 && ` · ${s.tags.map((t) => `#${t}`).join(" ")}`}
             </span>
           </span>
@@ -114,9 +116,13 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   };
 
   const cancelled = await recentlyCancelledDeletion(user.id);
+  const exits = company ? [] : await pendingExits(user.id);
   return (
     <div className="space-y-6">
       {sp.deleted && <Alert tone="success">Deleted. Its responses, reports and links are gone.</Alert>}
+      {exits.map((x) => (
+        <ExitNotice key={x.memberId} exit={{ ...x, deleteAt: x.deleteAt.toISOString() }} />
+      ))}
       {cancelled && <Alert tone="info" data-testid="deletion-cancelled">Welcome back. You signed in, so your account deletion has been cancelled.</Alert>}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -268,7 +274,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                       </CardDescription>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {latestClosed && !hasOpen && (
+                      {latestClosed && !hasOpen && !root.copiedFrom && (
                         <>
                           <Button asChild size="sm" variant="outline">
                             <Link href={`/assessments/${latestClosed.id}/rerun`}>

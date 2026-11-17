@@ -30,7 +30,7 @@ export default async function OrgSettingsPage({ params }: { params: Promise<{ or
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <OrgDataForm orgId={orgId} initial={{ region: org.region, retentionMonths: org.retentionMonths }} />
+          <OrgDataForm orgId={orgId} initial={{ region: org.region, retentionMonths: org.retentionMonths, allowPersonalCopy: org.allowPersonalCopy }} />
           <p className="text-xs text-muted-foreground">
             Retention applies to 360s in this organization&apos;s rounds. When the period passes, individual answers and written comments are deleted; each
             person keeps their report scores, themes and trends.

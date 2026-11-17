@@ -41,6 +41,7 @@ export async function rerunSurvey(userId: string, sourceId: string, raw: unknown
   });
   if (!source) throw new DomainError("Not found", "not_found");
   if (source.status !== "CLOSED") throw new DomainError("Close this session before running the survey again.");
+  if (source.copiedFrom) throw new DomainError("This is a copy of a company report, so it can't be run again. Start a new 360 instead.");
   const rootId = seriesRootId(source);
   const root = await db.assessment.findUniqueOrThrow({ where: { id: rootId }, include: { questions: { orderBy: { order: "asc" } } } });
   const open = await db.assessment.count({ where: { OR: [{ id: rootId }, { rootAssessmentId: rootId }], status: { in: ["DRAFT", "READY", "COLLECTING"] } } });

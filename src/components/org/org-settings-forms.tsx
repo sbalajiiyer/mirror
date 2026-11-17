@@ -26,8 +26,9 @@ function useRun() {
 
 const selectCls = "h-10 w-full rounded-md border border-input bg-background px-3 text-sm";
 
-export function OrgDataForm({ orgId, initial }: { orgId: string; initial: { region: string; retentionMonths: number | null } }) {
+export function OrgDataForm({ orgId, initial }: { orgId: string; initial: { region: string; retentionMonths: number | null; allowPersonalCopy: boolean } }) {
   const [region, setRegion] = useState(initial.region);
+  const [copy, setCopy] = useState(initial.allowPersonalCopy);
   const [ret, setRet] = useState(initial.retentionMonths ? String(initial.retentionMonths) : "");
   const { msg, pending, run } = useRun();
   return (
@@ -36,7 +37,7 @@ export function OrgDataForm({ orgId, initial }: { orgId: string; initial: { regi
       data-testid="org-data-form"
       onSubmit={(e) => {
         e.preventDefault();
-        run(() => updateOrgDataAction(orgId, { region, retentionMonths: ret ? Number(ret) : null }), "Saved.");
+        run(() => updateOrgDataAction(orgId, { region, retentionMonths: ret ? Number(ret) : null, allowPersonalCopy: copy }), "Saved.");
       }}
     >
       <div className="grid gap-4 sm:grid-cols-2">
@@ -57,6 +58,13 @@ export function OrgDataForm({ orgId, initial }: { orgId: string; initial: { regi
           </select>
         </div>
       </div>
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" className="mt-1 size-4" checked={copy} onChange={(e) => setCopy(e.target.checked)} data-testid="allow-personal-copy" />
+        <span>
+          People who leave may copy their own reports to their Personal space
+          <span className="block text-muted-foreground">Scores, themes and AI summaries only, never raters&apos; written comments. Their other data here is deleted 7 days after they leave.</span>
+        </span>
+      </label>
       <Button type="submit" disabled={pending}>
         {pending ? "Saving…" : "Save data settings"}
       </Button>
