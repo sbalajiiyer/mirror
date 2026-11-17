@@ -7,8 +7,9 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@sparticuz/chromium", "playwright-core", "playwright"],
   outputFileTracingIncludes: {
     // Compressed Chromium for the PDF route on Vercel.
-    "/api/assessments/[id]/report/pdf": ["./node_modules/@sparticuz/chromium/bin/**"],
-    "/api/health": ["./node_modules/@sparticuz/chromium/bin/**"],
+    // playwright-core reads browsers.json/package.json at runtime, which tracing misses.
+    "/api/assessments/[id]/report/pdf": ["./node_modules/@sparticuz/chromium/bin/**", "./node_modules/playwright-core/**"],
+    "/api/health": ["./node_modules/@sparticuz/chromium/bin/**", "./node_modules/playwright-core/**"],
   },
 };
 
