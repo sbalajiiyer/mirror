@@ -96,10 +96,10 @@ export function SessionHeader({
             <Input id={`tg-${assessmentId}`} value={tagText} onChange={(e) => setTagText(e.target.value)} maxLength={300} className="h-8 text-xs" placeholder="e.g. promotion, new team" />
           </div>
           <div className="flex gap-1">
-            <Button size="sm" type="submit" disabled={pending} className="h-8">
+            <Button size="sm" type="submit" disabled={pending}>
               Save
             </Button>
-            <Button size="sm" type="button" variant="ghost" className="h-8" onClick={() => setEditing(false)}>
+            <Button size="sm" type="button" variant="ghost" onClick={() => setEditing(false)}>
               Cancel
             </Button>
           </div>

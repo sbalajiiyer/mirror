@@ -167,7 +167,7 @@ export function ReportView({
         )}
         {!print && !coach && (
           <div className="no-print flex flex-wrap gap-2">
-            <Button asChild variant="secondary">
+            <Button asChild variant="outline">
               <Link href={`/assessments/${report.assessment.id}/plan`}>
                 <ListChecks /> Development plan
               </Link>

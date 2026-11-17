@@ -19,6 +19,7 @@ import {
 import { memberTasks } from "@/lib/services/org";
 import { StatusBadge } from "@/components/assessment/status-badge";
 import { Alert } from "@/components/ui/alert";
+import { recentlyCancelledDeletion } from "@/lib/services/my-data";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,9 +28,9 @@ import { Progress } from "@/components/ui/progress";
 export const metadata = { title: "My 360s" };
 
 const OPEN: AssessmentStatus[] = ["DRAFT", "READY", "COLLECTING"];
-const selectCls = "h-9 rounded-md border border-input bg-background px-2 text-sm";
+const selectCls = "h-10 rounded-md border border-input bg-background px-3 text-sm";
 
-type Search = { group?: string; company?: string; tag?: string; year?: string; min?: string; max?: string };
+type Search = { deleted?: string; group?: string; company?: string; tag?: string; year?: string; min?: string; max?: string };
 
 function parseFilters(sp: Search): { by: GroupBy; filters: SessionFilters; active: boolean } {
   const by = (GROUP_BYS as readonly string[]).includes(sp.group ?? "") ? (sp.group as GroupBy) : "survey";
@@ -108,8 +109,11 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     );
   };
 
+  const cancelled = await recentlyCancelledDeletion(user.id);
   return (
     <div className="space-y-6">
+      {sp.deleted && <Alert tone="success">Deleted. Its responses, reports and links are gone.</Alert>}
+      {cancelled && <Alert tone="info" data-testid="deletion-cancelled">Welcome back. You signed in, so your account deletion has been cancelled.</Alert>}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Hi {user.profile.displayName.split(" ")[0]}</h1>
@@ -190,11 +194,11 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
             to
             <input name="max" type="number" step="0.1" min="1" max="10" defaultValue={sp.max ?? ""} className={`${selectCls} w-20`} />
           </label>
-          <Button type="submit" size="sm" className="h-9">
+          <Button type="submit">
             Apply
           </Button>
           {(active || by !== "survey") && (
-            <Button asChild size="sm" variant="ghost" className="h-9">
+            <Button asChild variant="ghost">
               <Link href="/dashboard">Clear</Link>
             </Button>
           )}
@@ -251,7 +255,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                     <div className="flex flex-wrap gap-2">
                       {latestClosed && !hasOpen && (
                         <>
-                          <Button asChild size="sm" variant="secondary">
+                          <Button asChild size="sm" variant="outline">
                             <Link href={`/assessments/${latestClosed.id}/rerun`}>
                               <Repeat /> Run again
                             </Link>
@@ -264,7 +268,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                         </>
                       )}
                       {latestClosed && (
-                        <Button asChild size="sm" variant="ghost">
+                        <Button asChild size="sm" variant="outline">
                           <Link href={`/progress?series=${rootId}`}>
                             <TrendingUp /> Trends
                           </Link>

@@ -19,6 +19,7 @@ import { Progress } from "@/components/ui/progress";
 import { AddRaters, CopyButton, LifecycleActions, RemoveInvite } from "./controls";
 import { translationReview } from "@/lib/services/translations";
 import { TranslationsPanel } from "@/components/assessment/translations-panel";
+import { DeleteSurvey } from "@/components/assessment/delete-survey";
 
 export default async function AssessmentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -158,6 +159,7 @@ export default async function AssessmentPage({ params }: { params: Promise<{ id:
           </CardContent>
         </Card>
       )}
+      <DeleteSurvey assessmentId={a.id} />
     </div>
   );
 }

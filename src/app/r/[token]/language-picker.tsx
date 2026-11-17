@@ -22,7 +22,7 @@ export function LanguagePicker({ locale, label }: { locale: RaterLocale; label: 
           document.cookie = `mirror_rater_lang=${e.target.value}; path=/r; max-age=31536000; samesite=lax`;
           router.replace(`${pathname}?lang=${e.target.value}`);
         }}
-        className="h-9 rounded-md border border-input bg-background px-2"
+        className="h-10 rounded-md border border-input bg-background px-3 text-sm"
       >
         {RATER_LOCALES.map((l) => (
           <option key={l} value={l} lang={l}>

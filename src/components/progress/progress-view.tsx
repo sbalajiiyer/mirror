@@ -422,7 +422,7 @@ function BeforeAfter({ points, scaleMax }: { points: SeriesPoint[]; scaleMax: nu
           ).map(([l, v, set]) => (
             <label key={l} className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">{l}</span>
-              <select aria-label={l} value={v} onChange={(e) => set(e.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm">
+              <select aria-label={l} value={v} onChange={(e) => set(e.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
                 {points.map((p) => (
                   <option key={p.assessmentId} value={p.assessmentId}>
                     {label(p)}

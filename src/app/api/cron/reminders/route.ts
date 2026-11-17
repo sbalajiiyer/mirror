@@ -6,6 +6,8 @@ import { rebuildNorms } from "@/lib/services/benchmarks";
 import { runScheduledDashboards } from "@/lib/services/dashboards";
 import { runRetention } from "@/lib/jobs/retention";
 import { pruneSsoTickets } from "@/lib/services/sso";
+import { purgeScheduledDeletions } from "@/lib/services/my-data";
+import { pruneErrors, recordError } from "@/lib/monitoring";
 
 export const runtime = "nodejs";
 
@@ -15,13 +17,29 @@ export async function GET(req: Request) {
   if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  const raters = await runReminders();
-  const pulses = await runPulseReminders();
-  const nudges = await runNudges();
-  const dashboards = await runScheduledDashboards();
-  const benchmarks = await rebuildNorms();
-  const rateLimitRowsPruned = await pruneRateLimits();
-  const retention = await runRetention();
-  const ssoTicketsPruned = await pruneSsoTickets();
-  return NextResponse.json({ raters, pulses, nudges, dashboards, benchmarks, rateLimitRowsPruned, retention, ssoTicketsPruned });
+  // Each job runs on its own: one failure is recorded and the others still run.
+  const jobs: Record<string, () => Promise<unknown>> = {
+    raters: runReminders,
+    pulses: runPulseReminders,
+    nudges: runNudges,
+    dashboards: runScheduledDashboards,
+    benchmarks: rebuildNorms,
+    rateLimitRowsPruned: () => pruneRateLimits(),
+    retention: () => runRetention(),
+    ssoTicketsPruned: pruneSsoTickets,
+    accounts: () => purgeScheduledDeletions(),
+    errorsPruned: () => pruneErrors(),
+  };
+  const out: Record<string, unknown> = {};
+  let failed = 0;
+  for (const [name, run] of Object.entries(jobs)) {
+    try {
+      out[name] = await run();
+    } catch (e) {
+      failed++;
+      out[name] = { error: true };
+      await recordError(e, { route: `cron:${name}`, kind: "job" });
+    }
+  }
+  return NextResponse.json({ ok: failed === 0, ...out }, { status: failed ? 500 : 200 });
 }

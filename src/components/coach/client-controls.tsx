@@ -136,7 +136,7 @@ export function SharingPanel({ linkId, initial, coachName }: { linkId: string; i
           );
         })}
       </fieldset>
-      <Button type="submit" size="sm" disabled={pending}>
+      <Button type="submit" disabled={pending}>
         {pending ? "Saving…" : "Save sharing"}
       </Button>
       {saved && <span className="ml-2 text-sm text-muted-foreground" role="status">Saved.</span>}

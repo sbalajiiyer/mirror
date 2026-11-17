@@ -21,6 +21,8 @@ model User {
   email         String?   @unique
   emailVerified DateTime?
   image         String?
+  /// Account deletion requested: everything is removed at this time unless the person signs in first.
+  deletionScheduledAt DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -980,4 +982,20 @@ model MarketplaceReferral {
   acceptedAt DateTime?
 
   @@index([coachId, status])
+}
+
+/// A server error, grouped by fingerprint (built-in monitoring; no third-party service).
+model ErrorEvent {
+  id          String   @id @default(cuid())
+  fingerprint String   @unique
+  message     String
+  stack       String?
+  route       String?
+  kind        String   @default("server") // server | client | job
+  count       Int      @default(1)
+  firstSeen   DateTime @default(now())
+  lastSeen    DateTime @default(now())
+  resolvedAt  DateTime?
+
+  @@index([lastSeen])
 }

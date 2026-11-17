@@ -23,10 +23,11 @@ test("a session for a user that no longer exists goes to sign-in, without a redi
   const b = await browser.newContext({ storageState: await a.storageState() });
   await page.goto("/settings");
   await page.waitForLoadState("networkidle");
-  page.once("dialog", (d) => d.accept());
-  await page.getByLabel(/Type .* to confirm/).fill(email);
-  await page.getByRole("button", { name: "Delete my account" }).click();
-  await page.waitForURL((u) => !u.pathname.startsWith("/settings"));
+  const zone = page.getByTestId("danger-account");
+  await zone.getByRole("button", { name: "Delete my account" }).click();
+  await zone.getByLabel(/To confirm, type your email/).fill(email);
+  await zone.getByRole("button", { name: "Delete my account" }).click();
+  await page.waitForURL(/\/signin\?deleted=1/);
 
   const old = await b.newPage();
   for (const path of ["/dashboard", "/settings", "/onboarding"]) {

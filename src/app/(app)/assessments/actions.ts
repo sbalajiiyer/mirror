@@ -117,3 +117,14 @@ export async function translateAllAction(assessmentId: string): Promise<ActionRe
     return toActionError(e);
   }
 }
+
+export async function deleteSurveyAction(assessmentId: string, confirmCode: string): Promise<ActionResult<{ whole: boolean; sessions: number }>> {
+  try {
+    const { deleteSurveyOrSession } = await import("@/lib/services/my-data");
+    const r = await deleteSurveyOrSession(await requireUserId(), assessmentId, confirmCode);
+    revalidatePath("/dashboard");
+    return { ok: true, data: r };
+  } catch (e) {
+    return toActionError(e);
+  }
+}

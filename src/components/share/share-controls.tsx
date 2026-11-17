@@ -72,7 +72,7 @@ export function CreateShareForm({ assessmentId }: { assessmentId: string }) {
         </label>
         <label className="grid gap-1 text-sm font-medium">
           Link expires
-          <select value={expires} onChange={(e) => setExpires(e.target.value)} className="h-10 rounded-md border border-input bg-background px-2 text-sm">
+          <select value={expires} onChange={(e) => setExpires(e.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
             <option value="">Never (until I revoke it)</option>
             <option value="7">In 7 days</option>
             <option value="30">In 30 days</option>

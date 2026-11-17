@@ -10,7 +10,7 @@ import type { ActionResult } from "@/lib/action-result";
 import { WIDGETS, type Scope, type Widget, type WidgetData } from "@/lib/dashboards/widgets";
 import { addWidgetAction, askDashboardAction, createDashboardAction, deleteDashboardAction, moveWidgetAction, removeWidgetAction, setScheduleAction } from "@/app/(app)/dashboards/actions";
 
-const sel = "h-9 rounded-md border border-input bg-background px-2 text-sm";
+const sel = "h-10 rounded-md border border-input bg-background px-3 text-sm";
 const fmt = (c: string | number | null) => (c == null ? "–" : typeof c === "number" ? (Number.isInteger(c) ? String(c) : c.toFixed(2)) : c);
 
 function useRun() {
@@ -56,7 +56,7 @@ export function CreateDashboardForm({ scopes }: { scopes: { value: string; label
           ))}
         </select>
       </label>
-      <Button type="submit" size="sm" className="h-9" disabled={pending}>
+      <Button type="submit" disabled={pending}>
         Create dashboard
       </Button>
       {error && <Alert tone="error">{error}</Alert>}
@@ -115,7 +115,7 @@ export function AddWidgetForm({ dashboardId, scope, opts }: { dashboardId: strin
           {pick("bRoundId", "B: round", opts.rounds, "Latest")}
         </>
       )}
-      <Button type="submit" size="sm" className="h-9" disabled={pending}>
+      <Button type="submit" disabled={pending}>
         Add widget
       </Button>
       {error && <Alert tone="error">{error}</Alert>}
@@ -127,13 +127,13 @@ export function WidgetActions({ dashboardId, widgetId, first, last }: { dashboar
   const { pending, run } = useRun();
   return (
     <span className="no-print flex items-center">
-      <Button type="button" variant="ghost" size="icon" className="size-7" aria-label="Move widget up" disabled={pending || first} onClick={() => run(() => moveWidgetAction(dashboardId, widgetId, -1))}>
+      <Button type="button" variant="ghost" size="icon-sm" aria-label="Move widget up" disabled={pending || first} onClick={() => run(() => moveWidgetAction(dashboardId, widgetId, -1))}>
         <ArrowUp className="size-3.5" />
       </Button>
-      <Button type="button" variant="ghost" size="icon" className="size-7" aria-label="Move widget down" disabled={pending || last} onClick={() => run(() => moveWidgetAction(dashboardId, widgetId, 1))}>
+      <Button type="button" variant="ghost" size="icon-sm" aria-label="Move widget down" disabled={pending || last} onClick={() => run(() => moveWidgetAction(dashboardId, widgetId, 1))}>
         <ArrowDown className="size-3.5" />
       </Button>
-      <Button type="button" variant="ghost" size="icon" className="size-7" aria-label="Remove widget" disabled={pending} onClick={() => run(() => removeWidgetAction(dashboardId, widgetId))}>
+      <Button type="button" variant="ghost" size="icon-sm" aria-label="Remove widget" disabled={pending} onClick={() => run(() => removeWidgetAction(dashboardId, widgetId))}>
         <Trash2 className="size-3.5" />
       </Button>
     </span>
@@ -267,7 +267,7 @@ export function ScheduleForm({ dashboardId, schedule, day }: { dashboardId: stri
           <Input type="number" min={1} max={28} value={d} onChange={(e) => setD(Number(e.target.value))} className="h-9 w-20" />
         </label>
       )}
-      <Button type="submit" size="sm" className="h-9" disabled={pending}>
+      <Button type="submit" disabled={pending}>
         Save
       </Button>
       {saved && (

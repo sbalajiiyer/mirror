@@ -1,6 +1,6 @@
 # Mirror — build status
 
-_Last updated: 2026-11-17 (product polish, branch `polish`)_
+_Last updated: 2026-11-17 (trust, UX and reliability, branch `trust-ux-reliability`)_
 
 ## Phases
 
@@ -22,9 +22,10 @@ _Last updated: 2026-11-17 (product polish, branch `polish`)_
 | 10 | Enterprise and polish — OIDC SSO per org (DNS-verified domain, optional enforcement), data residency (US/EU, enforced for AI), retention, org audit log + CSV, personal activity log, data export and account deletion, mobile menu and installable app | ✅ Done (PR #15, merged) |
 | — | Upgrade — Next.js 16, React 19.3, Prisma 7; npm audit clean | ✅ Done (PR #16) |
 | — | Polish — rater form in 5 languages, streaming AI coach replies, dark mode switch, coach onboarding, AI comment themes | ✅ Done (PR #17) |
-| — | Solution & tech explainer — unlinked, password-protected page at `/tech` with expandable technical detail | ✅ Done (PR from `tech-page`) |
+| — | Solution & tech explainer — unlinked, password-protected page at `/tech` with expandable technical detail | ✅ Done (PR #18; redirect-loop fix PR #19) |
+| — | Trust, UX and reliability — privacy policy and terms (placeholders), GitHub-style danger zone with 7-day grace, consistent button/field sizes, built-in error monitoring, health checks, resilient cron | ✅ Done (PR from `trust-ux-reliability`) |
 
-Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md), [`docs/phases/phase-4b-survey-sessions.md`](phases/phase-4b-survey-sessions.md), [`docs/phases/phase-5-coach.md`](phases/phase-5-coach.md), [`docs/phases/phase-6-teams-orgs.md`](phases/phase-6-teams-orgs.md), [`docs/phases/phase-7-personalization.md`](phases/phase-7-personalization.md), [`docs/phases/phase-8-analytics.md`](phases/phase-8-analytics.md), [`docs/phases/phase-9-payments-marketplace.md`](phases/phase-9-payments-marketplace.md), [`docs/phases/phase-10-enterprise.md`](phases/phase-10-enterprise.md), [`docs/phases/polish-2026-11.md`](phases/polish-2026-11.md).
+Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md), [`docs/phases/phase-4b-survey-sessions.md`](phases/phase-4b-survey-sessions.md), [`docs/phases/phase-5-coach.md`](phases/phase-5-coach.md), [`docs/phases/phase-6-teams-orgs.md`](phases/phase-6-teams-orgs.md), [`docs/phases/phase-7-personalization.md`](phases/phase-7-personalization.md), [`docs/phases/phase-8-analytics.md`](phases/phase-8-analytics.md), [`docs/phases/phase-9-payments-marketplace.md`](phases/phase-9-payments-marketplace.md), [`docs/phases/phase-10-enterprise.md`](phases/phase-10-enterprise.md), [`docs/phases/polish-2026-11.md`](phases/polish-2026-11.md), [`docs/phases/trust-ux-reliability.md`](phases/trust-ux-reliability.md).
 
 ## Run locally
 
@@ -387,6 +388,19 @@ pulses were renamed by migration `rate_limit_pulse_titles`.
 - Only an scrypt hash of the password is stored (`TECH_PAGE_PASSWORD_HASH` on Vercel, production and preview).
   To change it, run `npm run tech:hash -- '<new password>'` and update the variable. Unlocking sets a signed
   7-day cookie scoped to `/tech`. Attempts are rate-limited (10 per 15 minutes per network).
+
+## Trust, UX and reliability (2026-11-17)
+
+- **Legal pages are drafts.** `/privacy` and `/terms` show a draft banner while `LEGAL_DRAFT` is true in
+  `src/lib/legal.ts`. Fill in every `[bracketed]` value (company, address, contact, governing law, refund policy,
+  AI-provider training terms), have a lawyer review, then set `LEGAL_DRAFT = false`.
+- **Deletion:** account deletion waits 7 days (`DELETION_GRACE_DAYS`); share links and API tokens are revoked at once,
+  signing in again cancels it, and the daily cron purges due accounts.
+- **Monitoring:** server, client and cron errors are grouped in the `ErrorEvent` table (scrubbed of emails, tokens and DB
+  URLs) and listed at `/admin/errors` for emails in `PLATFORM_ADMIN_EMAILS` — **not yet set on Vercel**.
+- **Health:** `/api/health` (DB, AI, email, payments config) and `/api/health?check=pdf` (renders a PDF; 3/hour).
+- **Backups:** Neon free tier keeps 6 hours of point-in-time history (`history_retention_seconds: 21600`). See the
+  runbook in `docs/phases/trust-ux-reliability.md`.
 
 ## Known limitations / next up
 

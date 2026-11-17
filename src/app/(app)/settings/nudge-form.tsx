@@ -28,7 +28,7 @@ export function NudgeForm({ initial }: { initial: number | null }) {
     >
       <label className="grid gap-1 text-sm font-medium">
         Weekly nudge email
-        <select value={day} onChange={(e) => setDay(e.target.value)} className="h-10 rounded-md border border-input bg-background px-2 text-sm">
+        <select value={day} onChange={(e) => setDay(e.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
           <option value="">Off</option>
           {DAYS.map((d, i) => (
             <option key={d} value={i}>

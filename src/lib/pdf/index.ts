@@ -47,3 +47,17 @@ export const playwrightRenderer: PdfRenderer = {
 export function getPdfRenderer(): PdfRenderer {
   return playwrightRenderer;
 }
+
+/** Health check: start Chromium and print a tiny static page (no user data). */
+export async function pdfSelfTest() {
+  const started = Date.now();
+  const browser = await launchBrowser();
+  try {
+    const page = await browser.newPage();
+    await page.setContent('<main data-testid="report"><h1>Mirror PDF check</h1></main>');
+    const pdf = await page.pdf({ format: "A4" });
+    return { bytes: pdf.length, ms: Date.now() - started };
+  } finally {
+    await browser.close();
+  }
+}

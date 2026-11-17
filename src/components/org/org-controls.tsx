@@ -120,7 +120,7 @@ export function ConsentPanel({ orgId, orgName, initial }: { orgId: string; orgNa
           </span>
         </label>
       </fieldset>
-      <Button type="submit" size="sm" disabled={pending}>
+      <Button type="submit" disabled={pending}>
         Save
       </Button>
       {saved && (
@@ -167,7 +167,7 @@ export function InviteMembersForm({ orgId }: { orgId: string }) {
     >
       <Label htmlFor="invite-text">Invite people (one per line: “Name &lt;email&gt;”, “email, name” or just an email)</Label>
       <Textarea id="invite-text" rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder={"Ana Silva <ana@example.com>\nben@example.com, Ben Okafor"} />
-      <Button type="submit" size="sm" disabled={pending || !text.trim()}>
+      <Button type="submit" disabled={pending || !text.trim()}>
         Send invitations
       </Button>
       {result && <Alert tone="success">{result}</Alert>}
@@ -201,7 +201,7 @@ export function PerformanceSelect({ orgId, memberId, value, name }: { orgId: str
     <>
       <select
         aria-label={`Performance rating for ${name}`}
-        className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+        className="h-10 rounded-md border border-input bg-background px-3 text-sm"
         value={value ?? ""}
         disabled={pending}
         onChange={(e) => run(() => setPerformanceAction(orgId, memberId, e.target.value ? Number(e.target.value) : null))}
@@ -230,7 +230,7 @@ export function CreateGroupForm({ orgId }: { orgId: string }) {
     >
       <label className="grid gap-1 text-xs font-medium">
         Type
-        <select value={kind} onChange={(e) => setKind(e.target.value as "TEAM" | "COHORT")} className="h-9 rounded-md border border-input bg-background px-2 text-sm">
+        <select value={kind} onChange={(e) => setKind(e.target.value as "TEAM" | "COHORT")} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
           <option value="TEAM">Team</option>
           <option value="COHORT">Cohort</option>
         </select>
@@ -239,7 +239,7 @@ export function CreateGroupForm({ orgId }: { orgId: string }) {
         Name
         <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} required className="h-9 w-56" placeholder="e.g. Product team" />
       </label>
-      <Button type="submit" size="sm" className="h-9" disabled={pending}>
+      <Button type="submit" disabled={pending}>
         Add
       </Button>
       <Err e={error} />
@@ -280,7 +280,7 @@ export function GroupMembersForm({ orgId, groupId, members, selected }: { orgId:
         ))}
       </fieldset>
       <div className="flex items-center gap-2">
-        <Button type="submit" size="sm" disabled={pending}>
+        <Button type="submit" disabled={pending}>
           Save members ({sel.size})
         </Button>
         <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => confirm("Delete this group? Its 360 rounds stay.") && run(() => deleteGroupAction(orgId, groupId))}>
@@ -322,7 +322,7 @@ export function CreateCampaignForm({ orgId, groups, frameworks }: { orgId: strin
         </label>
         <label className="grid gap-1 text-sm font-medium">
           Who takes part
-          <select value={s.groupId} onChange={(e) => setS({ ...s, groupId: e.target.value })} className="h-10 rounded-md border border-input bg-background px-2 text-sm">
+          <select value={s.groupId} onChange={(e) => setS({ ...s, groupId: e.target.value })} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
             <option value="">Everyone in the organization</option>
             {groups.map((g) => (
               <option key={g.id} value={g.id}>
@@ -333,7 +333,7 @@ export function CreateCampaignForm({ orgId, groups, frameworks }: { orgId: strin
         </label>
         <label className="grid gap-1 text-sm font-medium">
           Questionnaire
-          <select value={s.frameworkId} onChange={(e) => setS({ ...s, frameworkId: e.target.value })} className="h-10 rounded-md border border-input bg-background px-2 text-sm">
+          <select value={s.frameworkId} onChange={(e) => setS({ ...s, frameworkId: e.target.value })} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
             {frameworks.map((f) => (
               <option key={f.id} value={f.id}>
                 {f.name}

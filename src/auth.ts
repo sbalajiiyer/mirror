@@ -87,7 +87,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: { signIn: "/signin", verifyRequest: "/signin/check-email" },
   events: {
     async signIn({ user, account }) {
-      if (!user.id || account?.provider === "sso") return; // SSO sign-ins are logged with their organization
+      if (!user.id) return;
+      // Signing in during the 7-day grace period cancels a requested account deletion.
+      const { cancelAccountDeletion } = await import("@/lib/services/my-data");
+      await cancelAccountDeletion(user.id);
+      if (account?.provider === "sso") return; // SSO sign-ins are logged with their organization
       const { audit } = await import("@/lib/audit");
       await audit(user.id, "auth.sign_in", "User", user.id, { method: account?.provider ?? "unknown" }, { subjectId: user.id });
     },
