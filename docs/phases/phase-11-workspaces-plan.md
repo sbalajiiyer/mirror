@@ -1,6 +1,6 @@
 # Phase 11 plan — Personal and company workspaces
 
-_Status: **plan for review** (2026-11-17). Nothing here is built yet._
+_Status: **approved** (2026-11-17), decisions in §12. Built in steps 11a–11f._
 
 ## 1. Goal
 
@@ -152,8 +152,9 @@ every page, server action and API route. A test lists every route and asserts th
 ## 8. Billing
 
 - **Personal:** plans, Full 360 and AI credits, as today, attached to the personal workspace.
-- **Company:** seats (as today), plus a monthly **AI budget** set by the owner. AI used in the
-  company workspace is charged to it, never to the employee.
+- **Company:** a monthly **platform fee** plus seats, and a monthly **AI budget** set by the owner,
+  split into **per-employee budgets**. AI used in the company workspace is charged to the company
+  and counted against the employee's budget; it is never charged to the employee.
 - Company members never see personal upgrade prompts inside the company workspace.
 - Premium AI in a company workspace is available only if the model is in `allowedAiModels`.
 
@@ -180,7 +181,7 @@ Each step is its own PR, tested and deployed before the next.
 | **11b — Access checks** | `requireWorkspaceRole`, active workspace in the session, all queries scoped by workspace. | Integration: a user cannot read another workspace's 360, dashboard, chat or share link by ID. Route inventory test. |
 | **11c — Switcher and menus** | Header switcher, menu by workspace and role, landing rules, hide marketplace and personal billing in company workspaces. | E2E: switch workspaces; menus match the table in §6; axe passes in both. |
 | **11d — Leaving and deleting** | Remove member → copy-to-personal offer → grace period → purge. Group results unchanged. | E2E: leave a company, copy reports, check personal copy and unchanged company analytics. |
-| **11e — Roles, billing, policies** | Owner/Analyst roles, company AI budget and allowed models, retention for all company data, linked personal email. | Unit and integration for each rule; E2E for an analyst's read-only view. |
+| **11e — Roles, billing, policies, coaching** | Owner/Analyst roles; platform fee plus seats; company AI budget with per-employee budgets; allowed models; retention for all company data; linked personal email; company-paid coaches. | Unit and integration for each rule; E2E for an analyst's read-only view. |
 | **11f — Docs** | STATUS.md, privacy policy line, admin guide, demo script, tech page. | — |
 
 **Effort estimate:** similar to Phase 10. Step 11a carries most of the risk.
@@ -191,12 +192,16 @@ Each step is its own PR, tested and deployed before the next.
 - **SAML** sign-in (BoxyHQ/Jackson, open source).
 - **EU database** for EU companies (second Neon project in an EU region, per-workspace routing).
 - **Dedicated deployment** for a large customer (same code, own Vercel project and database).
-- Coaching inside company workspaces (company-paid coaches).
 
-## 12. Decisions for the owner
+## 12. Owner decisions (2026-11-17)
 
-1. **Copy to Personal on leaving** — default on, and the company can switch it off? _(Proposed: yes.)_
-2. **Raw rater comments in the personal copy** — leave them out (proposed), or include them?
-3. **Company AI** — company pays from a monthly budget (proposed), or employees use their own credits?
-4. **Coaching** — personal-only for now (proposed), or allow company-paid coaches in this phase?
-5. **Pricing** for company workspaces — keep seats only, or add a monthly platform fee?
+1. **Copy to Personal on leaving:** on by default; the company can switch it off.
+2. **Raw rater comments in the personal copy:** left out. The copy has scores, themes and AI summaries.
+3. **Company AI:** the company pays from a monthly AI budget, **tracked per employee**: the owner sets
+   a company budget and a per-employee monthly budget; use beyond either is refused, not charged to
+   the employee.
+4. **Coaching:** both. Personal coaching stays as it is, and companies can also pay for coaches for
+   their people in this phase (step 11e): the company invites or picks a coach, assigns employees,
+   and the coach sees only what each employee chooses to share, as today.
+5. **Company pricing:** both seats and a monthly platform fee. Default fee in `catalog.ts`
+   (placeholder, change freely); payments stay stubbed until Stripe is switched on.
