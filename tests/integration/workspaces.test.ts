@@ -268,4 +268,68 @@ describe.skipIf(!hasDb)("workspaces (integration)", async () => {
       await db.organization.update({ where: { id: orgId }, data: { retentionMonths: null } });
     });
   });
+
+  describe("company billing and AI budgets", () => {
+    const owner = async () => (await db.orgMember.findFirstOrThrow({ where: { orgId, role: "OWNER", status: "ACTIVE" } })).userId!;
+
+    it("needs an active company plan to start rounds; paying extends it", async () => {
+      const billing = await import("@/lib/services/billing");
+      await db.organization.update({ where: { id: orgId }, data: { createdAt: new Date(Date.now() - 60 * 24 * 3600 * 1000), platformPaidUntil: new Date(Date.now() - 1000) } });
+      await expect(org.createCampaign(await owner(), orgId, { name: "Late round", frameworkId: fw.id, teamMode: false, dueInDays: 14 })).rejects.toThrow(/company plan has ended/);
+      await expect(billing.startCheckout(people[0].id, "company_platform_month", { orgId })).rejects.toThrow(/Only organization owners/);
+      const { paymentId } = await billing.startCheckout(await owner(), "company_platform_month", { orgId });
+      expect((await db.payment.findUniqueOrThrow({ where: { id: paymentId } })).workspaceId).toBe(companyWs);
+      await billing.completeStubPayment(await owner(), paymentId, true);
+      const o = await db.organization.findUniqueOrThrow({ where: { id: orgId } });
+      expect(o.platformPaidUntil!.getTime()).toBeGreaterThan(Date.now() + 29 * 24 * 3600 * 1000);
+    });
+
+    it("falls back to the free model when the company or per-person AI budget is used up", async () => {
+      const ctx = await import("@/lib/ai/context");
+      Object.assign(process.env, { PREMIUM_AI_ENABLED: "true", ANTHROPIC_API_KEY: "test", ANTHROPIC_MODEL: "claude-test" });
+      try {
+        await db.organization.update({ where: { id: orgId }, data: { allowedAiModels: ["premium-claude"], aiBudgetCents: 1000, aiPerPersonCents: 200 } });
+        const u = people[0].id;
+        expect((await ctx.modelForWorkspace("premium-claude", companyWs, u)).id).toBe("premium-claude");
+        // Spend $2.50 as this person: over their $2 share, the company still has budget.
+        await db.aIInteractionLog.create({ data: { userId: u, workspaceId: companyWs, feature: "chat_premium", modelId: "premium-claude", provider: "anthropic", tier: "premium", costMicros: 2_500_000, status: "ok" } });
+        expect((await ctx.modelForWorkspace("premium-claude", companyWs, u)).id).toBe("free");
+        expect((await ctx.modelForWorkspace("premium-claude", companyWs, people[1].id)).id).toBe("premium-claude");
+        // Company total over $10: everyone falls back.
+        await db.aIInteractionLog.create({ data: { userId: people[1].id, workspaceId: companyWs, feature: "chat_premium", modelId: "premium-claude", provider: "anthropic", tier: "premium", costMicros: 8_000_000, status: "ok" } });
+        expect((await ctx.modelForWorkspace("premium-claude", companyWs, people[4].id)).id).toBe("free");
+        // Personal use is never limited by the company.
+        expect((await ctx.modelForWorkspace("premium-claude", await personalWs(u), u)).id).toBe("premium-claude");
+        // Owners see spend per person.
+        const settings = await import("@/lib/services/org-settings");
+        const usage = await settings.orgAiUsage(await owner(), orgId);
+        expect(usage.totalCents).toBe(1050);
+        expect(usage.people[0]).toMatchObject({ cents: 800 });
+        await expect(settings.orgAiUsage(people[0].id, orgId)).rejects.toThrow(/Only organization owners/);
+      } finally {
+        delete process.env.PREMIUM_AI_ENABLED;
+        delete process.env.ANTHROPIC_API_KEY;
+        delete process.env.ANTHROPIC_MODEL;
+      }
+    });
+
+    it("company premium chats don't use the employee's own credits", async () => {
+      const chat = await import("@/lib/services/chat");
+      Object.assign(process.env, { PREMIUM_AI_ENABLED: "true", ANTHROPIC_API_KEY: "test", ANTHROPIC_MODEL: "claude-test" });
+      try {
+        await db.organization.update({ where: { id: orgId }, data: { aiBudgetCents: null, aiPerPersonCents: null } });
+        const u = people[4].id;
+        await db.subjectProfile.update({ where: { userId: u }, data: { aiModel: "premium-claude", aiCredits: 0 } });
+        const c = await chat.startChat(u, { mode: "ROLEPLAY", preset: "say_no", premium: true }, companyWs);
+        expect(c).toMatchObject({ tier: "premium", workspaceId: companyWs });
+        expect((await db.subjectProfile.findUniqueOrThrow({ where: { userId: u } })).aiCredits).toBe(0);
+        // In Personal, premium still costs a credit.
+        await expect(chat.startChat(u, { mode: "ROLEPLAY", preset: "say_no", premium: true }, await personalWs(u))).rejects.toThrow(/costs 1 credit/);
+      } finally {
+        delete process.env.PREMIUM_AI_ENABLED;
+        delete process.env.ANTHROPIC_API_KEY;
+        delete process.env.ANTHROPIC_MODEL;
+      }
+    });
+  });
 });

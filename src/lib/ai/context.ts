@@ -23,14 +23,30 @@ export async function workspaceOfAssessment(assessmentId: string | null | undefi
   return (await db.assessment.findUnique({ where: { id: assessmentId }, select: { workspaceId: true } }))?.workspaceId ?? null;
 }
 
+/** Micro-dollars per cent (AIInteractionLog.costMicros is in micro-dollars). */
+const MICROS_PER_CENT = 10_000;
+export const monthStart = (now = new Date()) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+
+/** Premium-AI spend this calendar month (UTC) in a workspace, in cents; optionally for one person. */
+export async function premiumSpendCents(workspaceId: string, userId?: string | null, now = new Date()) {
+  const r = await db.aIInteractionLog.aggregate({ where: { workspaceId, tier: "premium", createdAt: { gte: monthStart(now) }, ...(userId ? { userId } : {}) }, _sum: { costMicros: true } });
+  return Math.ceil((r._sum.costMicros ?? 0) / MICROS_PER_CENT);
+}
+
 /**
- * The model to use: the user's choice, unless the current company workspace doesn't allow it, in
- * which case the free model. Personal workspaces allow any available model.
+ * The model to use: the user's choice, unless, in a company workspace, that premium model isn't
+ * allowed or the company's monthly AI budget (overall, or this person's share) is used up. Then
+ * the free model, so nobody is ever charged beyond the budget. Personal workspaces allow any
+ * available model.
  */
-export async function modelForWorkspace(choice: string | null | undefined, workspaceId: string | null = currentAiWorkspace()): Promise<AIModelEntry> {
+export async function modelForWorkspace(choice: string | null | undefined, workspaceId: string | null = currentAiWorkspace(), userId?: string | null): Promise<AIModelEntry> {
   const picked = resolveModel(choice);
   if (!workspaceId || picked.tier === "free") return picked;
-  const w = await db.workspace.findUnique({ where: { id: workspaceId }, select: { kind: true, org: { select: { allowedAiModels: true } } } });
-  if (w?.kind !== "COMPANY") return picked;
-  return (w.org?.allowedAiModels ?? []).includes(picked.id) ? picked : aiCatalog()[0];
+  const w = await db.workspace.findUnique({ where: { id: workspaceId }, select: { kind: true, org: { select: { allowedAiModels: true, aiBudgetCents: true, aiPerPersonCents: true } } } });
+  if (w?.kind !== "COMPANY" || !w.org) return picked;
+  const free = aiCatalog()[0];
+  if (!w.org.allowedAiModels.includes(picked.id)) return free;
+  if (w.org.aiBudgetCents != null && (await premiumSpendCents(workspaceId)) >= w.org.aiBudgetCents) return free;
+  if (userId && w.org.aiPerPersonCents != null && (await premiumSpendCents(workspaceId, userId)) >= w.org.aiPerPersonCents) return free;
+  return picked;
 }

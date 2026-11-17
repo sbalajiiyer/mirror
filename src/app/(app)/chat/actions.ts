@@ -2,12 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUserId } from "@/lib/session";
+import { activeWorkspace } from "@/lib/workspace";
 import { toActionError, type ActionResult } from "@/lib/action-result";
 import { deleteChat, sendMessage, startChat } from "@/lib/services/chat";
 
 export async function startChatAction(input: unknown): Promise<ActionResult<{ id: string }>> {
   try {
-    const c = await startChat(await requireUserId(), input);
+    const userId = await requireUserId();
+    const c = await startChat(userId, input, (await activeWorkspace(userId)).id);
     revalidatePath("/chat");
     return { ok: true, data: { id: c.id } };
   } catch (e) {

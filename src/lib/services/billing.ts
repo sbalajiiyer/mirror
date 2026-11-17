@@ -1,4 +1,5 @@
 import "server-only";
+import { extendPlatform } from "@/lib/org/platform";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
@@ -101,10 +102,10 @@ export async function startCheckout(userId: string, product: ProductKey, context
     if (!a) throw new DomainError("Not found", "not_found");
     if (a.unlockedAt) throw new DomainError("This 360 is already unlocked.");
   }
-  if (product.startsWith("org_seats")) {
+  if (product.startsWith("org_seats") || product === "company_platform_month") {
     if (!context.orgId) throw new DomainError("Pick an organization.");
     const m = await db.orgMember.findFirst({ where: { orgId: context.orgId, userId, role: "OWNER", status: "ACTIVE" } });
-    if (!m) throw new DomainError("Only organization owners can buy seats.");
+    if (!m) throw new DomainError(product === "company_platform_month" ? "Only organization owners can pay for the company plan." : "Only organization owners can buy seats.");
   }
   if (product.startsWith("coach_") && !(await db.coachProfile.findUnique({ where: { userId } }))) throw new DomainError("Set up your coach workspace first.");
   const user = await db.user.findUniqueOrThrow({ where: { id: userId } });
@@ -174,6 +175,11 @@ export async function fulfill(paymentId: string) {
       case "org_seats_100":
         await tx.organization.update({ where: { id: ctx.orgId! }, data: { seats: { increment: product === "org_seats_25" ? 25 : 100 } } });
         break;
+      case "company_platform_month": {
+        const org = await tx.organization.findUniqueOrThrow({ where: { id: ctx.orgId! }, select: { createdAt: true, platformPaidUntil: true } });
+        await tx.organization.update({ where: { id: ctx.orgId! }, data: { platformPaidUntil: extendPlatform(org, def.days!) } });
+        break;
+      }
     }
     await tx.auditLog.create({ data: { actorId: p.userId, action: "billing.fulfilled", entity: "Payment", entityId: p.id, meta: { product } } });
     return true;

@@ -280,3 +280,17 @@ Built together: the switcher is only safe because of the checks.
   untouched for the retention period (Personal is never affected).
 - Tests: roles (unit + integration), AI model rules and usage attribution, retention (integration),
   owner screens (e2e).
+
+### 11e (part 2) — Company plan, seats and AI budgets (2026-11-17)
+- **Company plan:** monthly platform fee (`company_platform_month`, placeholder $49 in
+  `catalog.ts`) plus seats. New companies get a 30-day free trial; existing companies got 30 days
+  from this change. Starting a new round needs an active plan; results stay readable when it ends.
+- **Company billing page** (`/orgs/<id>/billing`, owners): plan status, renew, seats, company
+  payments. The personal Billing page links to it; company purchases return there.
+- **AI budgets:** owners set a monthly premium-AI budget for everyone and per person (Company
+  settings → AI models). When either is used up, people get the free model until next month;
+  nothing is charged to employees. Owners see this month's spend per person.
+- **Company-paid premium chats:** premium AI coach chats started in a company workspace use the
+  company budget instead of the person's own credits.
+- Tests: plan rules (unit); plan gating, payment fulfilment, budget fallback per person and
+  overall, per-person usage, credit-free company chats (integration); company billing (e2e).

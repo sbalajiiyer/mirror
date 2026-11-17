@@ -12,6 +12,7 @@ const TABS = [
   { key: "analytics", label: "Analytics", path: "/analytics" },
   { key: "talent", label: "Talent grid", path: "/talent" },
   { key: "audit", label: "Audit log", path: "/audit" },
+  { key: "billing", label: "Billing", path: "/billing" },
   { key: "settings", label: "Settings", path: "/settings" },
 ] as const;
 

@@ -62,8 +62,8 @@ export async function runAI<T>(opts: {
   mock: () => T;
   fallback: () => T;
 }): Promise<AIResult<T>> {
-  const entry = await modelForWorkspace(opts.modelChoice);
   const workspaceId = currentAiWorkspace();
+  const entry = await modelForWorkspace(opts.modelChoice, workspaceId, opts.userId);
   const since = new Date(Date.now() - 24 * 3600 * 1000);
   const used = await db.aIInteractionLog.count({
     where: {
@@ -154,7 +154,7 @@ export async function* runAIStream(opts: {
   fallback: () => string;
 }): AsyncGenerator<AIStreamOut> {
   const workspaceId = opts.workspaceId ?? currentAiWorkspace();
-  const entry = await modelForWorkspace(opts.modelChoice, workspaceId);
+  const entry = await modelForWorkspace(opts.modelChoice, workspaceId, opts.userId);
   const used = await db.aIInteractionLog.count({ where: { feature: opts.feature, userId: opts.userId, createdAt: { gte: new Date(Date.now() - 24 * 3600 * 1000) } } });
   if (used >= DAILY_LIMITS[opts.feature]) {
     yield { type: "end", ok: false, generatedBy: "template", modelId: entry.id, error: "Daily AI limit reached for this feature. Try again tomorrow.", limited: true };
