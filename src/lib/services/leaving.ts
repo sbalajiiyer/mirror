@@ -1,6 +1,7 @@
 import type { OrgMember, Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
+import { endCompanyCoachingFor } from "@/lib/services/company-coaching";
 import { DomainError } from "@/lib/errors";
 import type { ReportData } from "@/lib/report/compute";
 import { DELETION_GRACE_DAYS } from "@/lib/services/my-data";
@@ -17,8 +18,10 @@ import { DELETION_GRACE_DAYS } from "@/lib/services/my-data";
 const DAY = 24 * 3600 * 1000;
 
 /** Record the exit and schedule deletion of the person's company-workspace data. */
-export async function startExit(m: Pick<OrgMember, "id" | "userId">, now = new Date()) {
+export async function startExit(m: Pick<OrgMember, "id" | "userId" | "orgId">, now = new Date()) {
   if (!m.userId) return;
+  // Coaching the company paid for ends when the person leaves (Phase 11e).
+  await endCompanyCoachingFor(m.userId, m.orgId);
   await db.orgMember.update({ where: { id: m.id }, data: { exitedAt: now, exitPurgeAt: new Date(now.getTime() + DELETION_GRACE_DAYS * DAY) } });
 }
 

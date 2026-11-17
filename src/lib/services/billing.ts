@@ -74,7 +74,8 @@ export async function assertCoachCapacity(coachId: string) {
   if (!billingEnforced()) return;
   const plan = await coachPlan(coachId);
   const limit = COACH_CLIENT_LIMIT[plan];
-  const used = await db.coachClientLink.count({ where: { coachId, status: { in: ["ACTIVE", "PENDING"] } } });
+  // Company-paid clients (Phase 11e) don't count against the coach's own plan.
+  const used = await db.coachClientLink.count({ where: { coachId, orgId: null, status: { in: ["ACTIVE", "PENDING"] } } });
   if (used >= limit) throw new UpgradeRequired(`Your ${plan === "COACH_FREE" ? "free coach plan" : "plan"} covers ${limit} clients (including pending invitations). Upgrade to add more.`, plan === "COACH_FREE" ? "coach_starter_month" : "coach_pro_month");
 }
 

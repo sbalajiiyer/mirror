@@ -117,9 +117,19 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
   const cancelled = await recentlyCancelledDeletion(user.id);
   const exits = company ? [] : await pendingExits(user.id);
+  // Company coaching offers (Phase 11e) are answered on the Coaching page; remind in either workspace.
+  const coachingOffers = await db.coachClientLink.count({ where: { clientId: user.id, initiatedBy: "ORG", status: "PENDING", clientAcceptedAt: null } });
   return (
     <div className="space-y-6">
       {sp.deleted && <Alert tone="success">Deleted. Its responses, reports and links are gone.</Alert>}
+      {coachingOffers > 0 && (
+        <Alert tone="info" className="flex flex-wrap items-center justify-between gap-2" data-testid="coaching-offer-banner">
+          <span>You&apos;ve been offered coaching paid for by your company. It&apos;s your choice.</span>
+          <Button asChild size="sm" variant="outline">
+            <Link href="/coaching">Review</Link>
+          </Button>
+        </Alert>
+      )}
       {exits.map((x) => (
         <ExitNotice key={x.memberId} exit={{ ...x, deleteAt: x.deleteAt.toISOString() }} />
       ))}

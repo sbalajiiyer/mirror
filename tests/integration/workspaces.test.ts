@@ -332,4 +332,70 @@ describe.skipIf(!hasDb)("workspaces (integration)", async () => {
       }
     });
   });
+
+  describe("company coaching", () => {
+    it("is offered by an admin, accepted by the employee, then the coach; the company sees status only", async () => {
+      const cc = await import("@/lib/services/company-coaching");
+      const coach = await import("@/lib/services/coach");
+      const owner = (await db.orgMember.findFirstOrThrow({ where: { orgId, role: "OWNER", status: "ACTIVE" } })).userId!;
+      const emp = people[4];
+      const m = await db.orgMember.findFirstOrThrow({ where: { orgId, userId: emp.id, status: "ACTIVE" } });
+      const coachUser = await mk("wscoach");
+      await expect(cc.offerCoaching(emp.id, orgId, m.id, coachUser.email!)).rejects.toThrow(/Only organization admins/);
+      const link = await cc.offerCoaching(owner, orgId, m.id, coachUser.email!);
+      await expect(cc.offerCoaching(owner, orgId, m.id, coachUser.email!)).rejects.toThrow(/already has/);
+      // The coach can't accept before the employee does.
+      await expect(coach.respondToInvite(coachUser.id, link.id, true)).rejects.toThrow(/no longer valid/);
+      expect((await coach.clientCoaching(emp.id)).offers.map((o) => o.id)).toEqual([link.id]);
+      await cc.respondToCompanyOffer(emp.id, link.id, true);
+      const mail = await db.notification.findFirstOrThrow({ where: { to: coachUser.email!, template: "client-invites-coach" }, orderBy: { createdAt: "desc" } });
+      const token = mail.body.match(/coaching\/invite\/([A-Za-z0-9_-]+)/)![1];
+      await coach.respondToInviteToken(coachUser.id, token, true);
+      const active = await db.coachClientLink.findUniqueOrThrow({ where: { id: link.id } });
+      expect(active).toMatchObject({ status: "ACTIVE", coachId: coachUser.id, clientId: emp.id, orgId, shareComments: false });
+      // The admin list shows who and the status, nothing else.
+      const list = await cc.companyCoaching(owner, orgId);
+      expect(list.find((l) => l.id === link.id)).toEqual({ id: link.id, person: expect.any(String), coach: expect.any(String), status: "Active", open: true });
+      // Company-paid clients don't count against the coach's own plan.
+      expect(await db.coachClientLink.count({ where: { coachId: coachUser.id, orgId: null, status: { in: ["ACTIVE", "PENDING"] } } })).toBe(0);
+      // Leaving the company ends the coaching it paid for.
+      await org.leaveOrg(emp.id, orgId);
+      expect((await db.coachClientLink.findUniqueOrThrow({ where: { id: link.id } })).status).toBe("REVOKED");
+    });
+
+    it("an employee can decline", async () => {
+      const cc = await import("@/lib/services/company-coaching");
+      const owner = (await db.orgMember.findFirstOrThrow({ where: { orgId, role: "OWNER", status: "ACTIVE" } })).userId!;
+      const emp = await db.orgMember.findFirstOrThrow({ where: { orgId, status: "ACTIVE", userId: people[0].id } });
+      const link = await cc.offerCoaching(owner, orgId, emp.id, `declined-coach-${stamp}@t.local`);
+      await cc.respondToCompanyOffer(emp.userId!, link.id, false);
+      expect((await db.coachClientLink.findUniqueOrThrow({ where: { id: link.id } })).status).toBe("DECLINED");
+      await expect(cc.respondToCompanyOffer(emp.userId!, link.id, true)).rejects.toThrow(/Not found/);
+    });
+  });
+
+  describe("personal sign-in email", () => {
+    it("is verified by the same account, unique, and never a company-SSO address", async () => {
+      const pe = await import("@/lib/services/personal-email");
+      const u = people[1];
+      const address = `me-${stamp}@personal.test`;
+      await expect(pe.requestPersonalEmail(u.id, u.email!)).rejects.toThrow(/already your sign-in email/);
+      await expect(pe.requestPersonalEmail(u.id, people[0].email!)).rejects.toThrow(/can't be used/);
+      await pe.requestPersonalEmail(u.id, address);
+      const mail = await db.notification.findFirstOrThrow({ where: { to: address, template: "personal-email-verify" }, orderBy: { createdAt: "desc" } });
+      const token = mail.body.match(/personal-email\/([A-Za-z0-9_-]+)/)![1];
+      // Only the account that asked can confirm.
+      await expect(pe.verifyPersonalEmail(people[0].id, token)).rejects.toThrow(/isn't valid/);
+      expect(await pe.verifyPersonalEmail(u.id, token)).toBe(address);
+      expect((await db.user.findUniqueOrThrow({ where: { id: u.id } })).personalEmail).toBe(address);
+      // Nobody else can claim it.
+      await expect(pe.requestPersonalEmail(people[0].id, address)).rejects.toThrow(/can't be used/);
+      // A domain whose company requires SSO can't be a personal email.
+      await db.organization.update({ where: { id: orgId }, data: { ssoDomain: "corp-sso.test", ssoDomainVerifiedAt: new Date(), ssoEnabled: true, ssoRequired: true, ssoIssuer: "https://idp.test", ssoClientId: "x" } });
+      await expect(pe.requestPersonalEmail(u.id, `me@corp-sso.test`)).rejects.toThrow(/requires its own sign-in/);
+      await db.organization.update({ where: { id: orgId }, data: { ssoDomain: null, ssoDomainVerifiedAt: null, ssoEnabled: false, ssoRequired: false } });
+      await pe.removePersonalEmail(u.id);
+      expect((await db.user.findUniqueOrThrow({ where: { id: u.id } })).personalEmail).toBeNull();
+    });
+  });
 });

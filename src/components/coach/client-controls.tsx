@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { ActionResult } from "@/lib/action-result";
 import { inviteClientAction } from "@/app/(app)/coach/actions";
-import { endLinkAction, inviteCoachAction, respondToInviteAction, respondToInviteTokenAction, updateSharingAction } from "@/app/(app)/coaching/actions";
+import { endLinkAction, inviteCoachAction, respondToInviteAction, respondToInviteTokenAction, updateSharingAction, respondToCompanyOfferAction } from "@/app/(app)/coaching/actions";
 
 /** Small helper: run an action, show its error, refresh on success. */
 function useAction() {
@@ -142,5 +142,23 @@ export function SharingPanel({ linkId, initial, coachName }: { linkId: string; i
       {saved && <span className="ml-2 text-sm text-muted-foreground" role="status">Saved.</span>}
       {error && <Alert tone="error">{error}</Alert>}
     </form>
+  );
+}
+
+/** Phase 11e: accept or decline coaching a company offers. */
+export function CompanyOfferButtons({ linkId }: { linkId: string }) {
+  const { pending, error, run } = useAction();
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        <Button onClick={() => run(() => respondToCompanyOfferAction(linkId, true))} disabled={pending} data-testid="accept-company-coaching">
+          Accept
+        </Button>
+        <Button variant="outline" onClick={() => run(() => respondToCompanyOfferAction(linkId, false))} disabled={pending}>
+          Decline
+        </Button>
+      </div>
+      {error && <Alert tone="error">{error}</Alert>}
+    </div>
   );
 }

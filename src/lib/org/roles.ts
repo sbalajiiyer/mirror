@@ -27,6 +27,7 @@ export const TAB_ROLE = {
   groups: "ADMIN",
   rounds: "ADMIN",
   talent: "ADMIN",
+  coaching: "ADMIN",
   audit: "ADMIN",
   billing: "OWNER",
   settings: "OWNER",

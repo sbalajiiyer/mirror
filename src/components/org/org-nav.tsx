@@ -11,6 +11,7 @@ const TABS = [
   { key: "rounds", label: "360 rounds", path: "/rounds" },
   { key: "analytics", label: "Analytics", path: "/analytics" },
   { key: "talent", label: "Talent grid", path: "/talent" },
+  { key: "coaching", label: "Coaching", path: "/coaching" },
   { key: "audit", label: "Audit log", path: "/audit" },
   { key: "billing", label: "Billing", path: "/billing" },
   { key: "settings", label: "Settings", path: "/settings" },

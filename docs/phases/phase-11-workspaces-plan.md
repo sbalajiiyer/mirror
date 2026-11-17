@@ -294,3 +294,18 @@ Built together: the switcher is only safe because of the checks.
   company budget instead of the person's own credits.
 - Tests: plan rules (unit); plan gating, payment fulfilment, budget fallback per person and
   overall, per-person usage, credit-free company chats (integration); company billing (e2e).
+
+### 11e (part 3) — Company-paid coaching and personal sign-in email (2026-11-17)
+- **Company coaching** (Company → Coaching, admins): an admin offers a coach (by email) to an
+  employee. The employee accepts or declines on their Coaching page; only then is the coach
+  invited, through the normal coach invitation. The coach sees only what the employee shares
+  (written comments off by default). The company sees who is coached, by whom, and the status, never
+  content. Company-paid clients don't count against the coach's own plan. Admins can end it;
+  leaving the company ends it.
+- **Personal sign-in email** (Settings): add a personal address, confirm it from that inbox while
+  signed in (the confirm page needs a click, so link scanners can't confirm it). An email link to
+  it then signs in to the same account, even if the work email's company requires SSO. Addresses on
+  an SSO-required company domain, or used by another account, are refused.
+- Tests: offer → employee accepts → coach accepts; decline; status-only admin view; plan limit
+  unaffected; ends on leaving; personal email rules (integration); sign-in via personal email and
+  offering coaching (e2e).

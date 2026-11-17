@@ -16,15 +16,21 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 model User {
-  id                  String    @id @default(cuid())
-  name                String?
-  email               String?   @unique
-  emailVerified       DateTime?
-  image               String?
+  id                     String    @id @default(cuid())
+  name                   String?
+  email                  String?   @unique
+  emailVerified          DateTime?
+  image                  String?
   /// Account deletion requested: everything is removed at this time unless the person signs in first.
-  deletionScheduledAt DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  deletionScheduledAt    DateTime?
+  /// Phase 11e: a verified personal email that also signs in to this account (keeps Personal reachable after leaving a company).
+  personalEmail          String?   @unique
+  /// Phase 11e: pending personal email and the hash of its verification token.
+  personalEmailPending   String?
+  personalEmailTokenHash String?   @unique
+  personalEmailTokenExp  DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
   accounts    Account[]
   sessions    Session[]
@@ -632,31 +638,37 @@ enum CoachLinkStatus {
 
 /// A coach–client relationship. The client decides what is shared and can revoke at any time.
 model CoachClientLink {
-  id              String          @id @default(cuid())
-  coachId         String?
-  clientId        String?
+  id               String          @id @default(cuid())
+  coachId          String?
+  clientId         String?
   /// Who sent the invitation: COACH (to a client's email) or CLIENT (to a coach's email).
-  initiatedBy     String
-  inviteEmail     String
-  inviteTokenHash String?         @unique
-  status          CoachLinkStatus @default(PENDING)
+  initiatedBy      String
+  inviteEmail      String
+  inviteTokenHash  String?         @unique
+  status           CoachLinkStatus @default(PENDING)
   /// What the client shares. Reports = frozen, anonymised report data (scores and themes).
-  shareReports    Boolean         @default(true)
+  shareReports     Boolean         @default(true)
   /// Verbatim rater comments inside shared reports (off by default).
-  shareComments   Boolean         @default(false)
-  shareGoals      Boolean         @default(true)
-  sharePlan       Boolean         @default(false)
+  shareComments    Boolean         @default(false)
+  shareGoals       Boolean         @default(true)
+  sharePlan        Boolean         @default(false)
   /// Show the coach's branding on the client's own reports and PDFs.
-  showBranding    Boolean         @default(true)
-  createdAt       DateTime        @default(now())
-  acceptedAt      DateTime?
-  endedAt         DateTime?
+  showBranding     Boolean         @default(true)
+  /// Phase 11e: coaching offered and paid for by a company (null = arranged privately).
+  orgId            String?
+  /// Phase 11e: for company offers, when the employee accepted (the coach is invited after that).
+  clientAcceptedAt DateTime?
+  createdAt        DateTime        @default(now())
+  acceptedAt       DateTime?
+  endedAt          DateTime?
 
-  coach  User? @relation("CoachLinks", fields: [coachId], references: [id], onDelete: Cascade)
-  client User? @relation("ClientLinks", fields: [clientId], references: [id], onDelete: Cascade)
+  coach  User?         @relation("CoachLinks", fields: [coachId], references: [id], onDelete: Cascade)
+  client User?         @relation("ClientLinks", fields: [clientId], references: [id], onDelete: Cascade)
+  org    Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
 
   @@index([coachId, status])
   @@index([clientId, status])
+  @@index([orgId])
 }
 
 /// Private notes a coach keeps about a client. Never shown to the client.
@@ -720,12 +732,13 @@ model Organization {
   members           OrgMember[]
   groups            OrgGroup[]
   campaigns         OrgCampaign[]
-  workspace         Workspace?    @relation("CompanyWorkspace")
+  workspace         Workspace?        @relation("CompanyWorkspace")
   roundResults      RoundResult[]
+  coachingLinks     CoachClientLink[]
   /// Phase 11: people who leave may copy their own round reports to Personal (without raw comments).
-  allowPersonalCopy Boolean       @default(true)
+  allowPersonalCopy Boolean           @default(true)
   /// Phase 11e: premium AI models people may use in this workspace (the free model is always allowed).
-  allowedAiModels   String[]      @default([])
+  allowedAiModels   String[]          @default([])
   /// Phase 11e: company plan paid until (null = never paid; new companies get a free trial).
   platformPaidUntil DateTime?
   /// Phase 11e: monthly premium-AI budget for the whole workspace, in cents (null = no limit).
