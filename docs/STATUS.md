@@ -21,7 +21,8 @@ _Last updated: 2026-11-17 (product polish, branch `polish`)_
 | 9 | Payments and marketplace — plans and limits, credit packs, coach plans and report credits, org seats, test checkout (Stripe ready behind a switch), coach marketplace with referral fees | ✅ Done (PR #14, merged) |
 | 10 | Enterprise and polish — OIDC SSO per org (DNS-verified domain, optional enforcement), data residency (US/EU, enforced for AI), retention, org audit log + CSV, personal activity log, data export and account deletion, mobile menu and installable app | ✅ Done (PR #15, merged) |
 | — | Upgrade — Next.js 16, React 19.3, Prisma 7; npm audit clean | ✅ Done (PR #16) |
-| — | Polish — rater form in 5 languages, streaming AI coach replies, dark mode switch, coach onboarding, AI comment themes | ✅ Done (PR from `polish`) |
+| — | Polish — rater form in 5 languages, streaming AI coach replies, dark mode switch, coach onboarding, AI comment themes | ✅ Done (PR #17) |
+| — | Solution & tech explainer — unlinked, password-protected page at `/tech` with expandable technical detail | ✅ Done (PR from `tech-page`) |
 
 Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md), [`docs/phases/phase-4b-survey-sessions.md`](phases/phase-4b-survey-sessions.md), [`docs/phases/phase-5-coach.md`](phases/phase-5-coach.md), [`docs/phases/phase-6-teams-orgs.md`](phases/phase-6-teams-orgs.md), [`docs/phases/phase-7-personalization.md`](phases/phase-7-personalization.md), [`docs/phases/phase-8-analytics.md`](phases/phase-8-analytics.md), [`docs/phases/phase-9-payments-marketplace.md`](phases/phase-9-payments-marketplace.md), [`docs/phases/phase-10-enterprise.md`](phases/phase-10-enterprise.md), [`docs/phases/polish-2026-11.md`](phases/polish-2026-11.md).
 
@@ -378,6 +379,14 @@ pulses were renamed by migration `rate_limit_pulse_titles`.
 - AI comment themes run only when the subject asks (cap 10 a day). Comment text is sent to the AI provider (no
   rater identity exists to send), and EU-region rounds fall back to keyword themes.
 - The theme choice is stored in the browser (`localStorage: mirror-theme`).
+
+## Tech page (owner decision, 2026-11-17)
+
+- `/tech` explains the product and stack, with technical detail in expandable panels. It's not linked anywhere,
+  is `noindex`, and is protected by a password the owner chose.
+- Only an scrypt hash of the password is stored (`TECH_PAGE_PASSWORD_HASH` on Vercel, production and preview).
+  To change it, run `npm run tech:hash -- '<new password>'` and update the variable. Unlocking sets a signed
+  7-day cookie scoped to `/tech`. Attempts are rate-limited (10 per 15 minutes per network).
 
 ## Known limitations / next up
 

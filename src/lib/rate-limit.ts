@@ -36,6 +36,8 @@ export const LIMITS = {
   shareViewIp: { limit: 120, windowSec: 600 },
   /** Read API calls per token (Phase 8). */
   apiToken: { limit: 120, windowSec: 60 },
+  /** Password attempts on the unlinked tech page, per network. */
+  techPageIp: { limit: 10, windowSec: 900 },
   /** Demo sign-ins from one network. */
   demoLoginIp: { limit: 60, windowSec: 600 },
 } as const satisfies Record<string, { limit: number; windowSec: number }>;
