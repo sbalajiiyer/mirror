@@ -190,7 +190,7 @@ function Explainer() {
         </More>
       </Section>
 
-      <Section id="features" title="What's built" intro={<p>Ten build phases plus hardening and polish, all live.</p>}>
+      <Section id="features" title="What's built" intro={<p>Eleven build phases plus hardening and polish, all live.</p>}>
         <Table
           head={["Area", "What it does"]}
           rows={[
@@ -473,12 +473,40 @@ function Explainer() {
             </li>
           </ul>
         </More>
+        <More title="Personal and company workspaces (Phase 11)">
+          <ul className="list-disc space-y-1 pl-5">
+            <li>
+              <strong>One workspace per item:</strong> every 360, plan, goal, chat, dashboard, share link and payment belongs to the person&apos;s Personal
+              space or to one company. Database triggers assign it, so older code paths can&apos;t create data without one.
+            </li>
+            <li>
+              <strong>Switcher and menus:</strong> a header switcher; each workspace shows only its own data and menu. Company workspaces have no personal
+              billing or marketplace. The active workspace is a cookie re-checked against memberships on every request.
+            </li>
+            <li>
+              <strong>Ownership:</strong> individual reports stay the person&apos;s. Companies keep frozen, anonymous round totals (counts and sums only), so
+              people leaving never change past results. Leavers can copy their reports to Personal (no rater comments) during a 7-day grace period.
+            </li>
+            <li>
+              <strong>Roles:</strong> Owner, Admin, Analyst, Member, checked on the server for every page and action; a route-inventory test fails if any
+              route has no caller check.
+            </li>
+            <li>
+              <strong>Company plan and AI:</strong> monthly plan plus seats (30-day trial); allowed AI models; monthly AI budgets overall and per person with
+              free-model fallback; usage recorded per workspace through request-scoped AI context.
+            </li>
+            <li>
+              <strong>Company coaching and sign-in:</strong> company-paid coaching that the employee must accept first; a verified personal sign-in email
+              keeps Personal reachable after leaving an SSO-only company.
+            </li>
+          </ul>
+        </More>
       </Section>
 
       <Section id="quality" title="Testing and delivery" intro={<p>Every change runs the full test suite before it can be merged; every merge deploys automatically.</p>}>
         <More title="Tests">
           <p>
-            About 210 unit and integration tests (Vitest; integration tests run against a real Postgres) and about 60 end-to-end tests (Playwright against a
+            About 260 unit and integration tests (Vitest; integration tests run against a real Postgres) and about 75 end-to-end tests (Playwright against a
             production build), including WCAG 2.2 AA checks with axe on key pages in light and dark mode and at phone width. Seed data creates realistic demo
             people, a coach with clients, an organization with 14 people and benchmark samples.
           </p>
