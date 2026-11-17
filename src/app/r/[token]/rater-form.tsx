@@ -4,10 +4,12 @@ import { useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Questionnaire, type QCompetency, type QDraft } from "@/components/questionnaire/questionnaire";
+import { raterStrings, type RaterLocale } from "@/lib/i18n/rater";
 import { declineAction, previewDeidentifyAction, saveDraftAction, submitRaterAction } from "../actions";
 
 export function RaterForm(props: {
   token: string;
+  locale: RaterLocale;
   subjectFirstName: string;
   competencies: QCompetency[];
   scaleMax: number;
@@ -15,14 +17,18 @@ export function RaterForm(props: {
   message: string;
   dueAt: string | null;
   managerShownSeparately: boolean;
+  machineTranslated: boolean;
 }) {
+  const t = raterStrings(props.locale);
+  const name = props.subjectFirstName;
   const [declined, setDeclined] = useState(false);
   const n = props.competencies.reduce((s, c) => s + c.questions.length, 0);
-  if (declined) return <Alert tone="info">You&apos;ve declined. Thanks for letting {props.subjectFirstName} know.</Alert>;
+  if (declined) return <Alert tone="info">{t.declined(name)}</Alert>;
   return (
     <Questionnaire
       mode="rater"
-      subjectFirstName={props.subjectFirstName}
+      strings={t}
+      subjectFirstName={name}
       competencies={props.competencies}
       scaleMax={props.scaleMax}
       initialDraft={props.draft}
@@ -31,33 +37,32 @@ export function RaterForm(props: {
       onPreviewDeidentify={(texts) => previewDeidentifyAction(props.token, texts)}
       intro={
         <div className="space-y-4">
-          <h1 className="text-2xl font-semibold tracking-tight">{props.subjectFirstName} would value your feedback</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{t.wouldValue(name)}</h1>
           <blockquote className="whitespace-pre-line border-l-4 border-primary/40 pl-4 text-muted-foreground">{props.message}</blockquote>
           <ul className="space-y-1 text-sm text-muted-foreground">
             <li>
-              About {Math.max(4, Math.round(n * 0.2 + 3))} minutes · {n} statements · {props.dueAt ? `open until ${new Date(props.dueAt).toLocaleDateString()}` : "no deadline"}
+              {t.minutes(Math.max(4, Math.round(n * 0.2 + 3)))} · {t.statements(n)} · {props.dueAt ? t.openUntil(new Date(props.dueAt).toLocaleDateString(props.locale)) : t.noDeadline}
             </li>
-            <li>Your progress saves automatically — come back to this link any time.</li>
+            <li>{t.autosave}</li>
           </ul>
+          {props.machineTranslated && t.translatedNote && <p className="text-xs text-muted-foreground">{t.translatedNote}</p>}
           {props.managerShownSeparately ? (
-            <Alert tone="warning">
-              As {props.subjectFirstName}&apos;s manager, your ratings will be shown to them <strong>separately</strong>, so they are not anonymous. Everyone else&apos;s are.
-            </Alert>
+            <Alert tone="warning">{t.managerWarning(name)}</Alert>
           ) : (
             <Alert tone="success">
               <ShieldCheck className="mr-1 inline size-4" />
-              Anonymous: {props.subjectFirstName} only sees results combined with at least two other people. Your name and email are never linked to your answers.
+              {t.anonymous(name)}
             </Alert>
           )}
           <button
             className="text-sm text-muted-foreground underline"
             onClick={async () => {
-              if (!confirm("Decline this feedback request?")) return;
+              if (!confirm(t.declineConfirm)) return;
               const r = await declineAction(props.token);
               if (r.ok) setDeclined(true);
             }}
           >
-            I&apos;d rather not give feedback
+            {t.decline}
           </button>
         </div>
       }

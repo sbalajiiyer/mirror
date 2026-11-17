@@ -66,3 +66,14 @@ export async function saveAISettingsAction(input: { aiModel: string; learningSty
     return toActionError(e);
   }
 }
+
+export async function aiThemesAction(assessmentId: string): Promise<ActionResult> {
+  try {
+    const { createAIThemes } = await import("@/lib/services/ai-themes");
+    await createAIThemes(await requireUserId(), assessmentId);
+    revalidatePath(`/assessments/${assessmentId}/report`);
+    return { ok: true };
+  } catch (e) {
+    return toActionError(e);
+  }
+}

@@ -28,7 +28,7 @@ export default async function PrintReport({ params, searchParams }: { params: Pr
   if (r.status !== "ok") notFound();
   return (
     <main className="mx-auto max-w-[1000px] p-6">
-      <ReportView report={r.report} aiSummary={r.aiSummary} session={await sessionInfo(id)} branding={await brandingForClient(ownerId)} generatedAt={r.generatedAt.toISOString()} print />
+      <ReportView report={r.report} aiSummary={r.aiSummary} aiThemes={r.aiThemes} session={await sessionInfo(id)} branding={await brandingForClient(ownerId)} generatedAt={r.generatedAt.toISOString()} print />
     </main>
   );
 }

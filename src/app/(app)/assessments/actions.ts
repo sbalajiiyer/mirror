@@ -95,3 +95,25 @@ export async function deleteAction(assessmentId: string): Promise<ActionResult> 
     return toActionError(e);
   }
 }
+
+export async function saveTranslationAction(assessmentId: string, input: unknown): Promise<ActionResult> {
+  try {
+    const { saveTranslation } = await import("@/lib/services/translations");
+    await saveTranslation(await requireUserId(), assessmentId, input);
+    revalidatePath(`/assessments/${assessmentId}`);
+    return { ok: true };
+  } catch (e) {
+    return toActionError(e);
+  }
+}
+
+export async function translateAllAction(assessmentId: string): Promise<ActionResult> {
+  try {
+    const { translateAll } = await import("@/lib/services/translations");
+    await translateAll(await requireUserId(), assessmentId);
+    revalidatePath(`/assessments/${assessmentId}`);
+    return { ok: true };
+  } catch (e) {
+    return toActionError(e);
+  }
+}

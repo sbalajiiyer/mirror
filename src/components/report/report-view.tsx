@@ -14,7 +14,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { SscBoard, ThemeList, WordCloud } from "./comments";
+import { SscBoard, WordCloud } from "./comments";
+import { CommentThemes } from "./ai-themes";
 import { QuestionDistribution } from "./distribution";
 import { GapChart } from "./gap-chart";
 import { GroupHeatmap } from "./heatmap";
@@ -34,6 +35,7 @@ export function ReportView({
   pdfUrl,
   print = false,
   aiSummary = null,
+  aiThemes = null,
   session = null,
   mode = "owner",
   branding = null,
@@ -43,6 +45,8 @@ export function ReportView({
   pdfUrl?: string;
   print?: boolean;
   aiSummary?: StoredAISummary | null;
+  /** AI grouping of comments (owner and print views only; it contains verbatim comments). */
+  aiThemes?: { themes: (import("@/lib/text/themes").ThemeGroup & { summary: string })[]; generatedAt: string; generatedBy: string } | null;
   session?: {
     code: string;
     sessionNumber: number;
@@ -477,13 +481,13 @@ export function ReportView({
             <CardHeader>
               <CardTitle>What people said</CardTitle>
               <CardDescription>
-                {report.comments.total} comments, grouped into themes by keyword
-                and shown only with the rater group. Raters can choose to have
-                AI remove identifying details before submitting.
+                {report.comments.total} comments, grouped into themes and shown
+                only with the rater group. Raters can choose to have AI remove
+                identifying details before submitting.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <ThemeList themes={report.comments.themes} />
+              <CommentThemes assessmentId={report.assessment.id} keyword={report.comments.themes} ai={aiThemes} canCreate={!coach && !print && !purgedAt && report.comments.total >= 3} print={print} />
               {report.comments.wordCloud.length > 0 && (
                 <div>
                   <h4 className="mb-2 text-sm font-medium">Most used words</h4>

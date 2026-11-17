@@ -3,7 +3,9 @@ import type { Region } from "@/lib/residency";
 import { z } from "zod";
 import type { ReportData } from "@/lib/report/compute";
 import { goalLabel } from "@/lib/constants";
-import { runAI } from "../client";
+import { runAI, runAIStream } from "../client";
+import { CITE_MARK } from "../chat-stream";
+export { CITE_MARK, citationFilter } from "../chat-stream";
 import { guardrails } from "../prompts";
 import { reportDigest } from "./summary";
 
@@ -30,7 +32,7 @@ export const ROLEPLAY_PRESETS = [
   { key: "underperformer", label: "Talk to a struggling team member", persona: "a team member whose work has slipped for a month" },
 ] as const;
 
-function systemPrompt(mode: "REPORT" | "ROLEPLAY", ctx: ChatContext, tone: string, scenario?: string | null) {
+function systemPrompt(mode: "REPORT" | "ROLEPLAY", ctx: ChatContext, tone: string, scenario?: string | null, format: "json" | "text" = "json") {
   const data = ctx.report ? JSON.stringify(reportDigest(ctx.report)) : "No completed report yet.";
   const common = [
     guardrails(tone),
@@ -40,7 +42,9 @@ function systemPrompt(mode: "REPORT" | "ROLEPLAY", ctx: ChatContext, tone: strin
     `Their latest 360 report (aggregated, anonymised): ${data}`,
     "Never reveal or guess who said what. If asked who a rater is, explain that Mirror keeps raters anonymous.",
     "If the person seems in distress or raises a health or safety issue, respond kindly, don't diagnose, and suggest talking to someone they trust or a professional.",
-    'Return JSON: {"reply": your message (plain text, under 180 words), "citations": up to 3 short facts from the report data you relied on, e.g. "Communication: others 3.2, self 4.0" (empty if none)}.',
+    format === "json"
+      ? 'Return JSON: {"reply": your message (plain text, under 180 words), "citations": up to 3 short facts from the report data you relied on, e.g. "Communication: others 3.2, self 4.0" (empty if none)}.'
+      : `Write your message as plain text (under 180 words, no markdown headings). Then, only if you relied on facts from the report data, add a final line that starts with ${CITE_MARK} followed by up to 3 short facts separated by " | ", e.g. "${CITE_MARK} Communication: others 3.2, self 4.0".`,
   ];
   if (mode === "REPORT")
     return [...common, "Answer questions about their report and how to act on it. Be specific and practical; ground claims in the numbers and themes above; end with one small next step when useful."].filter(Boolean).join("\n");
@@ -104,3 +108,28 @@ export async function generateChatReply(params: {
     fallback: () => templateReply(params.mode, params.ctx, last),
   });
 }
+
+const asText = (r: ChatReply) => (r.citations.length ? `${r.reply}\n${CITE_MARK} ${r.citations.join(" | ")}` : r.reply);
+
+/** Streaming version of generateChatReply: plain text with an optional trailing facts line (see CITE_MARK). */
+export function streamChatReply(params: Parameters<typeof generateChatReply>[0]) {
+  const last = params.history[params.history.length - 1]?.content ?? "";
+  return runAIStream({
+    feature: params.premium ? "chat_premium" : params.pro ? "chat_pro" : "chat",
+    region: params.region,
+    userId: params.userId,
+    modelChoice: params.premium ? params.modelChoice : "free",
+    request: {
+      system: systemPrompt(params.mode, params.ctx, params.tone, params.scenario, "text"),
+      messages: params.history.slice(-20),
+      maxTokens: 700,
+      temperature: params.mode === "ROLEPLAY" ? 0.8 : 0.4,
+    },
+    mock: () => {
+      const t = templateReply(params.mode, params.ctx, last);
+      return asText({ ...t, reply: `${t.reply} (Sample reply — add GROQ_API_KEY for real AI.)` });
+    },
+    fallback: () => asText(templateReply(params.mode, params.ctx, last)),
+  });
+}
+

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { deleteChatAction, sendMessageAction, startChatAction } from "@/app/(app)/chat/actions";
+import { deleteChatAction, startChatAction } from "@/app/(app)/chat/actions";
 
 type Msg = { id: string; role: "user" | "assistant"; content: string; citations: string[] };
 
@@ -22,29 +22,62 @@ export function ChatWindow({ chatId, mode, initial }: { chatId: string; mode: "R
   const router = useRouter();
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end" });
-  }, [msgs.length]);
+  }, [msgs]);
 
+  const [streaming, setStreaming] = useState(false);
   const send = (t: string) => {
     const body = t.trim();
-    if (!body) return;
+    if (!body || streaming) return;
     setError(null);
     const tmp: Msg = { id: `tmp-${Date.now()}`, role: "user", content: body, citations: [] };
+    const replyId = `a-${Date.now()}`;
     setMsgs((m) => [...m, tmp]);
     setText("");
+    setStreaming(true);
+    const fail = (msg: string) => {
+      setMsgs((m) => m.filter((x) => x.id !== tmp.id && x.id !== replyId));
+      setText(body);
+      setError(msg);
+    };
     start(async () => {
-      const r = await sendMessageAction(chatId, body);
-      if (!r.ok) {
-        setMsgs((m) => m.filter((x) => x.id !== tmp.id));
-        setText(body);
-        return setError(r.error);
+      try {
+        const res = await fetch(`/api/chat/${chatId}/stream`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text: body }) });
+        if (!res.ok || !res.body) return fail("Couldn't reach the AI coach. Please try again.");
+        const reader = res.body.getReader();
+        const dec = new TextDecoder();
+        let buf = "";
+        let started = false;
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          let i: number;
+          while ((i = buf.indexOf("\n")) >= 0) {
+            const line = buf.slice(0, i);
+            buf = buf.slice(i + 1);
+            if (!line.trim()) continue;
+            const ev = JSON.parse(line) as { t: "delta"; v: string } | { t: "done"; citations: string[] } | { t: "error"; error: string };
+            if (ev.t === "delta") {
+              if (!started) {
+                started = true;
+                setMsgs((m) => [...m, { id: replyId, role: "assistant", content: ev.v, citations: [] }]);
+              } else setMsgs((m) => m.map((x) => (x.id === replyId ? { ...x, content: x.content + ev.v } : x)));
+            } else if (ev.t === "done") {
+              setMsgs((m) => m.map((x) => (x.id === replyId ? { ...x, content: x.content.trimEnd(), citations: ev.citations } : x)));
+            } else return fail(ev.error);
+          }
+        }
+      } catch {
+        fail("The connection dropped. Please try again.");
+      } finally {
+        setStreaming(false);
       }
-      setMsgs((m) => [...m, { id: `a-${Date.now()}`, role: "assistant", content: r.data!.reply, citations: r.data!.citations }]);
     });
   };
 
   return (
     <div className="space-y-4">
-      <ol className="space-y-3" aria-label="Conversation" aria-live="polite" data-testid="chat-messages">
+      <ol className="space-y-3" aria-label="Conversation" aria-live="polite" aria-busy={streaming} data-testid="chat-messages">
         {msgs.length === 0 && (
           <li className="text-sm text-muted-foreground">
             {mode === "REPORT" ? "Ask anything about your feedback, e.g. “What should I work on first?” or “Why do others rate my communication lower than I do?”" : "Start the conversation as you would in real life. Type “feedback” at any point to get coaching on how it's going."}
@@ -67,7 +100,7 @@ export function ChatWindow({ chatId, mode, initial }: { chatId: string; mode: "R
             </div>
           </li>
         ))}
-        {pending && (
+        {streaming && msgs[msgs.length - 1]?.role === "user" && (
           <li className="text-sm text-muted-foreground" role="status">
             Thinking…
           </li>

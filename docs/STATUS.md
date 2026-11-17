@@ -1,6 +1,6 @@
 # Mirror — build status
 
-_Last updated: 2026-11-16 (Phase 10, branch `phase-10`)_
+_Last updated: 2026-11-17 (product polish, branch `polish`)_
 
 ## Phases
 
@@ -19,9 +19,11 @@ _Last updated: 2026-11-16 (Phase 10, branch `phase-10`)_
 | 7 | Personalization v2 — AI coach chat (report Q&A + role-play), adaptive questions, personalized pulses, opt-in weekly nudges, sharing (badge, summary, full report) | ✅ Done (PR #12, merged) |
 | 8 | Analytics v2 — benchmarks, dashboard builder (personal/coach/org), plain-English questions, scheduled dashboard emails, CSV export, read-only API | ✅ Done (PR #13, merged) |
 | 9 | Payments and marketplace — plans and limits, credit packs, coach plans and report credits, org seats, test checkout (Stripe ready behind a switch), coach marketplace with referral fees | ✅ Done (PR #14, merged) |
-| 10 | Enterprise and polish — OIDC SSO per org (DNS-verified domain, optional enforcement), data residency (US/EU, enforced for AI), retention, org audit log + CSV, personal activity log, data export and account deletion, mobile menu and installable app | ✅ Done (PR from `phase-10`) |
+| 10 | Enterprise and polish — OIDC SSO per org (DNS-verified domain, optional enforcement), data residency (US/EU, enforced for AI), retention, org audit log + CSV, personal activity log, data export and account deletion, mobile menu and installable app | ✅ Done (PR #15, merged) |
+| — | Upgrade — Next.js 16, React 19.3, Prisma 7; npm audit clean | ✅ Done (PR #16) |
+| — | Polish — rater form in 5 languages, streaming AI coach replies, dark mode switch, coach onboarding, AI comment themes | ✅ Done (PR from `polish`) |
 
-Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md), [`docs/phases/phase-4b-survey-sessions.md`](phases/phase-4b-survey-sessions.md), [`docs/phases/phase-5-coach.md`](phases/phase-5-coach.md), [`docs/phases/phase-6-teams-orgs.md`](phases/phase-6-teams-orgs.md), [`docs/phases/phase-7-personalization.md`](phases/phase-7-personalization.md), [`docs/phases/phase-8-analytics.md`](phases/phase-8-analytics.md), [`docs/phases/phase-9-payments-marketplace.md`](phases/phase-9-payments-marketplace.md), [`docs/phases/phase-10-enterprise.md`](phases/phase-10-enterprise.md).
+Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md), [`docs/phases/phase-4b-survey-sessions.md`](phases/phase-4b-survey-sessions.md), [`docs/phases/phase-5-coach.md`](phases/phase-5-coach.md), [`docs/phases/phase-6-teams-orgs.md`](phases/phase-6-teams-orgs.md), [`docs/phases/phase-7-personalization.md`](phases/phase-7-personalization.md), [`docs/phases/phase-8-analytics.md`](phases/phase-8-analytics.md), [`docs/phases/phase-9-payments-marketplace.md`](phases/phase-9-payments-marketplace.md), [`docs/phases/phase-10-enterprise.md`](phases/phase-10-enterprise.md), [`docs/phases/polish-2026-11.md`](phases/polish-2026-11.md).
 
 ## Run locally
 
@@ -367,13 +369,20 @@ pulses were renamed by migration `rate_limit_pulse_titles`.
 - **Demo seed**: Brightline's domain `brightline.mirror.local` is verified, with SSO on via the pretend IdP when
   dev tools are on, and 24-month retention.
 
+## Polish defaults (change freely)
+
+- Rater languages: en, es, fr, de, pt (owner choice). Only the rater form is translated; invitation emails, the
+  self-assessment and the app are English. Server error messages on the rater form are English.
+- Custom statements: machine-translated on first use per language (cap 30 AI calls a day per 360), cached, and
+  editable by the subject. Built-ins use the static packs only if the statement text is unchanged.
+- AI comment themes run only when the subject asks (cap 10 a day). Comment text is sent to the AI provider (no
+  rater identity exists to send), and EU-region rounds fall back to keyword themes.
+- The theme choice is stored in the browser (`localStorage: mirror-theme`).
+
 ## Known limitations / next up
 
 - Custom questions get a first-person wording by replacing `{name}` with "I" — grammar may need a manual edit.
-- Rater form is English-only by the owner's choice (2026-11-16); multi-language can come later.
-- Chat replies are not streamed (each reply arrives whole); streaming can come with a premium model.
 - All ten phases are built. Before charging real money: choose the payment provider (Stripe) and confirm prices.
-- Coaches who accept by email go through the subject onboarding first; a coach-specific onboarding would be nicer.
 - Dependencies (2026-11-17): Next.js 16 (Turbopack builds), React 19.3, Prisma 7, next-auth 5 beta.32; `npm audit` reports
   0 vulnerabilities. Sign-in emails also go through our own stricter normaliser (`src/lib/email-address.ts`). Prisma 7
   runs migrations with its schema-engine binary (downloaded at install on CI and Vercel); the app still connects
@@ -382,7 +391,5 @@ pulses were renamed by migration `rate_limit_pulse_titles`.
 - `RaterInvite.submittedAt` is stored at day granularity like `Submission.submittedOn`, but row insertion order in Postgres
   could still correlate the two for someone with raw DB access; acceptable for now, revisit with an append-only shuffle job.
 - The Groq API couldn't be reached from the build sandbox, so real Groq calls were tested only with a stubbed HTTP layer; `GROQ_API_KEY` is set on Vercel Production (2026-11-16); not yet on Preview.
-- Comment themes are still keyword-based; the AI summary reads them but doesn't re-cluster comments yet.
 - Benchmarks need anonymised norms across many users (Phase 8).
 - Credits can be bought on Billing (simulated); `npm run credits:grant` still works for manual grants.
-- Dark-mode tokens exist but there is no theme toggle yet.

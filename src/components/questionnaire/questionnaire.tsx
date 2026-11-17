@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { CheckCircle2, ChevronLeft, ChevronRight, Lock, ShieldCheck } from "lucide-react";
-import { RATING_LABELS } from "@/lib/frameworks/core-360";
+import { raterStrings, type RaterStrings } from "@/lib/i18n/rater";
 import { cn } from "@/lib/utils";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ const empty: QAnswers = { ratings: {}, competencyComments: {}, start: "", stop: 
 
 export function Questionnaire({
   mode,
+  strings = raterStrings("en"),
   subjectFirstName,
   competencies,
   scaleMax,
@@ -38,6 +39,8 @@ export function Questionnaire({
   onPreviewDeidentify,
 }: {
   mode: "rater" | "self";
+  /** Rater-facing text; the self-assessment is always English. */
+  strings?: RaterStrings;
   subjectFirstName: string;
   competencies: QCompetency[];
   scaleMax: number;
@@ -48,6 +51,7 @@ export function Questionnaire({
   onDone?: () => void;
   onPreviewDeidentify?: (texts: string[]) => Promise<{ ok: true; data?: { texts: string[]; usedAI: boolean } } | { ok: false; error: string }>;
 }) {
+  const t = strings;
   const [answers, setAnswers] = useState<QAnswers>(() => ({ ...empty, ...(initialDraft ?? {}) }));
   // Steps: 0 intro, 1..n competencies, n+1 open questions (rater only), last = review
   const compSteps = competencies.length;
@@ -92,7 +96,7 @@ export function Questionnaire({
       const comp = competencies[step - 1];
       const missing = comp.questions.filter((q) => !(q.id in answers.ratings));
       if (missing.length) {
-        setError(`Please answer all ${comp.questions.length} statements (choose “Don't know” if you haven't seen it).`);
+        setError(t.answerAll(comp.questions.length));
         return;
       }
     }
@@ -117,10 +121,10 @@ export function Questionnaire({
     return (
       <div className="py-10 text-center" role="status">
         <CheckCircle2 className="mx-auto size-12 text-emerald-600" />
-        <h2 className="mt-4 text-xl font-semibold">{mode === "rater" ? "Thank you!" : "Self-assessment locked"}</h2>
+        <h2 className="mt-4 text-xl font-semibold">{mode === "rater" ? t.thankYou : "Self-assessment locked"}</h2>
         <p className="mx-auto mt-2 max-w-sm text-muted-foreground">
           {mode === "rater"
-            ? `Your feedback has been submitted anonymously. ${subjectFirstName} will only see it combined with others.`
+            ? t.submittedBody(subjectFirstName)
             : "You can now invite your raters."}
         </p>
       </div>
@@ -131,21 +135,19 @@ export function Questionnaire({
     <div ref={topRef} tabIndex={-1} className="scroll-mt-20 outline-none">
       <div className="sticky top-0 z-10 -mx-4 mb-6 border-b bg-background/95 px-4 py-3 backdrop-blur">
         <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>
-            {answered} of {allQ.length} answered
-          </span>
+          <span>{t.answeredOf(answered, allQ.length)}</span>
           {onSaveDraft && (
-            <span aria-live="polite">{saved === "saving" ? "Saving…" : saved === "saved" ? "Progress saved" : saved === "error" ? "Couldn't save — check your connection" : ""}</span>
+            <span aria-live="polite">{saved === "saving" ? t.saving : saved === "saved" ? t.saved : saved === "error" ? t.saveError : ""}</span>
           )}
         </div>
-        <Progress className="mt-2" value={pct} aria-label="Questionnaire progress" />
+        <Progress className="mt-2" value={pct} aria-label={t.progress} />
       </div>
 
       {step === 0 && (
         <div className="space-y-6">
           {intro}
           <Button size="lg" className="w-full sm:w-auto" onClick={() => go(1)}>
-            {answered > 0 ? "Continue where I left off" : "Start"} <ChevronRight />
+            {answered > 0 ? t.resume : t.start} <ChevronRight />
           </Button>
         </div>
       )}
@@ -157,6 +159,7 @@ export function Questionnaire({
           total={compSteps}
           scaleMax={scaleMax}
           mode={mode}
+          t={t}
           subjectFirstName={subjectFirstName}
           answers={answers}
           update={update}
@@ -167,16 +170,16 @@ export function Questionnaire({
         <section className="space-y-5" aria-labelledby="open-h">
           <div>
             <h2 id="open-h" className="text-xl font-semibold">
-              In your own words
+              {t.openHeading}
             </h2>
-            <p className="mt-1 text-sm text-muted-foreground">Optional, but this is often the most useful part. Avoid details that would identify you.</p>
+            <p className="mt-1 text-sm text-muted-foreground">{t.openHint}</p>
           </div>
           {(
             [
-              ["start", `What should ${subjectFirstName} START doing?`],
-              ["stop", `What should ${subjectFirstName} STOP doing?`],
-              ["continue", `What should ${subjectFirstName} CONTINUE doing?`],
-              ["general", "Anything else you'd like to share?"],
+              ["start", t.startQ(subjectFirstName)],
+              ["stop", t.stopQ(subjectFirstName)],
+              ["continue", t.continueQ(subjectFirstName)],
+              ["general", t.anythingElse],
             ] as const
           ).map(([k, label]) => (
             <div key={k} className="space-y-1.5">
@@ -184,14 +187,14 @@ export function Questionnaire({
               <Textarea id={`open-${k}`} rows={3} maxLength={2000} value={answers[k]} onChange={(e) => update((a) => ({ ...a, [k]: e.target.value }))} />
             </div>
           ))}
-          {onPreviewDeidentify && <DeidentifyOption answers={answers} update={update} onPreview={onPreviewDeidentify} />}
+          {onPreviewDeidentify && <DeidentifyOption t={t} answers={answers} update={update} onPreview={onPreviewDeidentify} />}
         </section>
       )}
 
       {step === reviewStep && (
         <section className="space-y-4" aria-labelledby="review-h">
           <h2 id="review-h" className="text-xl font-semibold">
-            Ready to submit?
+            {mode === "rater" ? t.reviewHeading : "Ready to submit?"}
           </h2>
           <ul className="divide-y rounded-lg border">
             {competencies.map((c, i) => {
@@ -200,7 +203,7 @@ export function Questionnaire({
                 <li key={c.key} className="flex items-center justify-between px-4 py-2.5 text-sm">
                   <span>{c.name}</span>
                   <button className="text-primary hover:underline" onClick={() => go(i + 1)}>
-                    {done}/{c.questions.length} · Edit
+                    {done}/{c.questions.length} · {mode === "rater" ? t.edit : "Edit"}
                   </button>
                 </li>
               );
@@ -212,7 +215,7 @@ export function Questionnaire({
             </Alert>
           ) : (
             <Alert tone="info">
-              <ShieldCheck className="mr-1 inline size-4" /> Your answers are stored without your name or email and only shown combined with others.
+              <ShieldCheck className="mr-1 inline size-4" /> {t.privacyNote}
             </Alert>
           )}
         </section>
@@ -227,15 +230,15 @@ export function Questionnaire({
       {step > 0 && (
         <div className="mt-8 flex items-center justify-between gap-3">
           <Button variant="ghost" onClick={() => go(step - 1)}>
-            <ChevronLeft /> Back
+            <ChevronLeft /> {mode === "rater" ? t.back : "Back"}
           </Button>
           {step < reviewStep ? (
             <Button size="lg" onClick={() => go(step + 1)}>
-              Next <ChevronRight />
+              {mode === "rater" ? t.next : "Next"} <ChevronRight />
             </Button>
           ) : (
             <Button size="lg" onClick={submit} disabled={pending}>
-              {pending ? "Submitting…" : mode === "self" ? "Submit & lock" : "Submit feedback"}
+              {pending ? (mode === "rater" ? t.submitting : "Submitting…") : mode === "self" ? "Submit & lock" : t.submit}
             </Button>
           )}
         </div>
@@ -250,6 +253,7 @@ function CompetencyStep({
   total,
   scaleMax,
   mode,
+  t,
   subjectFirstName,
   answers,
   update,
@@ -259,6 +263,7 @@ function CompetencyStep({
   total: number;
   scaleMax: number;
   mode: "rater" | "self";
+  t: RaterStrings;
   subjectFirstName: string;
   answers: QAnswers;
   update: (fn: (a: QAnswers) => QAnswers) => void;
@@ -268,12 +273,12 @@ function CompetencyStep({
     <section aria-labelledby={`c-${comp.key}`} className="space-y-6">
       <div>
         <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Section {index} of {total}
+          {mode === "rater" ? t.sectionOf(index, total) : `Section ${index} of ${total}`}
         </p>
         <h2 id={`c-${comp.key}`} className="mt-1 text-xl font-semibold">
           {comp.name}
         </h2>
-        <p className="text-sm text-muted-foreground">How often {mode === "self" ? "do you" : `does ${subjectFirstName}`} do the following?</p>
+        <p className="text-sm text-muted-foreground">{mode === "self" ? "How often do you do the following?" : t.howOften(subjectFirstName)}</p>
       </div>
       {comp.questions.map((q) => {
         const current = answers.ratings[q.id];
@@ -293,20 +298,20 @@ function CompetencyStep({
                 >
                   <input type="radio" name={q.id} value={v} checked={current === v} onChange={() => set(v)} className="sr-only" />
                   <span className="text-base font-semibold">{v}</span>
-                  <span className="px-0.5 text-[10px] leading-tight sm:text-xs">{RATING_LABELS[v] ?? ""}</span>
+                  <span className="px-0.5 text-[10px] leading-tight sm:text-xs">{(mode === "rater" ? t : raterStrings("en")).ratingLabels[v] ?? ""}</span>
                 </label>
               ))}
             </div>
             <label className={cn("inline-flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent", has && current === null && "bg-accent font-medium text-foreground")}>
               <input type="radio" name={q.id} value="na" checked={has && current === null} onChange={() => set(null)} className="size-3.5" />
-              {mode === "self" ? "Not applicable" : "Don't know / haven't seen this"}
+              {mode === "self" ? "Not applicable" : t.dontKnow}
             </label>
           </fieldset>
         );
       })}
       {mode === "rater" && (
         <div className="space-y-1.5">
-          <Label htmlFor={`cc-${comp.key}`}>Comment on {comp.name.toLowerCase()} (optional)</Label>
+          <Label htmlFor={`cc-${comp.key}`}>{t.commentOn(comp.name)}</Label>
           <Textarea
             id={`cc-${comp.key}`}
             rows={2}
@@ -321,10 +326,12 @@ function CompetencyStep({
 }
 
 function DeidentifyOption({
+  t,
   answers,
   update,
   onPreview,
 }: {
+  t: RaterStrings;
   answers: QAnswers;
   update: (fn: (a: QAnswers) => QAnswers) => void;
   onPreview: (texts: string[]) => Promise<{ ok: true; data?: { texts: string[]; usedAI: boolean } } | { ok: false; error: string }>;
@@ -338,10 +345,8 @@ function DeidentifyOption({
       <label className="flex items-start gap-3 text-sm">
         <input type="checkbox" className="mt-0.5 size-4" checked={answers.deidentify ?? true} onChange={(e) => update((a) => ({ ...a, deidentify: e.target.checked }))} />
         <span>
-          <span className="font-medium">Remove details that could identify me</span>
-          <span className="block text-muted-foreground">
-            AI rewrites your comments to remove names, places, dates and other give-aways before they are saved. Your original wording is not kept.
-          </span>
+          <span className="font-medium">{t.deidentifyTitle}</span>
+          <span className="block text-muted-foreground">{t.deidentifyBody}</span>
         </span>
       </label>
       {answers.deidentify !== false && texts.length > 0 && (
@@ -355,16 +360,16 @@ function DeidentifyOption({
               const r = await onPreview(texts);
               if (r.ok && r.data) {
                 setPreview(r.data.texts);
-                setNote(r.data.usedAI ? null : "AI isn't available right now; only emails, phone numbers and links will be removed.");
+                setNote(r.data.usedAI ? null : t.aiUnavailable);
               } else if (!r.ok) setNote(r.error);
             })
           }
         >
-          {pending ? "Rewriting…" : "Preview rewritten comments"}
+          {pending ? t.rewriting : t.previewRewrite}
         </Button>
       )}
       {preview && (
-        <ul className="space-y-2 text-sm" aria-label="Rewritten comments" data-testid="deidentify-preview">
+        <ul className="space-y-2 text-sm" aria-label={t.rewritten} data-testid="deidentify-preview">
           {preview.filter((t) => t.trim()).map((t, i) => (
             <li key={i} className="rounded-md bg-card p-2 shadow-sm">
               {t}

@@ -267,6 +267,8 @@ model AssessmentQuestion {
   text          String
   selfText      String
   order         Int
+  /// Rater-language versions of custom statements: { es: { text, competency, machine }, ... } (built-ins use static packs).
+  translations  Json?
 
   assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   responses  Response[]
@@ -397,6 +399,8 @@ model Report {
   data         Json
   /// AI-written summary (Phase 3): { summary, strengths, growth, modelId, generatedAt }
   aiSummary    Json?
+  /// AI grouping of written comments into themes, made on the subject's request.
+  aiThemes     Json?
   generatedAt  DateTime @default(now())
 
   assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)

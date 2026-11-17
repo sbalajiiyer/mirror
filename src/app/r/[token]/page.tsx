@@ -1,6 +1,9 @@
+import { cookies, headers } from "next/headers";
 import { getRaterContext } from "@/lib/services/raters";
 import { clientIp, hit, peek } from "@/lib/rate-limit";
+import { pickLocale, raterStrings } from "@/lib/i18n/rater";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LanguagePicker } from "./language-picker";
 import { RaterForm } from "./rater-form";
 
 // Never cache: the page reflects this rater's live draft.
@@ -17,30 +20,40 @@ function Message({ title, body }: { title: string; body: string }) {
   );
 }
 
-export default async function RaterPage({ params }: { params: Promise<{ token: string }> }) {
+export default async function RaterPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ lang?: string }> }) {
   const { token } = await params;
+  const locale = pickLocale((await searchParams).lang, (await cookies()).get("mirror_rater_lang")?.value, (await headers()).get("accept-language"));
+  const t = raterStrings(locale);
   const ip = await clientIp();
-  const tooMany = <Message title="Please slow down" body="We've had a lot of requests from your network. Please wait a few minutes and open your link again." />;
+  const picker = <LanguagePicker locale={locale} label={t.language} />;
+  const wrap = (node: React.ReactNode) => (
+    <div lang={locale} className="space-y-2">
+      {picker}
+      {node}
+    </div>
+  );
+  const tooMany = wrap(<Message title={t.slowDownTitle} body={t.slowDownBody} />);
   // Too many unrecognised links from this network: stop looking links up at all for a while.
   if (!(await peek("raterInvalidIp", ip)).ok) return tooMany;
   if (!(await hit("raterViewIp", ip)).ok) return tooMany;
-  const ctx = await getRaterContext(token);
+  const ctx = await getRaterContext(token, locale);
   if (ctx.state === "invalid") await hit("raterInvalidIp", ip);
   switch (ctx.state) {
     case "invalid":
-      return <Message title="Link not recognised" body="This feedback link isn't valid. Please check you copied the whole link from your invitation." />;
+      return wrap(<Message title={t.invalidTitle} body={t.invalidBody} />);
     case "done":
-      return <Message title="Thank you!" body={`You've already submitted feedback for ${ctx.subjectFirstName}. Your answers are anonymous.`} />;
+      return wrap(<Message title={t.thankYou} body={t.doneBody(ctx.subjectFirstName)} />);
     case "declined":
-      return <Message title="No problem" body={`You've declined this request from ${ctx.subjectFirstName}.`} />;
+      return wrap(<Message title={t.noProblem} body={t.declinedBody(ctx.subjectFirstName)} />);
     case "closed":
-      return <Message title="Feedback has closed" body={`${ctx.subjectFirstName} is no longer collecting feedback. Thank you anyway!`} />;
+      return wrap(<Message title={t.closedTitle} body={t.closedBody(ctx.subjectFirstName)} />);
     case "not_open":
-      return <Message title="Not open yet" body={`${ctx.subjectFirstName} hasn't opened this feedback request yet.`} />;
+      return wrap(<Message title={t.notOpenTitle} body={t.notOpenBody(ctx.subjectFirstName)} />);
     case "open":
-      return (
+      return wrap(
         <RaterForm
           token={token}
+          locale={locale}
           subjectFirstName={ctx.subjectFirstName}
           competencies={ctx.competencies}
           scaleMax={ctx.scaleMax}
@@ -48,7 +61,8 @@ export default async function RaterPage({ params }: { params: Promise<{ token: s
           message={ctx.message}
           dueAt={ctx.dueAt}
           managerShownSeparately={ctx.managerShownSeparately}
-        />
+          machineTranslated={ctx.machineTranslated}
+        />,
       );
   }
 }
