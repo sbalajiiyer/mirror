@@ -18,3 +18,23 @@ export function guardrails(tone: string = "balanced") {
     "Return exactly one JSON object matching the requested shape.",
   ].join("\n");
 }
+
+/**
+ * Plain-language rules borrowed from ASD-STE100 (Simplified Technical English).
+ * Used wherever AI writes questionnaires or feedback summaries.
+ */
+export function plainLanguageRules(kind: "questionnaire" | "summary") {
+  const maxWords = kind === "questionnaire" ? 15 : 20;
+  return [
+    "Plain-language rules (from ASD-STE100 Simplified Technical English):",
+    `- One idea or behaviour per ${kind === "questionnaire" ? "statement or question" : "sentence"}.`,
+    `- Short sentences: at most ${maxWords} words each.`,
+    "- Plain, common words. No jargon, idioms, metaphors or phrasal-verb slang.",
+    "- Use the same term for the same thing every time. Do not switch between synonyms.",
+    "- Write so the text is easy to translate into Spanish, French, German and Portuguese.",
+    "- Describe observable behaviours (what the person does or says), not personality traits.",
+    kind === "questionnaire"
+      ? "- Keep any open-ended question warm and conversational, not stiff (e.g. \"What is one thing {name} could do to help you more?\")."
+      : "- Protect rater anonymity: paraphrase comments in your own words and never quote them; refer only to the rater groups listed; only mention a comment theme that the data says at least 2 raters support.",
+  ].join("\n");
+}

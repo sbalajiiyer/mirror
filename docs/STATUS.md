@@ -23,9 +23,10 @@ _Last updated: 2026-11-17 (trust, UX and reliability, branch `trust-ux-reliabili
 | — | Upgrade — Next.js 16, React 19.3, Prisma 7; npm audit clean | ✅ Done (PR #16) |
 | — | Polish — rater form in 5 languages, streaming AI coach replies, dark mode switch, coach onboarding, AI comment themes | ✅ Done (PR #17) |
 | — | Solution & tech explainer — unlinked, password-protected page at `/tech` with expandable technical detail | ✅ Done (PR #18; redirect-loop fix PR #19) |
-| — | Trust, UX and reliability — privacy policy and terms (placeholders), GitHub-style danger zone with 7-day grace, consistent button/field sizes, built-in error monitoring, health checks, resilient cron | ✅ Done (PR from `trust-ux-reliability`) |
+| — | Trust, UX and reliability — privacy policy and terms (placeholders), GitHub-style danger zone with 7-day grace, consistent button/field sizes, built-in error monitoring, health checks, resilient cron | ✅ Done (PR #20; PDF tracing fix PR #21) |
+| — | Plain-language AI — ASD-STE100 rules for AI questionnaires and summaries; Standard and Simplified summary versions; anonymity rules enforced in code | ✅ Done (PR from `plain-language`) |
 
-Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md), [`docs/phases/phase-4b-survey-sessions.md`](phases/phase-4b-survey-sessions.md), [`docs/phases/phase-5-coach.md`](phases/phase-5-coach.md), [`docs/phases/phase-6-teams-orgs.md`](phases/phase-6-teams-orgs.md), [`docs/phases/phase-7-personalization.md`](phases/phase-7-personalization.md), [`docs/phases/phase-8-analytics.md`](phases/phase-8-analytics.md), [`docs/phases/phase-9-payments-marketplace.md`](phases/phase-9-payments-marketplace.md), [`docs/phases/phase-10-enterprise.md`](phases/phase-10-enterprise.md), [`docs/phases/polish-2026-11.md`](phases/polish-2026-11.md), [`docs/phases/trust-ux-reliability.md`](phases/trust-ux-reliability.md).
+Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md), [`docs/phases/phase-4b-survey-sessions.md`](phases/phase-4b-survey-sessions.md), [`docs/phases/phase-5-coach.md`](phases/phase-5-coach.md), [`docs/phases/phase-6-teams-orgs.md`](phases/phase-6-teams-orgs.md), [`docs/phases/phase-7-personalization.md`](phases/phase-7-personalization.md), [`docs/phases/phase-8-analytics.md`](phases/phase-8-analytics.md), [`docs/phases/phase-9-payments-marketplace.md`](phases/phase-9-payments-marketplace.md), [`docs/phases/phase-10-enterprise.md`](phases/phase-10-enterprise.md), [`docs/phases/polish-2026-11.md`](phases/polish-2026-11.md), [`docs/phases/trust-ux-reliability.md`](phases/trust-ux-reliability.md), [`docs/phases/plain-language-ai.md`](phases/plain-language-ai.md).
 
 ## Run locally
 
@@ -413,6 +414,6 @@ pulses were renamed by migration `rate_limit_pulse_titles`.
   binaries.prisma.sh, set `PRISMA_SCHEMA_ENGINE_BINARY` to a stub for `prisma generate`; migrations then need CI.
 - `RaterInvite.submittedAt` is stored at day granularity like `Submission.submittedOn`, but row insertion order in Postgres
   could still correlate the two for someone with raw DB access; acceptable for now, revisit with an append-only shuffle job.
-- The Groq API couldn't be reached from the build sandbox, so real Groq calls were tested only with a stubbed HTTP layer; `GROQ_API_KEY` is set on Vercel Production (2026-11-16); not yet on Preview.
+- The Groq API couldn't be reached from the build sandbox, so real Groq calls were tested only with a stubbed HTTP layer; `GROQ_API_KEY` is set on Vercel Production and Preview.
 - Benchmarks need anonymised norms across many users (Phase 8).
 - Credits can be bought on Billing (simulated); `npm run credits:grant` still works for manual grants.

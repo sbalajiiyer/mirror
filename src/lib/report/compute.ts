@@ -275,9 +275,9 @@ export function computeReport(input: ReportInput): ReportData {
 
   // ---- Comments (only from reportable groups, labelled by reporting group) -------
   const rgLabel = Object.fromEntries(res.reportingGroups.map((r) => [r.id, r.label]));
-  const all = reportable.flatMap((s) => s.comments.map((c) => ({ ...c, group: rgLabel[rgOf(s)!] })));
+  const all = reportable.flatMap((s) => s.comments.map((c) => ({ ...c, group: rgLabel[rgOf(s)!], sid: s.id })));
   const shuffled = stableShuffle(all, (c) => c.text);
-  const pick = (kind: CommentKind) => shuffled.filter((c) => c.kind === kind).map((c) => ({ text: c.text, group: c.group }));
+  const pick = (kind: CommentKind) => shuffled.filter((c) => c.kind === kind).map((c) => ({ text: c.text, group: c.group, sid: c.sid }));
   const competencyComments: Record<string, { text: string; group: string }[]> = {};
   for (const c of shuffled.filter((c) => c.kind === "COMPETENCY" && c.competencyKey)) {
     (competencyComments[c.competencyKey!] ??= []).push({ text: c.text, group: c.group });
@@ -301,7 +301,7 @@ export function computeReport(input: ReportInput): ReportData {
     highest,
     lowest,
     comments: {
-      themes: groupComments(freeText.map((c) => ({ text: c.text, group: c.group }))),
+      themes: groupComments(freeText.map((c) => ({ text: c.text, group: c.group, sid: c.sid }))),
       competency: competencyComments,
       ssc: { START: groupComments(pick("START")), STOP: groupComments(pick("STOP")), CONTINUE: groupComments(pick("CONTINUE")) },
       wordCloud: wordFrequencies(
