@@ -25,7 +25,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
         ← My 360s
       </Link>
       <div className="mt-2">
-        <ReportView report={r.report} aiSummary={r.aiSummary} session={await sessionInfo(id)} branding={await brandingForClient(userId)} generatedAt={r.generatedAt.toISOString()} pdfUrl={`/api/assessments/${id}/report/pdf`} />
+        <ReportView report={r.report} aiSummary={r.aiSummary} aiThemes={r.aiThemes} session={await sessionInfo(id)} branding={await brandingForClient(userId)} generatedAt={r.generatedAt.toISOString()} pdfUrl={`/api/assessments/${id}/report/pdf`} />
       </div>
       {bench?.available && (
         <div className="mt-6">

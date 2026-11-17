@@ -1,4 +1,6 @@
 import "server-only";
+import { localize } from "@/lib/services/translations";
+import type { RaterLocale } from "@/lib/i18n/rater";
 import { regionForAssessment } from "@/lib/services/residency";
 import { isUnlocked } from "@/lib/services/billing";
 import { FREE_RATER_CAP } from "@/lib/billing/catalog";
@@ -33,6 +35,7 @@ export type RaterContext =
       scaleMax: number;
       competencies: { key: string; name: string; questions: { id: string; text: string }[] }[];
       draft: Draft | null;
+      machineTranslated: boolean;
     };
 
 async function inviteByToken(token: string) {
@@ -46,7 +49,7 @@ async function inviteByToken(token: string) {
   });
 }
 
-export async function getRaterContext(token: string): Promise<RaterContext> {
+export async function getRaterContext(token: string, locale: RaterLocale = "en"): Promise<RaterContext> {
   const inv = await inviteByToken(token);
   if (!inv) return { state: "invalid" };
   const a = inv.assessment;
@@ -56,10 +59,13 @@ export async function getRaterContext(token: string): Promise<RaterContext> {
   if (a.status === "CLOSED") return { state: "closed", subjectFirstName: name };
   if (a.status !== "COLLECTING") return { state: "not_open", subjectFirstName: name };
 
+  const rating = a.questions.filter((q) => q.type === "RATING");
+  const { map: tr, machine } = await localize(a.id, rating, locale);
   const comps = new Map<string, { key: string; name: string; questions: { id: string; text: string }[] }>();
-  for (const q of a.questions.filter((q) => q.type === "RATING")) {
-    if (!comps.has(q.competencyKey)) comps.set(q.competencyKey, { key: q.competencyKey, name: q.competency, questions: [] });
-    comps.get(q.competencyKey)!.questions.push({ id: q.id, text: q.text.replaceAll("{name}", name) });
+  for (const q of rating) {
+    const t = tr.get(q.id);
+    if (!comps.has(q.competencyKey)) comps.set(q.competencyKey, { key: q.competencyKey, name: t?.competency ?? q.competency, questions: [] });
+    comps.get(q.competencyKey)!.questions.push({ id: q.id, text: (t?.text ?? q.text).replaceAll("{name}", name) });
   }
   const draft = inv.draft ? draftSchema.safeParse(inv.draft) : null;
   return {
@@ -72,6 +78,7 @@ export async function getRaterContext(token: string): Promise<RaterContext> {
     scaleMax: a.scaleMax,
     competencies: [...comps.values()],
     draft: draft?.success ? draft.data : null,
+    machineTranslated: machine,
   };
 }
 

@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { withoutComments } from "@/lib/coach/brief";
@@ -27,7 +27,7 @@ export async function runRetention(now = new Date()) {
         const reports = await tx.report.findMany({ where: { assessmentId: a.id } });
         for (const r of reports) {
           const stripped = { ...withoutComments(r.data as unknown as ReportData), commentsHidden: undefined, retentionPurgedAt: now.toISOString() };
-          await tx.report.update({ where: { id: r.id }, data: { data: stripped as unknown as Prisma.InputJsonValue } });
+          await tx.report.update({ where: { id: r.id }, data: { data: stripped as unknown as Prisma.InputJsonValue, aiThemes: Prisma.DbNull } });
         }
         await tx.submission.deleteMany({ where: { assessmentId: a.id } });
       });

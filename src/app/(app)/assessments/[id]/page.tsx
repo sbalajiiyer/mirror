@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { AddRaters, CopyButton, LifecycleActions, RemoveInvite } from "./controls";
+import { translationReview } from "@/lib/services/translations";
+import { TranslationsPanel } from "@/components/assessment/translations-panel";
 
 export default async function AssessmentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -34,6 +36,7 @@ export default async function AssessmentPage({ params }: { params: Promise<{ id:
   const min = effectiveMinRaters(a.minRatersPerGroup);
   const groups = a.raterGroups.filter((g) => g.kind !== "SELF");
   const invites = groups.flatMap((g) => g.invites);
+  const customRows = a.status === "CLOSED" ? [] : await translationReview(a.subjectId, a.id);
   const submitted = invites.filter((i) => i.status === "SUBMITTED").length;
 
   const steps = [
@@ -142,6 +145,19 @@ export default async function AssessmentPage({ params }: { params: Promise<{ id:
           })}
         </CardContent>
       </Card>
+      {a.status !== "CLOSED" && customRows.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Translations for raters</CardTitle>
+            <CardDescription>
+              Raters can answer in English, Spanish, French, German or Portuguese. Built-in statements are already translated; check how your own statements read.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <TranslationsPanel assessmentId={a.id} rows={customRows} />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

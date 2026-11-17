@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/logo";
 import { MobileMenu } from "@/components/mobile-menu";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export async function AppHeader() {
   const session = await auth();
@@ -47,14 +48,21 @@ export async function AppHeader() {
                   {l.label}
                 </Link>
               ))}
+              <ThemeToggle />
               {signOutForm}
             </nav>
-            <MobileMenu links={links} email={session.user.email} signOut={signOutForm} />
+            <div className="flex items-center gap-1 xl:hidden">
+              <ThemeToggle className="size-11" />
+              <MobileMenu links={links} email={session.user.email} signOut={signOutForm} />
+            </div>
           </>
         ) : (
-          <Button asChild size="sm">
-            <Link href="/signin">Sign in</Link>
-          </Button>
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <Button asChild size="sm">
+              <Link href="/signin">Sign in</Link>
+            </Button>
+          </div>
         )}
       </div>
     </header>

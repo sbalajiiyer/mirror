@@ -6,7 +6,7 @@ import { audit } from "@/lib/audit";
 import { DomainError } from "@/lib/errors";
 import { chatFeature } from "@/lib/services/billing";
 import { resolveModel } from "@/lib/ai/models";
-import { generateChatReply, ROLEPLAY_PRESETS, type ChatContext } from "@/lib/ai/features/chat";
+import { citationFilter, generateChatReply, ROLEPLAY_PRESETS, streamChatReply, type ChatContext } from "@/lib/ai/features/chat";
 import type { ReportData } from "@/lib/report/compute";
 import type { StoredPlan } from "@/lib/ai/features/plan";
 
@@ -116,6 +116,41 @@ export async function sendMessage(userId: string, chatId: string, rawText: strin
     db.coachChat.update({ where: { id: chatId }, data: { updatedAt: new Date() } }),
   ]);
   return { reply: reply.reply, citations: reply.citations, generatedBy: res.ok ? res.generatedBy : "template" };
+}
+
+export type ChatStreamEvent = { t: "delta"; v: string } | { t: "done"; citations: string[]; generatedBy: string; note?: string } | { t: "error"; error: string };
+
+/** Like sendMessage, but yields the reply as it is written. Both messages are saved at the end. */
+export async function* sendMessageStream(userId: string, chatId: string, rawText: string): AsyncGenerator<ChatStreamEvent> {
+  const text = z.string().trim().min(1, "Write a message first").max(2000).parse(rawText);
+  const chat = await getChat(userId, chatId);
+  if (chat.messages.length >= 80) throw new DomainError("This conversation is long; start a new one to keep answers sharp.");
+  const { ctx, tone, aiModel } = await context(userId, chat.assessmentId);
+  const history = [...chat.messages.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })), { role: "user" as const, content: text }];
+  const filter = citationFilter();
+  let end: { ok: boolean; generatedBy: string; error?: string; limited?: boolean } | null = null;
+  for await (const ev of streamChatReply({ region: await regionForAssessment(chat.assessmentId ?? ctx.report?.assessment.id), userId, mode: chat.mode, scenario: chat.scenario, ctx, history, tone, modelChoice: aiModel, premium: chat.tier === "premium", pro: (await chatFeature(userId)) === "chat_pro" })) {
+    if (ev.type === "text") {
+      const out = filter.push(ev.text);
+      if (out) yield { t: "delta", v: out };
+    } else end = ev;
+  }
+  if (end?.limited) {
+    yield { t: "error", error: `${end.error} Your message wasn't sent.` };
+    return;
+  }
+  const { tail, reply, citations } = filter.finish();
+  if (tail) yield { t: "delta", v: tail };
+  if (!reply) {
+    yield { t: "error", error: "No reply came back. Please try again." };
+    return;
+  }
+  await db.$transaction([
+    db.chatMessage.create({ data: { chatId, role: "user", content: text } }),
+    db.chatMessage.create({ data: { chatId, role: "assistant", content: reply, citations } }),
+    db.coachChat.update({ where: { id: chatId }, data: { updatedAt: new Date() } }),
+  ]);
+  yield { t: "done", citations, generatedBy: end?.generatedBy ?? "template", ...(end && !end.ok && end.error ? { note: end.error } : {}) };
 }
 
 export async function deleteChat(userId: string, chatId: string) {
