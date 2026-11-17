@@ -18,8 +18,8 @@ function safeCallback(url: string | undefined) {
   return url && url.startsWith("/") && !url.startsWith("//") ? url : "/dashboard";
 }
 
-export default async function SignInPage({ searchParams }: { searchParams: Promise<{ callbackUrl?: string; error?: string; stale?: string }> }) {
-  const { callbackUrl, error, stale } = await searchParams;
+export default async function SignInPage({ searchParams }: { searchParams: Promise<{ callbackUrl?: string; error?: string; stale?: string; deleted?: string }> }) {
+  const { callbackUrl, error, stale, deleted } = await searchParams;
   const redirectTo = safeCallback(callbackUrl);
   if (await liveSessionUserId()) redirect(redirectTo);
 
@@ -47,7 +47,12 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
           <CardDescription>We&apos;ll email you a magic link — no password needed.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {stale && !error && <Alert tone="info">Your session has ended. Please sign in again.</Alert>}
+          {deleted && !error && (
+            <Alert tone="info" data-testid="deletion-scheduled">
+              Your account will be deleted in 7 days. Changed your mind? Just sign in again before then to cancel.
+            </Alert>
+          )}
+          {stale && !error && !deleted && <Alert tone="info">Your session has ended. Please sign in again.</Alert>}
           {error && <Alert tone="error">{error === "email"
                 ? "Please enter a valid email address."
                 : error === "rate"
@@ -61,6 +66,17 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
             <Button type="submit" className="w-full">
               Email me a sign-in link
             </Button>
+            <p className="text-center text-xs text-muted-foreground">
+              By continuing you agree to the{" "}
+              <Link href="/terms" className="underline">
+                Terms
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" className="underline">
+                Privacy policy
+              </Link>
+              .
+            </p>
           </form>
           <p className="text-center text-sm">
             <Link href={`/signin/sso${callbackUrl ? `?callbackUrl=${encodeURIComponent(redirectTo)}` : ""}`} className="underline" data-testid="sso-link">

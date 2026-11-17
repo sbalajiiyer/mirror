@@ -543,7 +543,7 @@ function GroupEditor({ group, onChange, onRemove }: { group: Group; onChange: (p
       >
         <Input placeholder="Name (optional)" value={name} onChange={(e) => setName(e.target.value)} aria-label={`${group.name} rater name`} />
         <Input placeholder="email@example.com" type="email" value={email} onChange={(e) => setEmail(e.target.value)} aria-label={`${group.name} rater email`} />
-        <Button type="submit" variant="secondary">
+        <Button type="submit" variant="outline">
           Add
         </Button>
       </form>

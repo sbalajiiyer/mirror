@@ -46,7 +46,7 @@ export default async function QuestionnairesPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap items-center gap-3">
-            <Button asChild variant="secondary">
+            <Button asChild variant="outline">
               <Link href="/questionnaires/new?ai=1">Generate a questionnaire</Link>
             </Button>
             <span className="text-sm text-muted-foreground" data-testid="credit-balance">

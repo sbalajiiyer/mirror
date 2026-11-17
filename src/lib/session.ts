@@ -9,7 +9,9 @@ import { db } from "@/lib/db";
 export async function liveSessionUserId(): Promise<string | null> {
   const id = (await auth())?.user?.id;
   if (!id) return null;
-  return (await db.user.findUnique({ where: { id }, select: { id: true } })) ? id : null;
+  // Scheduled for deletion counts as signed out everywhere; signing in again cancels the deletion.
+  const u = await db.user.findUnique({ where: { id }, select: { deletionScheduledAt: true } });
+  return u && !u.deletionScheduledAt ? id : null;
 }
 
 /** Current user id or redirect to sign-in. Use in server components and server actions. */

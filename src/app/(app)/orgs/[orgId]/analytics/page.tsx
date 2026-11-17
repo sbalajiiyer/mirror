@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata = { title: "Org analytics" };
-const sel = "h-9 rounded-md border border-input bg-background px-2 text-sm";
+const sel = "h-10 rounded-md border border-input bg-background px-3 text-sm";
 type Search = { team?: string; round?: string; ag?: string; ar?: string; bg?: string; br?: string };
 
 export default async function OrgAnalytics({ params, searchParams }: { params: Promise<{ orgId: string }>; searchParams: Promise<Search> }) {
@@ -56,7 +56,7 @@ export default async function OrgAnalytics({ params, searchParams }: { params: P
                 ))}
               </select>
             </label>
-            <Button type="submit" size="sm" className="h-9">
+            <Button type="submit">
               Show
             </Button>
           </form>
@@ -180,7 +180,7 @@ export default async function OrgAnalytics({ params, searchParams }: { params: P
                 </select>
               </fieldset>
             ))}
-            <Button type="submit" size="sm" className="self-end">
+            <Button type="submit" className="self-end">
               Compare
             </Button>
           </form>

@@ -49,7 +49,7 @@ export async function AppHeader() {
                   {l.label}
                 </Link>
               ))}
-              <ThemeToggle />
+              <ThemeToggle className="size-9" />
               {signOutForm}
             </nav>
             <div className="flex items-center gap-1 xl:hidden">

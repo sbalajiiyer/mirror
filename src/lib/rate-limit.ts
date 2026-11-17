@@ -38,6 +38,10 @@ export const LIMITS = {
   apiToken: { limit: 120, windowSec: 60 },
   /** Password attempts on the unlinked tech page, per network. */
   techPageIp: { limit: 10, windowSec: 900 },
+  /** Browser error reports from one network. */
+  clientErrorIp: { limit: 20, windowSec: 600 },
+  /** Deep health checks (they start a browser), per network. */
+  healthDeepIp: { limit: 3, windowSec: 3600 },
   /** Demo sign-ins from one network. */
   demoLoginIp: { limit: 60, windowSec: 600 },
 } as const satisfies Record<string, { limit: number; windowSec: number }>;

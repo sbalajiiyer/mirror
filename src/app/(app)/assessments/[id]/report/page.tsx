@@ -8,6 +8,7 @@ import { brandingForClient } from "@/lib/services/coach";
 import { benchmarkForReport } from "@/lib/services/benchmarks";
 import { BenchmarkCard } from "@/components/report/benchmark-card";
 import { db } from "@/lib/db";
+import { DeleteSurvey } from "@/components/assessment/delete-survey";
 
 export const metadata = { title: "Report" };
 
@@ -32,6 +33,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
           <BenchmarkCard rows={bench.rows} people={bench.people} />
         </div>
       )}
+      <DeleteSurvey assessmentId={id} />
     </div>
   );
 }

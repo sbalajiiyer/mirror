@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { requireUserId } from "@/lib/session";
 import { toActionError, type ActionResult } from "@/lib/action-result";
 import { createApiToken, revokeApiToken } from "@/lib/services/api-tokens";
-import { deleteMyAccount } from "@/lib/services/my-data";
+import { deleteCategory, scheduleAccountDeletion } from "@/lib/services/my-data";
 import { signOut } from "@/auth";
 
 export async function setBenchmarkOptOutAction(optOut: boolean): Promise<ActionResult> {
@@ -41,10 +41,22 @@ export async function revokeApiTokenAction(id: string): Promise<ActionResult> {
 
 export async function deleteMyAccountAction(confirmEmail: string): Promise<ActionResult> {
   try {
-    await deleteMyAccount(await requireUserId(), confirmEmail);
+    await scheduleAccountDeletion(await requireUserId(), confirmEmail);
   } catch (e) {
     return toActionError(e);
   }
-  await signOut({ redirectTo: "/" });
+  await signOut({ redirectTo: "/signin?deleted=1" });
   return { ok: true };
+}
+
+export async function deleteCategoryAction(category: string, confirm: string): Promise<ActionResult<{ count: number }>> {
+  try {
+    if (!["chats", "goals", "shares"].includes(category)) throw new Error("Unknown category");
+    if (confirm.trim().toLowerCase() !== "delete") return { ok: false, error: "Type delete to confirm." };
+    const count = await deleteCategory(await requireUserId(), category as "chats" | "goals" | "shares");
+    revalidatePath("/settings");
+    return { ok: true, data: { count } };
+  } catch (e) {
+    return toActionError(e);
+  }
 }

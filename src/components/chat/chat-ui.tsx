@@ -198,7 +198,7 @@ export function NewChatForms({
         </h2>
         <div className="grid gap-1 text-sm">
           <label htmlFor="chat-report">Report</label>
-          <select id="chat-report" value={report} onChange={(e) => setReport(e.target.value)} className="h-10 rounded-md border border-input bg-background px-2 text-sm">
+          <select id="chat-report" value={report} onChange={(e) => setReport(e.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
             <option value="">My latest report</option>
             {reports.map((r) => (
               <option key={r.id} value={r.id}>
@@ -225,7 +225,7 @@ export function NewChatForms({
         </h2>
         <div className="grid gap-1 text-sm">
           <label htmlFor="rp-preset">Situation</label>
-          <select id="rp-preset" value={preset} onChange={(e) => setPreset(e.target.value)} className="h-10 rounded-md border border-input bg-background px-2 text-sm" disabled={!!custom}>
+          <select id="rp-preset" value={preset} onChange={(e) => setPreset(e.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm" disabled={!!custom}>
             {presets.map((p) => (
               <option key={p.key} value={p.key}>
                 {p.label}

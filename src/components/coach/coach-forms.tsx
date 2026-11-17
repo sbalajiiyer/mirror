@@ -95,7 +95,7 @@ export function NotesPanel({ clientId, notes }: { clientId: string; notes: { id:
       >
         <Label htmlFor="note-body">New note (only you can see notes)</Label>
         <Textarea id="note-body" value={body} onChange={(e) => setBody(e.target.value)} rows={3} maxLength={4000} />
-        <Button size="sm" type="submit" disabled={pending || !body.trim()}>
+        <Button type="submit" disabled={pending || !body.trim()}>
           Add note
         </Button>
       </form>
@@ -105,7 +105,7 @@ export function NotesPanel({ clientId, notes }: { clientId: string; notes: { id:
           <li key={n.id} className="rounded-md border p-3 text-sm" data-testid="coach-note">
             <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
               <span>{new Date(n.createdAt).toLocaleString()}</span>
-              <Button variant="ghost" size="icon" className="size-7" aria-label="Delete note" onClick={() => confirm("Delete this note?") && run(() => deleteNoteAction(clientId, n.id))}>
+              <Button variant="ghost" size="icon-sm" aria-label="Delete note" onClick={() => confirm("Delete this note?") && run(() => deleteNoteAction(clientId, n.id))}>
                 <Trash2 className="size-3.5" />
               </Button>
             </div>
@@ -152,7 +152,7 @@ export function MeetingsPanel({ clientId, meetings }: { clientId: string; meetin
           <Label htmlFor="mt-topic">Topic (optional, the client sees it)</Label>
           <Input id="mt-topic" value={topic} onChange={(e) => setTopic(e.target.value)} maxLength={120} />
         </div>
-        <Button size="sm" type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending}>
           Schedule
         </Button>
       </form>
@@ -162,7 +162,7 @@ export function MeetingsPanel({ clientId, meetings }: { clientId: string; meetin
           <li key={m.id} className="flex items-center gap-2">
             <span>{new Date(m.scheduledAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</span>
             {m.topic && <span className="text-muted-foreground">· {m.topic}</span>}
-            <Button variant="ghost" size="icon" className="size-7" aria-label="Cancel session" onClick={() => run(() => deleteMeetingAction(clientId, m.id))}>
+            <Button variant="ghost" size="icon-sm" aria-label="Cancel session" onClick={() => run(() => deleteMeetingAction(clientId, m.id))}>
               <Trash2 className="size-3.5" />
             </Button>
           </li>

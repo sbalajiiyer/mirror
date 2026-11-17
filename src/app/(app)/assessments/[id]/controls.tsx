@@ -120,7 +120,7 @@ export function AddRaters({ assessmentId, groupId, groupName }: { assessmentId: 
     >
       <Input placeholder="Name (optional)" value={name} onChange={(e) => setName(e.target.value)} aria-label="Name" />
       <Input placeholder="email@example.com" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} aria-label="Email" />
-      <Button type="submit" variant="secondary" disabled={pending}>
+      <Button type="submit" variant="outline" disabled={pending}>
         Add
       </Button>
       {err && <p className="text-xs text-destructive sm:self-center">{err}</p>}

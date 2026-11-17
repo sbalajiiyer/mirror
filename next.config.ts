@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     // Compressed Chromium for the PDF route on Vercel.
     "/api/assessments/[id]/report/pdf": ["./node_modules/@sparticuz/chromium/bin/**"],
+    "/api/health": ["./node_modules/@sparticuz/chromium/bin/**"],
   },
 };
 
