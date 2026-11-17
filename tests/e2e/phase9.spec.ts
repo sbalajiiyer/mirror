@@ -22,10 +22,7 @@ test("buy any number of credits; the buyer sees and pays the fees", async ({ pag
   await expect(page.getByTestId("credit-ledger")).toContainText("Bought credits");
   await expect(page.getByTestId("payments")).toContainText("37 credits");
   await expectAccessible(page);
-});
-
-test("billing explains a shortfall when sent from a survey", async ({ page }) => {
-  await demoLogin(page);
+  // Sent from a survey without enough credits, Billing explains the shortfall.
   await page.goto("/billing?need=99999900");
   await expect(page.getByTestId("need-credits")).toContainText("You need 999,999 credits");
 });
