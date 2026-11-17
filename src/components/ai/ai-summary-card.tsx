@@ -15,6 +15,7 @@ const badge = (s: StoredAISummary) =>
 export function AISummaryCard({ assessmentId, summary, print = false }: { assessmentId: string; summary: StoredAISummary | null; print?: boolean }) {
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ tone: "error" | "warning"; text: string } | null>(null);
+  const [version, setVersion] = useState<"standard" | "simple">("standard");
   const router = useRouter();
   const run = () =>
     start(async () => {
@@ -47,26 +48,50 @@ export function AISummaryCard({ assessmentId, summary, print = false }: { assess
     );
   }
 
+  const simple = !print && version === "simple" && summary.simple ? summary.simple : null;
+  const shown = simple ?? summary;
   return (
     <Card className="avoid-break border-primary/30 bg-accent/30" data-testid="ai-summary-card">
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Sparkles className="size-4 text-primary" /> AI summary
           </CardTitle>
           {!print && (
-            <Button variant="ghost" size="sm" onClick={run} disabled={pending} aria-label="Regenerate AI summary">
-              <RefreshCw className={pending ? "animate-spin" : ""} /> {pending ? "Writing…" : "Regenerate"}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              {summary.simple && (
+                <div role="group" aria-label="Summary wording" className="inline-flex rounded-md border bg-background p-0.5" data-testid="summary-version">
+                  {(
+                    [
+                      ["standard", "Standard"],
+                      ["simple", "Simplified"],
+                    ] as const
+                  ).map(([v, label]) => (
+                    <button
+                      key={v}
+                      type="button"
+                      aria-pressed={version === v}
+                      onClick={() => setVersion(v)}
+                      className={`h-8 rounded px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${version === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <Button variant="outline" size="sm" onClick={run} disabled={pending} aria-label="Regenerate AI summary">
+                <RefreshCw className={pending ? "animate-spin" : ""} /> {pending ? "Writing…" : "Regenerate"}
+              </Button>
+            </div>
           )}
         </div>
-        <p className="leading-relaxed">{summary.summary}</p>
+        <p className="leading-relaxed" data-testid="ai-summary-text">{shown.summary}</p>
       </CardHeader>
       <CardContent className="grid gap-4 sm:grid-cols-2">
         {(
           [
-            ["What others value", summary.strengths],
-            ["Where to grow", summary.growth],
+            ["What others value", shown.strengths],
+            ["Where to grow", shown.growth],
           ] as const
         ).map(([title, items]) => (
           <div key={title}>
@@ -82,6 +107,7 @@ export function AISummaryCard({ assessmentId, summary, print = false }: { assess
         ))}
         <p className="text-[11px] text-muted-foreground sm:col-span-2">
           {badge(summary)} · {new Date(summary.generatedAt).toLocaleDateString()}. AI can be wrong — check it against your scores.
+          {!print && !summary.simple && " Regenerate to get a Simplified version too."}
         </p>
         {msg && <Alert tone={msg.tone} className="sm:col-span-2">{msg.text}</Alert>}
       </CardContent>

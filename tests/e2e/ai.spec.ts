@@ -14,6 +14,14 @@ test("AI summary can be written and regenerated on the report", async ({ page })
   await expect(card).toContainText("Where to grow");
   await page.getByRole("button", { name: "Regenerate AI summary" }).click();
   await expect(card).toBeVisible();
+  // Standard and Simplified versions are both written; Standard shows first.
+  const versions = card.getByTestId("summary-version");
+  await expect(versions.getByRole("button", { name: "Standard" })).toHaveAttribute("aria-pressed", "true");
+  const standard = await card.getByTestId("ai-summary-text").textContent();
+  await versions.getByRole("button", { name: "Simplified" }).click();
+  await expect(versions.getByRole("button", { name: "Simplified" })).toHaveAttribute("aria-pressed", "true");
+  await expect(card.getByTestId("ai-summary-text")).not.toHaveText(standard ?? "");
+  await expect(card.getByTestId("ai-summary-text")).not.toContainText(/\d\.\d/);
 });
 
 test("development plan is created and action progress persists", async ({ page }) => {

@@ -46,21 +46,26 @@ export type ThemeGroup = {
   key: string;
   label: string;
   count: number;
+  /** Distinct raters behind this theme (absent on reports frozen before 2026-11-17). */
+  raters?: number;
   sentiment: number; // -1..1 average
   comments: ThemedComment[];
 };
 
 /** Group comments by their primary theme. Each comment lands in exactly one theme. */
-export function groupComments(comments: { text: string; group: string }[]): ThemeGroup[] {
+export function groupComments(comments: { text: string; group: string; sid?: string }[]): ThemeGroup[] {
   const buckets = new Map<string, ThemedComment[]>();
   const scores = new Map<string, number[]>();
+  const sids = new Map<string, Set<string>>();
   for (const c of comments) {
     const primary = themesFor(c.text)[0] ?? "other";
     const s = sentimentOf(c.text);
     if (!buckets.has(primary)) {
       buckets.set(primary, []);
       scores.set(primary, []);
+      sids.set(primary, new Set());
     }
+    if (c.sid) sids.get(primary)!.add(c.sid);
     buckets.get(primary)!.push({ text: c.text, group: c.group, sentiment: s.label });
     scores.get(primary)!.push(s.score);
   }
@@ -68,7 +73,8 @@ export function groupComments(comments: { text: string; group: string }[]): Them
   return [...buckets.entries()]
     .map(([key, cs]) => {
       const sc = scores.get(key)!;
-      return { key, label: label(key), count: cs.length, sentiment: sc.reduce((a, b) => a + b, 0) / sc.length, comments: cs };
+      const raters = sids.get(key)!.size;
+      return { key, label: label(key), count: cs.length, ...(raters ? { raters } : {}), sentiment: sc.reduce((a, b) => a + b, 0) / sc.length, comments: cs };
     })
     .sort((a, b) => (a.key === "other" ? 1 : b.key === "other" ? -1 : b.count - a.count));
 }

@@ -112,6 +112,18 @@ describe.skipIf(!hasDb)("AI features (integration)", async () => {
     expect(log).toMatchObject({ status: "ok", tier: "free", inputTokens: 900, outputTokens: 300, costMicros: 0 });
   });
 
+  it("stores a Simplified version alongside the Standard one, using the plain-language rules", async () => {
+    const simple = { summary: "Others trust you to get work done. Work on sharing your plans earlier.", strengths: [{ competency: "Execution", insight: "You deliver." }], growth: [{ competency: "Communication", insight: "Share plans earlier." }] };
+    const fetchMock = groqReply({ summary: "y".repeat(60), strengths: [], growth: [], simple });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const r = await ai.createAISummary(userId, assessmentId);
+    expect(r.summary.generatedBy).toBe("ai");
+    expect(r.summary.simple?.summary).toBe(simple.summary);
+    const body = JSON.parse((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
+    expect(JSON.stringify(body.messages)).toMatch(/ASD-STE100/);
+    expect(JSON.stringify(body.messages)).toMatch(/at most 20 words/);
+  });
+
   it("falls back to the standard summary when the provider fails, and logs it", async () => {
     globalThis.fetch = groqReply({}, 500) as unknown as typeof fetch;
     const r = await ai.createAISummary(userId, assessmentId);
