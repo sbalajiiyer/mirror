@@ -78,8 +78,23 @@ if (demoLoginEnabled) {
   );
 }
 
+/**
+ * Phase 11e: a verified personal email also signs in to the account it belongs to, so people keep
+ * their Personal space after leaving a company whose sign-in they can no longer use.
+ */
+const baseAdapter = PrismaAdapter(db);
+const adapter: typeof baseAdapter = {
+  ...baseAdapter,
+  async getUserByEmail(email) {
+    const byWork = await baseAdapter.getUserByEmail!(email);
+    if (byWork) return byWork;
+    const byPersonal = await db.user.findUnique({ where: { personalEmail: email } });
+    return byPersonal ? await baseAdapter.getUser!(byPersonal.id) : null;
+  },
+};
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(db),
+  adapter,
   // JWT sessions so the (dev-only) credentials provider works and no DB hit per request.
   session: { strategy: "jwt" },
   trustHost: true,
@@ -101,6 +116,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async signIn({ user, account }) {
       if (!account || account.provider === "sso" || account.provider.startsWith("demo") || !user.email) return true;
       const { ssoRequiredFor } = await import("@/lib/services/sso");
+      // An email link to the account's verified personal email (Phase 11e) is checked on that address.
+      const used = account.provider === "email" ? normalizeEmail(account.providerAccountId) : null;
+      if (used && used !== user.email && user.id) {
+        const u = await db.user.findUnique({ where: { id: user.id }, select: { personalEmail: true } });
+        if (u?.personalEmail === used) return (await ssoRequiredFor(used)) ? "/signin/sso?error=required" : true;
+      }
       return (await ssoRequiredFor(user.email)) ? "/signin/sso?error=required" : true;
     },
     jwt({ token, user }) {

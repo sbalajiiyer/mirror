@@ -91,3 +91,51 @@ test("owners set company roles and choose AI models; tabs follow the role", asyn
   await expect(page.getByTestId("ai-card")).toBeVisible();
   await expectAccessible(page);
 });
+
+test("a verified personal email signs in to the same account", async ({ page, context }) => {
+  const personal = `personal.${Date.now()}@example.com`;
+  await page.goto("/signin");
+  await page.getByTestId("demo-login").click();
+  await page.waitForURL("**/dashboard");
+  const heading = await page.getByRole("heading", { level: 1 }).textContent();
+
+  await page.goto("/settings");
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("Personal email").fill(personal);
+  await page.getByRole("button", { name: "Send confirmation link" }).click();
+  await expect(page.getByTestId("personal-email")).toContainText("We sent a confirmation link");
+
+  await page.goto("/dev/outbox");
+  const confirm = await page.getByTestId("outbox-mail").filter({ hasText: `→ ${personal}` }).first().locator('a[href*="/settings/personal-email/"]').getAttribute("href");
+  await page.goto(new URL(confirm!).pathname);
+  await page.getByTestId("confirm-personal-email").click();
+  await expect(page.getByText(`Confirmed. You can now sign in with ${personal}`)).toBeVisible();
+
+  // Signed out, an email link to the personal address opens the same account.
+  await context.clearCookies();
+  await page.goto("/signin");
+  await page.getByLabel("Email").fill(personal);
+  await page.getByRole("button", { name: "Email me a sign-in link" }).click();
+  await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
+  await page.goto("/dev/outbox");
+  const link = await page.getByTestId("outbox-mail").filter({ hasText: `→ ${personal}` }).first().locator('a[href*="/api/auth/callback/email"]').getAttribute("href");
+  await page.goto(link!);
+  await page.waitForURL("**/dashboard");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(heading!);
+});
+
+test("a company admin offers coaching and sees its status", async ({ page }) => {
+  await page.goto("/signin");
+  await page.getByTestId("demo-admin-login").click();
+  await page.waitForURL("**/orgs");
+  await page.getByTestId("org-row").filter({ hasText: "Brightline Studio" }).click();
+  await page.waitForURL(/\/orgs\/[^/]+$/);
+  await page.getByRole("navigation", { name: "Organization" }).getByRole("link", { name: "Coaching" }).click();
+  await page.waitForURL(/\/coaching$/);
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("Coach's email").fill(`coach.${Date.now()}@example.com`);
+  await page.getByRole("button", { name: "Offer coaching" }).click();
+  await expect(page.getByTestId("offer-coaching")).toContainText("Offered.");
+  await expect(page.getByTestId("company-coaching-list")).toContainText("Offered");
+  await expectAccessible(page);
+});

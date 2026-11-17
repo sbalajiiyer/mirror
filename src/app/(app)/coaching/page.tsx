@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CalendarClock, GraduationCap } from "lucide-react";
 import { requireOnboardedUser } from "@/lib/session";
 import { clientCoaching } from "@/lib/services/coach";
-import { EmailInviteForm, EndLinkButton, RespondButtons, SharingPanel } from "@/components/coach/client-controls";
+import { CompanyOfferButtons, EmailInviteForm, EndLinkButton, RespondButtons, SharingPanel } from "@/components/coach/client-controls";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +26,21 @@ export default async function CoachingPage() {
           </Link>
         </Button>
       </div>
+
+      {c.offers.map((l) => (
+        <Card key={l.id} data-testid="company-coaching-offer">
+          <CardHeader>
+            <CardTitle className="text-base">{c.companies.get(l.orgId!) ?? "Your company"} is offering you coaching</CardTitle>
+            <CardDescription>
+              With {l.coach?.coachProfile?.displayName ?? l.coach?.name ?? l.inviteEmail}, paid for by {c.companies.get(l.orgId!) ?? "your company"}. If you accept, the
+              coach is invited and you choose what they can see. Your company never sees what you share or discuss.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <CompanyOfferButtons linkId={l.id} />
+          </CardContent>
+        </Card>
+      ))}
 
       {c.incoming.map((l) => (
         <Card key={l.id} data-testid="incoming-invite">
@@ -56,6 +71,7 @@ export default async function CoachingPage() {
                 <CardTitle className="text-base">{coachName(l)}</CardTitle>
                 <CardDescription>
                   Your coach since {l.acceptedAt?.toLocaleDateString()}
+                  {l.orgId && ` · paid by ${c.companies.get(l.orgId) ?? "your company"}`}
                   {l.coach?.coachProfile?.brandName && ` · ${l.coach.coachProfile.brandName}`}
                 </CardDescription>
               </div>

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireUserId } from "@/lib/session";
 import { toActionError, type ActionResult } from "@/lib/action-result";
+import { respondToCompanyOffer } from "@/lib/services/company-coaching";
 import { endLink, inviteCoach, respondToInvite, respondToInviteToken, updateSharing } from "@/lib/services/coach";
 
 const done = () => {
@@ -53,6 +54,17 @@ export async function updateSharingAction(linkId: string, sharing: unknown): Pro
 export async function endLinkAction(linkId: string): Promise<ActionResult> {
   try {
     await endLink(await requireUserId(), linkId);
+    done();
+    return { ok: true };
+  } catch (e) {
+    return toActionError(e);
+  }
+}
+
+/** Phase 11e: accept or decline coaching a company offers to pay for. */
+export async function respondToCompanyOfferAction(linkId: string, accept: boolean): Promise<ActionResult> {
+  try {
+    await respondToCompanyOffer(await requireUserId(), linkId, accept);
     done();
     return { ok: true };
   } catch (e) {

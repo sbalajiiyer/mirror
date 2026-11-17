@@ -12,6 +12,7 @@ import { deleteCategoryAction, deleteMyAccountAction } from "./data-actions";
 import { DangerAction, DangerZone } from "@/components/danger-zone";
 import { DELETION_GRACE_DAYS } from "@/lib/services/my-data";
 import { listApiTokens } from "@/lib/services/api-tokens";
+import { PersonalEmailForm } from "@/components/settings/personal-email";
 
 export const metadata = { title: "Settings" };
 
@@ -35,6 +36,19 @@ export default async function SettingsPage() {
         initial={{ aiModel: user.profile.aiModel, learningStyle: user.profile.learningStyle, feedbackTone: user.profile.feedbackTone }}
         usage={usage}
       />
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Personal sign-in email</CardTitle>
+          <CardDescription>
+            Signed in as {user.email}. Add a personal address too, so you can still reach your Personal space if you leave a company that manages your work
+            sign-in.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PersonalEmailForm current={user.personalEmail} pending={user.personalEmailPending} />
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Weekly nudges</CardTitle>

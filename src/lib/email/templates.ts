@@ -94,3 +94,23 @@ export function nudgeEmail(p: { to: string; firstName: string; action: string | 
     text: `Hi ${p.firstName},\n\n${actionLine}${goalLine}\n\nSee your plan and progress:\n${p.link}\n\nYou asked for these weekly nudges. Turn them off: ${p.unsubscribe}\n\n— Mirror`,
   };
 }
+
+/** Phase 11e: a company offers to pay for coaching. */
+export function companyCoachingOfferEmail(p: { to: string; orgName: string; coachEmail: string; link: string }): EmailMessage {
+  return {
+    to: p.to,
+    template: "company-coaching-offer",
+    subject: `${p.orgName} is offering you coaching on Mirror`,
+    text: `${p.orgName} would like to pay for coaching for you with ${p.coachEmail}.\n\nIt's your choice. If you accept, the coach is invited, and you decide what they can see (for example your report scores and goals). ${p.orgName} never sees what you discuss or share with your coach.\n\nAccept or decline:\n${p.link}\n\n— Mirror`,
+  };
+}
+
+/** Phase 11e: confirm a personal sign-in email. */
+export function personalEmailVerifyEmail(p: { to: string; link: string }): EmailMessage {
+  return {
+    to: p.to,
+    template: "personal-email-verify",
+    subject: "Confirm your personal sign-in email for Mirror",
+    text: `Confirm this address to use it to sign in to your Mirror account. It keeps your Personal space reachable if you leave a company.\n\nThe link works for 24 hours, while you're signed in:\n${p.link}\n\nIf you didn't ask for this, ignore this email.\n\n— Mirror`,
+  };
+}

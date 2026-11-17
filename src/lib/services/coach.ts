@@ -131,6 +131,8 @@ export async function inviteByToken(token: string) {
 
 async function respond(userId: string, link: CoachClientLink | null, accept: boolean) {
   if (!link || link.status !== "PENDING") throw new DomainError("This invitation is no longer valid.", "not_found");
+  // Company offers (Phase 11e) reach the coach only after the employee has accepted.
+  if (link.initiatedBy === "ORG" && !link.clientAcceptedAt) throw new DomainError("This invitation is no longer valid.", "not_found");
   const user = await db.user.findUniqueOrThrow({ where: { id: userId } });
   // Invitations are for one address: forwarding the link doesn't hand over access.
   if (normalizeEmail(user.email ?? "") !== link.inviteEmail) throw new DomainError(`This invitation was sent to ${maskEmail(link.inviteEmail)}. Sign in with that address to respond.`, "wrong_account");
@@ -150,7 +152,7 @@ async function respond(userId: string, link: CoachClientLink | null, accept: boo
   }
   // The coach's plan limits active clients (Phase 9); pending invitations they sent already count.
   if (link.initiatedBy === "CLIENT") await assertCoachCapacity(coachId);
-  if (link.initiatedBy === "CLIENT" && !(await getCoachProfile(userId))) {
+  if (link.initiatedBy !== "COACH" && !(await getCoachProfile(userId))) {
     // Accepting a client's request makes you a coach, with a profile you can edit later.
     await db.coachProfile.create({ data: { userId, displayName: await displayName(userId) } });
   }
@@ -204,7 +206,10 @@ export async function clientCoaching(clientId: string) {
   const coachNames = new Map(links.filter((l) => l.coach).map((l) => [l.coachId!, l.coach!.coachProfile?.displayName ?? l.coach!.name ?? "Coach"]));
   return {
     active: links.filter((l) => l.status === "ACTIVE"),
-    sent: links.filter((l) => l.status === "PENDING" && l.initiatedBy === "CLIENT"),
+    sent: links.filter((l) => l.status === "PENDING" && (l.initiatedBy === "CLIENT" || (l.initiatedBy === "ORG" && !!l.clientAcceptedAt))),
+    /** Phase 11e: coaching offered and paid for by a company, waiting for the person's answer. */
+    offers: links.filter((l) => l.status === "PENDING" && l.initiatedBy === "ORG" && !l.clientAcceptedAt),
+    companies: new Map((await db.organization.findMany({ where: { id: { in: links.map((l) => l.orgId).filter((x): x is string => !!x) } }, select: { id: true, name: true } })).map((o) => [o.id, o.name])),
     incoming,
     meetings: meetings.map((m) => ({ ...m, coachName: coachNames.get(m.coachId) ?? "Your coach" })),
     isCoach: !!(await getCoachProfile(clientId)),
