@@ -51,3 +51,22 @@ test("someone with no company sees only Personal, plus a way to companies", asyn
   await switcher.selectOption({ label: "Companies…" });
   await page.waitForURL("**/orgs");
 });
+
+test("a company admin can switch off copying reports for people who leave", async ({ page }) => {
+  await page.goto("/signin");
+  await page.getByTestId("demo-admin-login").click();
+  await page.waitForURL("**/orgs");
+  await page.getByTestId("org-row").filter({ hasText: "Brightline Studio" }).click();
+  await page.waitForURL(/\/orgs\/[^/]+$/);
+  await page.goto(`${page.url()}/settings`);
+  const box = page.getByTestId("allow-personal-copy");
+  await expect(box).toBeChecked();
+  await box.uncheck();
+  await page.getByRole("button", { name: "Save data settings" }).click();
+  await expect(page.getByTestId("org-data-form")).toContainText("Saved.");
+  await page.reload();
+  await expect(page.getByTestId("allow-personal-copy")).not.toBeChecked();
+  await page.getByTestId("allow-personal-copy").check();
+  await page.getByRole("button", { name: "Save data settings" }).click();
+  await expect(page.getByTestId("org-data-form")).toContainText("Saved.");
+});

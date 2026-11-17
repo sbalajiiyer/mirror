@@ -120,6 +120,11 @@ export default function PrivacyPage() {
       <ul>
         <li>Your data is kept until you delete it or your account.</li>
         <li>An organization can set a shorter period for 360s in its rounds; raw answers are then deleted 12, 24 or 36 months after a 360 closes.</li>
+        <li>
+          If you leave a company&apos;s workspace, your data there is deleted {DELETION_GRACE_DAYS} days later. If the company allows it, you can first copy your own
+          reports to your Personal space (scores, themes and AI summaries, not raters&apos; written comments). Anonymous round totals the company already has
+          are kept, because they cannot be linked to you.
+        </li>
         <li>Deleted accounts are removed {DELETION_GRACE_DAYS} days after you ask (so you can change your mind), and from backups within 30 days.</li>
         <li>Security logs are kept for up to 2 years; billing records as long as the law requires.</li>
       </ul>
