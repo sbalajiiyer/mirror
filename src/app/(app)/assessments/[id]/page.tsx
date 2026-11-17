@@ -20,6 +20,8 @@ import { AddRaters, CopyButton, LifecycleActions, RemoveInvite } from "./control
 import { translationReview } from "@/lib/services/translations";
 import { TranslationsPanel } from "@/components/assessment/translations-panel";
 import { DeleteSurvey } from "@/components/assessment/delete-survey";
+import { RemindersPanel } from "@/components/assessment/reminders-panel";
+import { raterPanel } from "@/lib/services/reminders";
 
 export default async function AssessmentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -38,6 +40,7 @@ export default async function AssessmentPage({ params }: { params: Promise<{ id:
   const groups = a.raterGroups.filter((g) => g.kind !== "SELF");
   const invites = groups.flatMap((g) => g.invites);
   const customRows = a.status === "CLOSED" ? [] : await translationReview(a.subjectId, a.id);
+  const panel = a.status === "COLLECTING" ? await raterPanel(a.subjectId, a.id) : null;
   const submitted = invites.filter((i) => i.status === "SUBMITTED").length;
 
   const steps = [
@@ -146,6 +149,29 @@ export default async function AssessmentPage({ params }: { params: Promise<{ id:
           })}
         </CardContent>
       </Card>
+      {panel && panel.raters.length > 0 && (
+        <Card data-testid="remind-raters">
+          <CardHeader>
+            <CardTitle className="text-base">Remind raters</CardTitle>
+            <CardDescription>Pick people, check the message, and send. Reminders come from you via Mirror, and replies go to your email.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <RemindersPanel
+              data={{
+                assessmentId: a.id,
+                subjectName: panel.subjectName,
+                dueAt: panel.dueAt?.toISOString() ?? null,
+                inWindow: panel.inWindow,
+                nextWindow: panel.nextWindow.toISOString(),
+                tone: panel.tone,
+                template: panel.template,
+                raters: panel.raters.map((r) => ({ ...r, lastRemindedAt: r.lastRemindedAt?.toISOString() ?? null, until: r.until?.toISOString() ?? null })),
+                history: panel.history.map((h) => ({ ...h, at: h.at.toISOString() })),
+              }}
+            />
+          </CardContent>
+        </Card>
+      )}
       {a.status !== "CLOSED" && customRows.length > 0 && (
         <Card>
           <CardHeader>

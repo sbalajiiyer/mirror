@@ -57,8 +57,9 @@ export function SessionHeader({
           </Badge>
         ))}
         {editable && !editing && (
-          <button type="button" onClick={() => setEditing(true)} className="no-print inline-flex items-center gap-1 text-xs hover:text-foreground" aria-label="Edit session details">
+          <button type="button" onClick={() => setEditing(true)} className="no-print inline-flex items-center gap-1 text-xs hover:text-foreground">
             <Pencil className="size-3" aria-hidden /> {label ? "Edit" : "Name this session"}
+            {label && <span className="sr-only"> session details</span>}
           </button>
         )}
       </div>

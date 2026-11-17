@@ -9,7 +9,8 @@ test("raters can answer in Spanish or German; built-in statements are translated
   await page.getByRole("button", { name: /Add someone to/ }).first().click();
   await page.getByLabel("Email").fill(email);
   await page.getByRole("button", { name: "Add", exact: true }).click();
-  await expect(page.getByText(email)).toBeVisible();
+  // The address also appears in the reminders panel; the rater list shows it first.
+  await expect(page.getByText(email).first()).toBeVisible();
   const [link] = await raterLinksFromOutbox(page, [email]);
 
   await page.goto(`${link}?lang=es`);

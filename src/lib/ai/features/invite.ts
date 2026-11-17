@@ -1,4 +1,5 @@
 import "server-only";
+import { plainLanguageRules } from "../prompts";
 import { z } from "zod";
 import { DEFAULT_INVITE_MESSAGE, goalLabel } from "@/lib/constants";
 import { runAI } from "../client";
@@ -28,4 +29,33 @@ export async function draftInviteMessage(params: { userId: string; modelChoice: 
     fallback: () => ({ message: DEFAULT_INVITE_MESSAGE(params.firstName) }),
   });
   return res.ok ? { message: res.data.message, usedAI: res.generatedBy === "ai" } : { message: res.fallback.message, usedAI: false, error: res.error };
+}
+
+/** Rewrite a reminder in a chosen tone, in plain language, keeping the {fill-ins} exactly. */
+export async function rewriteReminder(params: { userId: string; modelChoice: string; message: string; tone: string }) {
+  const keep = ["{first name}", "{your name}", "{due date}"].filter((f) => params.message.includes(f));
+  const res = await runAI({
+    feature: "invite_message",
+    userId: params.userId,
+    modelChoice: params.modelChoice,
+    fast: true,
+    schema,
+    request: {
+      system: `You rewrite short, polite reminder emails asking a colleague for anonymous feedback. No subject line, no markdown. Return JSON {"message": string}.\n${plainLanguageRules("summary")}`,
+      messages: [
+        {
+          role: "user",
+          content: `Rewrite this reminder in a ${params.tone} tone, 40-90 words, polite and never pushy. Keep these fill-ins exactly as written, including the braces: ${keep.join(", ") || "(none)"}. Do not add new fill-ins.\n\n${params.message}`,
+        },
+      ],
+      maxTokens: 400,
+      temperature: 0.6,
+    },
+    mock: () => ({ message: params.message }),
+    fallback: () => ({ message: params.message }),
+  });
+  const message = res.ok ? res.data.message : res.fallback.message;
+  // If the model dropped a fill-in, keep the person's own wording.
+  const ok = keep.every((f) => message.includes(f));
+  return ok ? { message, usedAI: res.ok && res.generatedBy === "ai" } : { message: params.message, usedAI: false, error: "The AI rewrite lost a fill-in, so your text was kept." };
 }

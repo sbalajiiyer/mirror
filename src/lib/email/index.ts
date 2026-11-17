@@ -28,6 +28,8 @@ export async function sendEmail(message: EmailMessage, sender: EmailSender = get
       subject: message.subject,
       body: message.text,
       provider: sender.name,
+      fromName: message.fromName ?? null,
+      replyTo: message.replyTo ?? null,
     },
   });
   try {

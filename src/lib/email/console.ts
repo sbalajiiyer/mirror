@@ -7,7 +7,9 @@ import type { EmailSender } from "./types";
 export const consoleSender: EmailSender = {
   name: "console",
   async send(message) {
-    console.info(`[email:console] to=${message.to} subject="${message.subject}"\n${message.text}\n`);
+    const from = message.fromName ? ` from="${message.fromName}"` : "";
+    const reply = message.replyTo ? ` reply-to=${message.replyTo}` : "";
+    console.info(`[email:console] to=${message.to}${from}${reply} subject="${message.subject}"\n${message.text}\n`);
     return {};
   },
 };

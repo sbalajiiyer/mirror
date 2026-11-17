@@ -9,13 +9,20 @@ export function raterInviteEmail(p: {
   dueAt?: Date | null;
   pulse?: boolean;
   minutes?: number;
+  /** A personal line for this rater only. */
+  note?: string | null;
+  /** The subject's email: replies go to them. */
+  replyTo?: string | null;
 }): EmailMessage {
   const due = p.dueAt ? `\nPlease respond by ${p.dueAt.toDateString()}.` : "";
+  const note = p.note?.trim() ? `\n\n${p.note.trim()}` : "";
   return {
     to: p.to,
+    fromName: `${p.subjectName} via Mirror`,
+    ...(p.replyTo ? { replyTo: p.replyTo } : {}),
     template: p.pulse ? "rater-invite-pulse" : "rater-invite",
     subject: p.pulse ? `Quick check-in: ${p.subjectName} would value 2 minutes of your feedback` : `${p.subjectName} would value your feedback`,
-    text: `${p.raterName ? `Hi ${p.raterName},\n\n` : ""}${p.message}\n\nGive feedback (about ${p.minutes ?? 8} minutes, anonymous):\n${p.link}${due}\n\nYour individual answers are never shown to ${p.subjectName}. Results are only shown combined with at least two other people.\n\n— Sent by Mirror on behalf of ${p.subjectName}`,
+    text: `${p.raterName ? `Hi ${p.raterName},\n\n` : ""}${p.message}${note}\n\nGive feedback (about ${p.minutes ?? 8} minutes, anonymous):\n${p.link}${due}\n\nYour individual answers are never shown to ${p.subjectName}. Results are only shown combined with at least two other people.\n\n— Sent by Mirror on behalf of ${p.subjectName}`,
   };
 }
 
@@ -26,12 +33,16 @@ export function raterReminderEmail(p: {
   link: string;
   dueAt?: Date | null;
   final: boolean;
+  note?: string | null;
+  replyTo?: string | null;
 }): EmailMessage {
   return {
     to: p.to,
+    fromName: `${p.subjectName} via Mirror`,
+    ...(p.replyTo ? { replyTo: p.replyTo } : {}),
     template: p.final ? "rater-reminder-final" : "rater-reminder",
     subject: p.final ? `Last chance to share feedback for ${p.subjectName}` : `Reminder: ${p.subjectName} would value your feedback`,
-    text: `${p.raterName ? `Hi ${p.raterName},\n\n` : ""}A quick reminder that ${p.subjectName} asked for your anonymous feedback.${p.dueAt ? ` It closes on ${p.dueAt.toDateString()}.` : ""}\n\nYou can pick up where you left off:\n${p.link}\n\n— Mirror`,
+    text: `${p.raterName ? `Hi ${p.raterName},\n\n` : ""}A quick reminder that ${p.subjectName} asked for your anonymous feedback.${p.dueAt ? ` It closes on ${p.dueAt.toDateString()}.` : ""}${p.note?.trim() ? `\n\n${p.note.trim()}` : ""}\n\nYou can pick up where you left off:\n${p.link}\n\n— Mirror`,
   };
 }
 
@@ -112,5 +123,29 @@ export function personalEmailVerifyEmail(p: { to: string; link: string }): Email
     template: "personal-email-verify",
     subject: "Confirm your personal sign-in email for Mirror",
     text: `Confirm this address to use it to sign in to your Mirror account. It keeps your Personal space reachable if you leave a company.\n\nThe link works for 24 hours, while you're signed in:\n${p.link}\n\nIf you didn't ask for this, ignore this email.\n\n— Mirror`,
+  };
+}
+
+/** A reminder written (or chosen) by the person asking for feedback. `message` is already filled in. */
+export function personalReminderEmail(p: { to: string; subjectName: string; message: string; note?: string | null; link: string; replyTo?: string | null }): EmailMessage {
+  const note = p.note?.trim() ? `\n\n${p.note.trim()}` : "";
+  return {
+    to: p.to,
+    template: "rater-reminder-personal",
+    fromName: `${p.subjectName} via Mirror`,
+    ...(p.replyTo ? { replyTo: p.replyTo } : {}),
+    subject: `Reminder: ${p.subjectName} would value your feedback`,
+    text: `${p.message}${note}\n\nGive feedback (anonymous):\n${p.link}\n\nYour individual answers are never shown to ${p.subjectName}. If you'd rather not take part, you can decline from the same link.\n\n— Sent by Mirror on behalf of ${p.subjectName}`,
+  };
+}
+
+/** A company admin reminds a round participant to set up their own 360. */
+export function roundReminderEmail(p: { to: string; orgName: string; campaignName: string; link: string; dueAt?: Date | null; fromName: string }): EmailMessage {
+  return {
+    to: p.to,
+    template: "round-reminder",
+    fromName: `${p.orgName} via Mirror`,
+    subject: `Reminder: set up your 360 for "${p.campaignName}"`,
+    text: `Hi,\n\n${p.fromName} at ${p.orgName} is reminding you to set up your 360 for "${p.campaignName}". It takes about 5 minutes.${p.dueAt ? ` Please finish by ${p.dueAt.toDateString()}.` : ""}\n\n${p.link}\n\nYour report is yours. ${p.orgName} only sees group results unless you choose to share.\n\n— Mirror`,
   };
 }
