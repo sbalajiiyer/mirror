@@ -58,7 +58,7 @@ describe.skipIf(!hasDb)("enterprise (integration)", async () => {
     await expect(sso.setSsoDomain(admin.id, orgId, "not a domain")).rejects.toThrow();
     const member = await mk(`m-${stamp}@${domain}`);
     await db.orgMember.create({ data: { orgId, userId: member.id, email: member.email!, status: "ACTIVE" } });
-    await expect(sso.setSsoDomain(member.id, orgId, domain)).rejects.toThrow(/Only organization admins/);
+    await expect(sso.setSsoDomain(member.id, orgId, domain)).rejects.toThrow(/Only organization owners/);
     await sso.setSsoDomain(admin.id, orgId, domain);
     const s = await sso.ssoSettings(admin.id, orgId);
     expect(s.verifyRecord).toMatch(/^mirror-verification=/);
@@ -172,7 +172,7 @@ describe.skipIf(!hasDb)("enterprise (integration)", async () => {
     expect(exp.activity.length).toBeGreaterThanOrEqual(2);
 
     // Sole admin of an org with other people can't delete until someone else is admin.
-    await expect(myData.deleteMyAccount(admin.id, admin.email!)).rejects.toThrow(/only admin/);
+    await expect(myData.deleteMyAccount(admin.id, admin.email!)).rejects.toThrow(/only owner/);
     await expect(myData.deleteMyAccount(u.id, "wrong@solo.test")).rejects.toThrow(/Type your email/);
     const soloOrg = (await org.createOrg(u.id, `Solo ${stamp}`)).id;
     const custom = await db.framework.create({ data: { slug: `c-${stamp}`, name: "Mine", description: "", isBuiltIn: false, ownerId: u.id, source: "custom" } });

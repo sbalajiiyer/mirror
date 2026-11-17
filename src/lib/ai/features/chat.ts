@@ -87,6 +87,8 @@ export async function generateChatReply(params: {
   premium: boolean;
   /** Pro plan: higher daily message cap on the free model. */
   pro?: boolean;
+  /** Phase 11e: the chat's workspace (company AI rules and usage). */
+  workspaceId?: string | null;
 }) {
   const last = params.history[params.history.length - 1]?.content ?? "";
   return runAI({
@@ -117,6 +119,7 @@ export function streamChatReply(params: Parameters<typeof generateChatReply>[0])
   return runAIStream({
     feature: params.premium ? "chat_premium" : params.pro ? "chat_pro" : "chat",
     region: params.region,
+    workspaceId: params.workspaceId,
     userId: params.userId,
     modelChoice: params.premium ? params.modelChoice : "free",
     request: {

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ROLE_LABEL } from "@/lib/org/roles";
 import { Eye, EyeOff } from "lucide-react";
 import { adminPage, or404 } from "@/lib/org/page-guard";
 import { orgOverview } from "@/lib/services/org";
@@ -11,7 +12,7 @@ export const metadata = { title: "People" };
 
 export default async function PeoplePage({ params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params;
-  const { user } = await adminPage(orgId, "/people");
+  const { user, admin } = await adminPage(orgId, "/people");
   const o = await or404(orgOverview(user.id, orgId));
   return (
     <div className="space-y-6">
@@ -43,7 +44,7 @@ export default async function PeoplePage({ params }: { params: Promise<{ orgId: 
                   <span className="block truncate text-xs text-muted-foreground">{m.email}</span>
                 </span>
                 <span className="flex flex-wrap items-center gap-1">
-                  {m.status === "INVITED" ? <Badge variant="outline">Invited</Badge> : <Badge variant={m.role === "ADMIN" ? "default" : "secondary"}>{m.role === "ADMIN" ? "Admin" : "Member"}</Badge>}
+                  {m.status === "INVITED" ? <Badge variant="outline">Invited</Badge> : <Badge variant={m.role === "MEMBER" ? "secondary" : "default"}>{ROLE_LABEL[m.role]}</Badge>}
                   {m.status === "ACTIVE" &&
                     (m.shareReports ? <Eye className="size-4" aria-label="Shares reports" /> : <EyeOff className="size-4 text-muted-foreground" aria-label="Doesn't share reports" />)}
                   {m.groups.map((g) => (
@@ -52,7 +53,7 @@ export default async function PeoplePage({ params }: { params: Promise<{ orgId: 
                     </Badge>
                   ))}
                 </span>
-                <MemberRowActions orgId={orgId} memberId={m.id} role={m.role} status={m.status} isSelf={m.userId === user.id} />
+                <MemberRowActions orgId={orgId} memberId={m.id} role={m.role} status={m.status} isSelf={m.userId === user.id} canSetRoles={admin.role === "OWNER"} />
               </li>
             ))}
           </ul>

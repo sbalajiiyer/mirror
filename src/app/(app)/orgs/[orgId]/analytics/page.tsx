@@ -15,7 +15,7 @@ type Search = { team?: string; round?: string; ag?: string; ar?: string; bg?: st
 export default async function OrgAnalytics({ params, searchParams }: { params: Promise<{ orgId: string }>; searchParams: Promise<Search> }) {
   const { orgId } = await params;
   const sp = await searchParams;
-  const { user } = await adminPage(orgId, "/analytics");
+  const { user } = await adminPage(orgId, "/analytics", "ANALYST");
   const o = await or404(orgOverview(user.id, orgId));
   const teams = o.groups;
   const teamId = sp.team && teams.some((t) => t.id === sp.team) ? sp.team : teams[0]?.id;

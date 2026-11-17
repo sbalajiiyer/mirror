@@ -1,5 +1,7 @@
 "use server";
 
+import type { CompanyRole } from "@/lib/org/roles";
+
 import { revalidatePath } from "next/cache";
 import { requireUserId } from "@/lib/session";
 import { toActionError, type ActionResult } from "@/lib/action-result";
@@ -21,7 +23,7 @@ export const respondOrgInviteTokenAction = async (token: string, accept: boolean
 export const updateConsentAction = async (orgId: string, consent: unknown) => run((u) => org.updateConsent(u, orgId, consent), [`/orgs/${orgId}`]);
 export const leaveOrgAction = async (orgId: string) => run((u) => org.leaveOrg(u, orgId), ["/orgs"]);
 export const inviteMembersAction = async (orgId: string, text: string) => run((u) => org.inviteMembers(u, orgId, text), [`/orgs/${orgId}`]);
-export const setRoleAction = async (orgId: string, memberId: string, role: "ADMIN" | "MEMBER") => run((u) => org.setRole(u, orgId, memberId, role), [`/orgs/${orgId}`]);
+export const setRoleAction = async (orgId: string, memberId: string, role: CompanyRole) => run((u) => org.setRole(u, orgId, memberId, role), [`/orgs/${orgId}`]);
 export const removeMemberAction = async (orgId: string, memberId: string) => run((u) => org.removeMember(u, orgId, memberId), [`/orgs/${orgId}`]);
 export const setPerformanceAction = async (orgId: string, memberId: string, value: number | null) => run((u) => org.setPerformance(u, orgId, memberId, value), [`/orgs/${orgId}`]);
 export const createGroupAction = async (orgId: string, kind: "TEAM" | "COHORT", name: string) => run(async (u) => ({ id: (await org.createGroup(u, orgId, kind, name)).id }), [`/orgs/${orgId}`]);

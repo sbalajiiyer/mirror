@@ -39,12 +39,12 @@ export async function exportMyData(userId: string) {
 export const DELETION_GRACE_DAYS = 7;
 
 async function assertCanLeaveOrgs(userId: string) {
-  const adminOf = await db.orgMember.findMany({ where: { userId, role: "ADMIN", status: "ACTIVE" }, select: { orgId: true, org: { select: { name: true } } } });
+  const adminOf = await db.orgMember.findMany({ where: { userId, role: "OWNER", status: "ACTIVE" }, select: { orgId: true, org: { select: { name: true } } } });
   const soleOrgs: string[] = [];
   for (const m of adminOf) {
-    const others = await db.orgMember.count({ where: { orgId: m.orgId, role: "ADMIN", status: "ACTIVE", userId: { not: userId } } });
+    const others = await db.orgMember.count({ where: { orgId: m.orgId, role: "OWNER", status: "ACTIVE", userId: { not: userId } } });
     const people = await db.orgMember.count({ where: { orgId: m.orgId, status: { not: "REMOVED" }, userId: { not: userId } } });
-    if (!others && people) throw new DomainError(`You're the only admin of ${m.org.name}. Make someone else an admin first.`);
+    if (!others && people) throw new DomainError(`You're the only owner of ${m.org.name}. Make someone else an owner first.`);
     if (!people) soleOrgs.push(m.orgId);
   }
   return soleOrgs;

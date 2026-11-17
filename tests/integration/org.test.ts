@@ -91,7 +91,7 @@ describe.skipIf(!hasDb)("organizations (integration)", async () => {
     const r = await org.adminMemberReport(admin.id, orgId, m0.id, a0.id);
     expect(JSON.stringify(r.report)).not.toContain("Keep sharing context early");
     // Admins can't change someone's consent, and non-admins can't see analytics.
-    await expect(org.teamAnalytics(people[1].id, orgId, teamId)).rejects.toThrow(/Only organization admins/);
+    await expect(org.teamAnalytics(people[1].id, orgId, teamId)).rejects.toThrow(/Only people who can see organization results/);
     await expect(org.orgOverview(outsider.id, orgId)).rejects.toThrow(/Not found/);
   });
 
@@ -113,10 +113,11 @@ describe.skipIf(!hasDb)("organizations (integration)", async () => {
     expect(g.grid.cells.flatMap((c) => c.members).map((m) => m.memberId)).toEqual([m0.id]);
   });
 
-  it("protects the last admin and stops access when someone leaves", async () => {
+  it("protects the last owner and stops access when someone leaves", async () => {
     const adminMember = await db.orgMember.findFirstOrThrow({ where: { orgId, userId: admin.id } });
-    await expect(org.setRole(admin.id, orgId, adminMember.id, "MEMBER")).rejects.toThrow(/at least one admin/);
-    await expect(org.leaveOrg(admin.id, orgId)).rejects.toThrow(/someone else an admin/);
+    expect(adminMember.role).toBe("OWNER");
+    await expect(org.setRole(admin.id, orgId, adminMember.id, "MEMBER")).rejects.toThrow(/at least one owner/);
+    await expect(org.leaveOrg(admin.id, orgId)).rejects.toThrow(/someone else an owner/);
     await org.leaveOrg(people[0].id, orgId);
     const m0 = await db.orgMember.findFirstOrThrow({ where: { orgId, userId: people[0].id } });
     expect(m0).toMatchObject({ status: "REMOVED", shareReports: false, shareTalentGrid: false });

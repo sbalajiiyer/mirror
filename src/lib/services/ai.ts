@@ -1,5 +1,6 @@
 import "server-only";
 import { regionForAssessment } from "@/lib/services/residency";
+import { withAiWorkspace, workspaceOfAssessment } from "@/lib/ai/context";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
@@ -32,7 +33,9 @@ async function closedReport(userId: string, assessmentId: string) {
 export async function createAISummary(userId: string, assessmentId: string) {
   const report = await closedReport(userId, assessmentId);
   const profile = await profileOf(userId);
-  const res = await generateAISummary({ region: await regionForAssessment(assessmentId), report, userId, modelChoice: profile.aiModel, tone: profile.feedbackTone, role: profile.jobTitle });
+  const res = await withAiWorkspace(await workspaceOfAssessment(assessmentId), async () =>
+    generateAISummary({ region: await regionForAssessment(assessmentId), report, userId, modelChoice: profile.aiModel, tone: profile.feedbackTone, role: profile.jobTitle }),
+  );
   const stored: StoredAISummary = res.ok
     ? { ...res.data, modelId: res.modelId, generatedBy: res.generatedBy, generatedAt: new Date().toISOString() }
     : { ...res.fallback, modelId: "template", generatedBy: "template", generatedAt: new Date().toISOString() };
@@ -48,7 +51,9 @@ export async function createDevelopmentPlan(userId: string, assessmentId: string
   if (learningStyle !== undefined && learningStyle !== profile.learningStyle) {
     profile = await db.subjectProfile.update({ where: { userId }, data: { learningStyle: learningStyle || null } });
   }
-  const res = await generatePlan({ region: await regionForAssessment(assessmentId), report, userId, modelChoice: profile.aiModel, tone: profile.feedbackTone, profile });
+  const res = await withAiWorkspace(await workspaceOfAssessment(assessmentId), async () =>
+    generatePlan({ region: await regionForAssessment(assessmentId), report, userId, modelChoice: profile.aiModel, tone: profile.feedbackTone, profile }),
+  );
   const plan = await db.developmentPlan.create({
     data: { assessmentId, userId, data: res.plan as unknown as Prisma.InputJsonValue, modelId: res.modelId },
   });

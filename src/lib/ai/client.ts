@@ -3,7 +3,8 @@ import "server-only";
 import { createHash } from "node:crypto";
 import type { z } from "zod";
 import { db } from "@/lib/db";
-import { costMicros, resolveModel, type AIModelEntry } from "./models";
+import { costMicros, type AIModelEntry } from "./models";
+import { currentAiWorkspace, modelForWorkspace } from "./context";
 import { anthropicProvider } from "./providers/anthropic";
 import { groqProvider, openAIProvider } from "./providers/openai-compatible";
 import { AIUnavailableError, type AIProvider, type AIRequest } from "./types";
@@ -61,7 +62,8 @@ export async function runAI<T>(opts: {
   mock: () => T;
   fallback: () => T;
 }): Promise<AIResult<T>> {
-  const entry = resolveModel(opts.modelChoice);
+  const entry = await modelForWorkspace(opts.modelChoice);
+  const workspaceId = currentAiWorkspace();
   const since = new Date(Date.now() - 24 * 3600 * 1000);
   const used = await db.aIInteractionLog.count({
     where: {
@@ -81,6 +83,7 @@ export async function runAI<T>(opts: {
           userId: opts.userId ?? null,
           actorKey: opts.userId ? null : (opts.actorKey ?? "anonymous"),
           feature: opts.feature,
+          ...(workspaceId ? { workspaceId } : {}),
           modelId: entry.id,
           provider: entry.provider,
           tier: entry.provider === "mock" ? "mock" : entry.tier,
@@ -144,11 +147,14 @@ export async function* runAIStream(opts: {
   userId: string;
   modelChoice?: string | null;
   region?: Region | null;
+  /** Phase 11e: workspace the reply is for (passed explicitly: streams can outlive request context). */
+  workspaceId?: string | null;
   request: AIRequest;
   mock: () => string;
   fallback: () => string;
 }): AsyncGenerator<AIStreamOut> {
-  const entry = resolveModel(opts.modelChoice);
+  const workspaceId = opts.workspaceId ?? currentAiWorkspace();
+  const entry = await modelForWorkspace(opts.modelChoice, workspaceId);
   const used = await db.aIInteractionLog.count({ where: { feature: opts.feature, userId: opts.userId, createdAt: { gte: new Date(Date.now() - 24 * 3600 * 1000) } } });
   if (used >= DAILY_LIMITS[opts.feature]) {
     yield { type: "end", ok: false, generatedBy: "template", modelId: entry.id, error: "Daily AI limit reached for this feature. Try again tomorrow.", limited: true };
@@ -160,6 +166,7 @@ export async function* runAIStream(opts: {
         data: {
           userId: opts.userId,
           feature: opts.feature,
+          ...(workspaceId ? { workspaceId } : {}),
           modelId: entry.id,
           provider: entry.provider,
           tier: entry.provider === "mock" ? "mock" : entry.tier,

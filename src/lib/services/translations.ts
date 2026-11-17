@@ -1,4 +1,5 @@
 import "server-only";
+import { withAiWorkspace, workspaceOfAssessment } from "@/lib/ai/context";
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -43,7 +44,9 @@ export async function localize(assessmentId: string, questions: Q[], locale: Rat
     else missing.push(q);
   }
   if (missing.length) {
-    const r = await translateStatements(missing.map((q) => ({ text: q.text, competency: q.competency })), locale, { assessmentId, region: await regionForAssessment(assessmentId) });
+    const r = await withAiWorkspace(await workspaceOfAssessment(assessmentId), async () =>
+      translateStatements(missing.map((q) => ({ text: q.text, competency: q.competency })), locale, { assessmentId, region: await regionForAssessment(assessmentId) }),
+    );
     if (r.usedAI) {
       for (const [i, q] of missing.entries()) {
         const t: Translation = { ...r.items[i], machine: true };

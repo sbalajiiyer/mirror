@@ -144,7 +144,7 @@ describe.skipIf(!hasDb)("payments and marketplace (integration)", async () => {
     const round = { name: "Round", frameworkId: fw.id, teamMode: false, dueInDays: 14 };
     await expect(org.createCampaign(admin.id, orgId, round)).rejects.toThrow(/needs 12 seats and the organization has 10/);
     const member = await mk("member");
-    await expect(billing.startCheckout(member.id, "org_seats_25", { orgId })).rejects.toThrow(/Only organization admins/);
+    await expect(billing.startCheckout(member.id, "org_seats_25", { orgId })).rejects.toThrow(/Only organization owners/);
     await pay(admin.id, "org_seats_25", { orgId });
     await org.createCampaign(admin.id, orgId, round);
     expect((await db.organization.findUniqueOrThrow({ where: { id: orgId } })).seats).toBe(23);

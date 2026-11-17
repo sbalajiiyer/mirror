@@ -34,7 +34,7 @@ export default async function DashboardsPage() {
           where: {
             userId: user.id,
             orgId: ws.orgId!,
-            role: "ADMIN",
+            role: { in: ["ANALYST", "ADMIN", "OWNER"] },
             status: "ACTIVE",
           },
           include: { org: true },

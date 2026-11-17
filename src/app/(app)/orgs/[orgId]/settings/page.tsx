@@ -2,8 +2,9 @@ import { adminPage, or404 } from "@/lib/org/page-guard";
 import { db } from "@/lib/db";
 import { ssoSettings } from "@/lib/services/sso";
 import { REGIONS, isRegion } from "@/lib/residency";
+import { aiCatalog } from "@/lib/ai/models";
 import { OrgNav } from "@/components/org/org-nav";
-import { OrgDataForm, SsoConfigForm, SsoDomainForm, VerifyDomainButton } from "@/components/org/org-settings-forms";
+import { OrgAiForm, OrgDataForm, SsoConfigForm, SsoDomainForm, VerifyDomainButton } from "@/components/org/org-settings-forms";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -11,7 +12,7 @@ export const metadata = { title: "Organization settings" };
 
 export default async function OrgSettingsPage({ params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params;
-  const { user } = await adminPage(orgId, "/settings");
+  const { user } = await adminPage(orgId, "/settings", "OWNER");
   const org = await db.organization.findUniqueOrThrow({ where: { id: orgId } });
   const sso = await or404(ssoSettings(user.id, orgId));
   const region = REGIONS[isRegion(org.region) ? org.region : "us"];
@@ -35,6 +36,25 @@ export default async function OrgSettingsPage({ params }: { params: Promise<{ or
             Retention applies to 360s in this organization&apos;s rounds. When the period passes, individual answers and written comments are deleted; each
             person keeps their report scores, themes and trends.
           </p>
+        </CardContent>
+      </Card>
+
+      <Card data-testid="ai-card">
+        <CardHeader>
+          <CardTitle className="text-base">AI models</CardTitle>
+          <CardDescription>
+            The free model is always available. Premium models are charged per use; turn on the ones people here may use. Anyone who picked a model that isn&apos;t
+            allowed gets the free model in this workspace.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <OrgAiForm
+            orgId={orgId}
+            models={aiCatalog()
+              .filter((m) => m.tier === "premium" && m.available)
+              .map((m) => ({ id: m.id, label: m.label, description: m.description }))}
+            allowed={org.allowedAiModels}
+          />
         </CardContent>
       </Card>
 

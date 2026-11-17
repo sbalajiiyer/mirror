@@ -620,7 +620,7 @@ async function main() {
     data: { email: DEMO_ORG_ADMIN_EMAIL, name: "Morgan Blake", emailVerified: new Date(), profile: { create: { displayName: "Morgan Blake", jobTitle: "Head of People", goals: ["leadership_growth"], onboardedAt: new Date() } } },
   });
   const org = await db.organization.create({ data: { name: "Brightline Studio", createdById: orgAdmin.id } });
-  const adminMember = await db.orgMember.create({ data: { orgId: org.id, userId: orgAdmin.id, email: DEMO_ORG_ADMIN_EMAIL, name: "Morgan Blake", role: "ADMIN", status: "ACTIVE", joinedAt: new Date(Date.now() - 300 * DAY) } });
+  const adminMember = await db.orgMember.create({ data: { orgId: org.id, userId: orgAdmin.id, email: DEMO_ORG_ADMIN_EMAIL, name: "Morgan Blake", role: "OWNER", status: "ACTIVE", joinedAt: new Date(Date.now() - 300 * DAY) } });
   // Alex is a member who shares reports and is on the talent grid.
   const alexMember = await db.orgMember.create({ data: { orgId: org.id, userId: user.id, email: DEMO_EMAIL, name: "Alex Morgan", status: "ACTIVE", joinedAt: new Date(Date.now() - 250 * DAY), shareReports: true, shareTalentGrid: true } });
   const product = await db.orgGroup.create({ data: { orgId: org.id, kind: "TEAM", name: "Product" } });

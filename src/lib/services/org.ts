@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { OrgMember } from "@prisma/client";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
+import { atLeast, ORG_ROLES, type CompanyRole } from "@/lib/org/roles";
 import { roundProfile } from "@/lib/services/round-results";
 import { cancelExit, startExit } from "@/lib/services/leaving";
 import { DomainError } from "@/lib/errors";
@@ -35,11 +36,19 @@ async function requireMember(userId: string, orgId: string) {
   return m;
 }
 
-export async function requireAdmin(userId: string, orgId: string) {
+/** Throws unless the user is an active member with at least `min` (Phase 11e roles). */
+export async function requireRole(userId: string, orgId: string, min: CompanyRole) {
   const m = await requireMember(userId, orgId);
-  if (m.role !== "ADMIN") throw new DomainError("Only organization admins can do that.", "forbidden");
+  if (!atLeast(m.role, min)) throw new DomainError(min === "OWNER" ? "Only organization owners can do that." : min === "ANALYST" ? "Only people who can see organization results can do that." : "Only organization admins can do that.", "forbidden");
   return m;
 }
+
+/** Admins and owners: people, teams, rounds. */
+export const requireAdmin = (userId: string, orgId: string) => requireRole(userId, orgId, "ADMIN");
+/** Analysts, admins and owners: read-only group results. */
+export const requireAnalyst = (userId: string, orgId: string) => requireRole(userId, orgId, "ANALYST");
+/** Owners: sign-in, data settings, billing and roles. */
+export const requireOwner = (userId: string, orgId: string) => requireRole(userId, orgId, "OWNER");
 
 const display = (m: Pick<OrgMember, "name" | "email">) => m.name || m.email.split("@")[0];
 
@@ -76,7 +85,7 @@ export async function createOrg(userId: string, rawName: string) {
     data: {
       name,
       createdById: userId,
-      members: { create: { userId, email: user.email!, name: user.profile?.displayName ?? user.name ?? "", role: "ADMIN", status: "ACTIVE", joinedAt: new Date() } },
+      members: { create: { userId, email: user.email!, name: user.profile?.displayName ?? user.name ?? "", role: "OWNER", status: "ACTIVE", joinedAt: new Date() } },
     },
   });
   await audit(userId, "org.create", "Organization", org.id);
@@ -155,24 +164,28 @@ export async function updateConsent(userId: string, orgId: string, raw: unknown)
   await audit(userId, "org.consent", "OrgMember", m.id, input, { orgId, subjectId: userId });
 }
 
-async function adminCount(orgId: string) {
-  return db.orgMember.count({ where: { orgId, role: "ADMIN", status: "ACTIVE" } });
+async function ownerCount(orgId: string) {
+  return db.orgMember.count({ where: { orgId, role: "OWNER", status: "ACTIVE" } });
 }
 
-export async function setRole(adminId: string, orgId: string, memberId: string, role: "ADMIN" | "MEMBER") {
-  await requireAdmin(adminId, orgId);
+/** Only owners change roles, and a company always keeps at least one owner. */
+export async function setRole(ownerId: string, orgId: string, memberId: string, role: CompanyRole) {
+  if (!ORG_ROLES.includes(role)) throw new DomainError("Unknown role.");
+  await requireOwner(ownerId, orgId);
+  const adminId = ownerId;
   const m = await db.orgMember.findFirst({ where: { id: memberId, orgId, status: "ACTIVE" } });
   if (!m) throw new DomainError("Not found", "not_found");
-  if (m.role === "ADMIN" && role === "MEMBER" && (await adminCount(orgId)) <= 1) throw new DomainError("An organization needs at least one admin.");
+  if (m.role === "OWNER" && role !== "OWNER" && (await ownerCount(orgId)) <= 1) throw new DomainError("An organization needs at least one owner.");
   await db.orgMember.update({ where: { id: m.id }, data: { role } });
   await audit(adminId, "org.role", "OrgMember", m.id, { role }, { orgId, subjectId: m.userId });
 }
 
 export async function removeMember(adminId: string, orgId: string, memberId: string) {
-  await requireAdmin(adminId, orgId);
+  const me = await requireAdmin(adminId, orgId);
   const m = await db.orgMember.findFirst({ where: { id: memberId, orgId } });
   if (!m) throw new DomainError("Not found", "not_found");
-  if (m.role === "ADMIN" && m.status === "ACTIVE" && (await adminCount(orgId)) <= 1) throw new DomainError("An organization needs at least one admin.");
+  if (m.role === "OWNER" && m.status === "ACTIVE" && me.role !== "OWNER") throw new DomainError("Only owners can remove an owner.", "forbidden");
+  if (m.role === "OWNER" && m.status === "ACTIVE" && (await ownerCount(orgId)) <= 1) throw new DomainError("An organization needs at least one owner.");
   await db.orgMember.update({ where: { id: m.id }, data: { status: "REMOVED", inviteTokenHash: null, shareReports: false, shareTalentGrid: false } });
   await db.orgGroupMember.deleteMany({ where: { memberId: m.id } });
   if (m.status === "ACTIVE") await startExit(m);
@@ -181,7 +194,7 @@ export async function removeMember(adminId: string, orgId: string, memberId: str
 
 export async function leaveOrg(userId: string, orgId: string) {
   const m = await requireMember(userId, orgId);
-  if (m.role === "ADMIN" && (await adminCount(orgId)) <= 1) throw new DomainError("Make someone else an admin before you leave.");
+  if (m.role === "OWNER" && (await ownerCount(orgId)) <= 1) throw new DomainError("Make someone else an owner before you leave.");
   await db.orgMember.update({ where: { id: m.id }, data: { status: "REMOVED", shareReports: false, shareTalentGrid: false } });
   await db.orgGroupMember.deleteMany({ where: { memberId: m.id } });
   await startExit(m);
@@ -309,7 +322,7 @@ async function memberReports(orgId: string, members: OrgMember[], campaignId?: s
 }
 
 export async function orgOverview(adminId: string, orgId: string) {
-  const admin = await requireAdmin(adminId, orgId);
+  const admin = await requireAnalyst(adminId, orgId);
   const members = await db.orgMember.findMany({ where: { orgId, status: { not: "REMOVED" } }, include: { groups: { include: { group: true } } }, orderBy: [{ status: "asc" }, { name: "asc" }] });
   const active = members.filter((m) => m.status === "ACTIVE");
   const groups = await db.orgGroup.findMany({ where: { orgId }, include: { _count: { select: { members: true } } }, orderBy: [{ kind: "asc" }, { name: "asc" }] });
@@ -333,7 +346,7 @@ export async function orgOverview(adminId: string, orgId: string) {
 }
 
 export async function teamAnalytics(adminId: string, orgId: string, groupId: string, campaignId?: string) {
-  const admin = await requireAdmin(adminId, orgId);
+  const admin = await requireAnalyst(adminId, orgId);
   const g = await db.orgGroup.findFirst({ where: { id: groupId, orgId } });
   if (!g) throw new DomainError("Not found", "not_found");
   const members = await db.orgMember.findMany({ where: { orgId, status: "ACTIVE", groups: { some: { groupId } } } });
@@ -350,7 +363,7 @@ export async function teamAnalytics(adminId: string, orgId: string, groupId: str
 }
 
 export async function compareCohorts(adminId: string, orgId: string, a: { groupId?: string | null; campaignId?: string | null }, b: { groupId?: string | null; campaignId?: string | null }) {
-  const admin = await requireAdmin(adminId, orgId);
+  const admin = await requireAnalyst(adminId, orgId);
   const side = async (s: { groupId?: string | null; campaignId?: string | null }) => {
     const group = s.groupId ? await db.orgGroup.findFirst({ where: { id: s.groupId, orgId } }) : null;
     const campaign = s.campaignId ? await db.orgCampaign.findFirst({ where: { id: s.campaignId, orgId } }) : null;
