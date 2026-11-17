@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Plus, Sparkles } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireOnboardedUser } from "@/lib/session";
-import { AI_QUESTIONNAIRE_PRICE_CENTS, formatPrice } from "@/lib/questionnaire";
+import { formatCredits } from "@/lib/billing/pricing";
+import { creditBalance } from "@/lib/services/credits";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,7 +43,7 @@ export default async function QuestionnairesPage() {
               <Sparkles className="size-4 text-primary" /> Generate with AI
             </CardTitle>
             <CardDescription>
-              Describe what you want feedback on; AI writes a complete, behaviour-based questionnaire you can then edit. {formatPrice(AI_QUESTIONNAIRE_PRICE_CENTS)} (1 credit).
+              Describe what you want feedback on; AI writes a complete, behaviour-based questionnaire you can then edit. Free on the free AI model.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap items-center gap-3">
@@ -50,7 +51,7 @@ export default async function QuestionnairesPage() {
               <Link href="/questionnaires/new?ai=1">Generate a questionnaire</Link>
             </Button>
             <span className="text-sm text-muted-foreground" data-testid="credit-balance">
-              You have {user.profile.aiCredits} credit{user.profile.aiCredits === 1 ? "" : "s"}
+              You have {formatCredits(await creditBalance(user.id))} credits
             </span>
           </CardContent>
         </Card>

@@ -1,4 +1,4 @@
-/** Phase 9 against a real database: plan limits, simulated checkout, coach plans, org seats and the marketplace. */
+/** Payments against a real database: credits (free first 360, charges at launch, top-ups with fees, discounts), coach plans, company rounds and the marketplace. */
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 const hasDb = !!process.env.TEST_DATABASE_URL;
@@ -33,7 +33,7 @@ describe.skipIf(!hasDb)("payments and marketplace (integration)", async () => {
     minRatersPerGroup: 3,
     showManagerSeparately: false,
   });
-  const pay = async (userId: string, product: Parameters<typeof billing.startCheckout>[1], ctx = {}) => {
+  const pay = async (userId: string, product: Parameters<typeof billing.startCheckout>[1], ctx: Parameters<typeof billing.startCheckout>[2] = {}) => {
     const c = await billing.startCheckout(userId, product, ctx);
     expect(c.url).toContain(`/billing/checkout/${c.paymentId}`);
     expect(await billing.completeStubPayment(userId, c.paymentId, true)).toBe("PAID");
@@ -47,73 +47,100 @@ describe.skipIf(!hasDb)("payments and marketplace (integration)", async () => {
     process.env.BILLING_ENFORCED = "false";
   });
 
-  it("caps free 360s at 5 raters and unlocks with a full-360 purchase", async () => {
+  const pricing = await import("@/lib/services/pricing");
+  const credits = await import("@/lib/services/credits");
+  const { topUpPrice } = await import("@/lib/billing/pricing");
+  const { chargePremiumAI } = await import("@/lib/ai/context");
+  const answers = async (assessmentId: string, v: number) => {
+    const aq = await db.assessmentQuestion.findMany({ where: { assessmentId }, orderBy: { order: "asc" } });
+    return { ratings: Object.fromEntries(aq.map((q) => [q.id, v])), competencyComments: {}, start: "", stop: "", continue: "", general: "", deidentify: false };
+  };
+  /** Self-assess and launch; returns the charge. */
+  const launch = async (userId: string, id: string) => {
+    await svc.submitSelfAssessment(userId, id, await answers(id, 4));
+    return (await svc.launchAssessment(userId, id)).charge;
+  };
+  const finish = async (userId: string, id: string) => {
+    for (const inv of await db.raterInvite.findMany({ where: { assessmentId: id } })) await raters.submitRaterResponse(derivedToken("invite", inv.id), await answers(id, 3));
+    await svc.closeAssessment(userId, id);
+  };
+  const policy = await pricing.getPolicy();
+
+  it("first 360 is free with unlimited raters; the next is charged in credits when invites go out", async () => {
     const u = await mk("free");
-    await expect(svc.createAssessment(u.id, wizard("Big", 6, "b"))).rejects.toThrow(/up to 5 raters/);
-    const small = await svc.createAssessment(u.id, wizard("Small", 5, "s"));
-    expect(small.unlockedAt).toBeNull();
-    expect(await billing.isUnlocked(u.id, small)).toBe(false);
-    const group = await db.raterGroup.findFirstOrThrow({ where: { assessmentId: small.id, kind: "PEER" } });
-    await expect(svc.addRaters(u.id, small.id, group.id, [{ name: "X", email: `x-${stamp}@t.local` }])).rejects.toThrow(billing.UpgradeRequired);
-    // Buying an unlock for this 360 lifts the cap and enables the PDF.
-    const pid = await pay(u.id, "full_360", { assessmentId: small.id });
-    expect(await billing.fulfill(pid)).toBe(false); // idempotent
-    await svc.addRaters(u.id, small.id, group.id, [{ name: "X", email: `x-${stamp}@t.local` }]);
-    const after = await db.assessment.findUniqueOrThrow({ where: { id: small.id } });
-    expect(await billing.isUnlocked(u.id, after)).toBe(true);
-    await expect(billing.startCheckout(u.id, "full_360", { assessmentId: small.id })).rejects.toThrow(/already unlocked/);
+    const first = await svc.createAssessment(u.id, wizard("Big first", 9, "f"));
+    expect(await launch(u.id, first.id)).toEqual({ kind: "free", price: 0 });
+    expect((await db.assessment.findUniqueOrThrow({ where: { id: first.id } })).billing).toBe("FREE");
+
+    const second = await svc.createAssessment(u.id, wizard("Second", 4, "g"));
+    expect(await billing.launchQuote(second.id)).toMatchObject({ kind: "paid", price: policy.survey360, enough: false, balance: 0 });
+    await svc.submitSelfAssessment(u.id, second.id, await answers(second.id, 4));
+    await expect(svc.launchAssessment(u.id, second.id)).rejects.toThrow(credits.CreditsRequired);
+    expect((await db.assessment.findUniqueOrThrow({ where: { id: second.id } })).status).toBe("READY");
+
+    // Buy exactly what's needed; the buyer pays the fees on top.
+    const n = policy.survey360 / 100;
+    const c = await billing.startCheckout(u.id, "credits", { credits: n });
+    const p = await db.payment.findUniqueOrThrow({ where: { id: c.paymentId } });
+    expect(p.amountCents).toBe(topUpPrice(n, policy).totalCents);
+    expect(p.amountCents).toBeGreaterThan(n * 100);
+    expect(await billing.completeStubPayment(u.id, c.paymentId, true)).toBe("PAID");
+    expect(await billing.fulfill(c.paymentId)).toBe(false); // idempotent
+    expect(await credits.creditBalance(u.id)).toBe(policy.survey360);
+
+    expect((await svc.launchAssessment(u.id, second.id)).charge).toEqual({ kind: "paid", price: policy.survey360 });
+    expect(await credits.creditBalance(u.id)).toBe(0);
+    const a = await db.assessment.findUniqueOrThrow({ where: { id: second.id } });
+    expect([a.billing, a.chargedCredits]).toEqual(["PAID", policy.survey360]);
+    const led = await credits.ledger(await credits.personalWorkspaceId(u.id));
+    expect(led.map((l) => [l.reason, l.delta, l.balanceAfter])).toEqual([
+      ["survey", -policy.survey360, 0],
+      ["purchase", policy.survey360, policy.survey360],
+    ]);
   });
 
-  it("applies a prepaid unlock automatically and canceled checkouts deliver nothing", async () => {
-    const u = await mk("prepaid");
-    const c = await billing.startCheckout(u.id, "full_360");
-    expect(await billing.completeStubPayment(u.id, c.paymentId, false)).toBe("CANCELED");
-    await expect(svc.createAssessment(u.id, wizard("Big", 8, "p"))).rejects.toThrow(/up to 5/);
-    await pay(u.id, "full_360");
-    expect((await billing.billingOverview(u.id)).full360Unlocks).toBe(1);
-    const a = await svc.createAssessment(u.id, wizard("Big", 8, "p"));
-    expect(a.unlockedAt).not.toBeNull();
-    expect((await billing.billingOverview(u.id)).full360Unlocks).toBe(0);
-    // Someone else can't complete this person's checkout.
+  it("checkout rules: retired products, limits, someone else's payment, canceled checkouts", async () => {
+    const u = await mk("checkout");
+    await expect(billing.startCheckout(u.id, "full_360")).rejects.toThrow(/no longer sold/);
+    await expect(billing.startCheckout(u.id, "credits", { credits: 0 })).rejects.toThrow(/whole number of credits/);
+    await expect(billing.startCheckout(u.id, "credits", { credits: 2.5 })).rejects.toThrow(/whole number of credits/);
+    await expect(billing.startCheckout(u.id, "credits", { credits: policy.maxTopUp + 1 })).rejects.toThrow(/whole number of credits/);
+    const c = await billing.startCheckout(u.id, "credits", { credits: 10 });
     const other = await mk("other");
-    const c2 = await billing.startCheckout(u.id, "ai_credits_5");
-    await expect(billing.completeStubPayment(other.id, c2.paymentId, true)).rejects.toThrow(/Not found/);
+    await expect(billing.completeStubPayment(other.id, c.paymentId, true)).rejects.toThrow(/Not found/);
+    expect(await billing.completeStubPayment(u.id, c.paymentId, false)).toBe("CANCELED");
+    expect(await credits.creditBalance(u.id)).toBe(0);
   });
 
-  it("Pro: unlimited raters, extra credits, pulse limit lifted, subscription extends and cancels", async () => {
-    const u = await mk("pro");
-    expect(await billing.chatFeature(u.id)).toBe("chat");
-    // Free: one pulse per survey.
-    const a = await svc.createAssessment(u.id, wizard("Pulse root", 3, "q"));
-    const aq = await db.assessmentQuestion.findMany({ where: { assessmentId: a.id }, orderBy: { order: "asc" } });
-    const ans = (v: number) => ({ ratings: Object.fromEntries(aq.map((q) => [q.id, v])), competencyComments: {}, start: "", stop: "", continue: "", general: "", deidentify: false });
-    await svc.submitSelfAssessment(u.id, a.id, ans(4));
-    await svc.launchAssessment(u.id, a.id);
-    for (const inv of await db.raterInvite.findMany({ where: { assessmentId: a.id } })) await raters.submitRaterResponse(derivedToken("invite", inv.id), ans(3));
-    await svc.closeAssessment(u.id, a.id);
-    const p1 = await pulses.createPulse(u.id, a.id, { questionIds: aq.slice(0, 5).map((q) => q.id) });
-    await db.assessment.update({ where: { id: p1.id }, data: { status: "CLOSED" } });
-    await expect(pulses.createPulse(u.id, a.id, { questionIds: aq.slice(0, 5).map((q) => q.id) })).rejects.toThrow(/1 pulse check/);
+  it("follow-ups and pulses are priced from the policy; discounts apply; Pro is honored until it ends", async () => {
+    const u = await mk("series");
+    const root = await svc.createAssessment(u.id, wizard("Series", 3, "s"));
+    await launch(u.id, root.id);
+    await finish(u.id, root.id);
+    const qs = await db.assessmentQuestion.findMany({ where: { assessmentId: root.id }, orderBy: { order: "asc" } });
+    const pulse = await pulses.createPulse(u.id, root.id, { questionIds: qs.slice(0, 5).map((q) => q.id) });
+    expect(await billing.launchQuote(pulse.id)).toMatchObject({ kind: "paid", reason: "pulse", price: policy.pulse });
+    await credits.grantCredits(u.id, 100);
+    expect(await launch(u.id, pulse.id)).toEqual({ kind: "paid", price: policy.pulse });
+    expect(await credits.creditBalance(u.id)).toBe(10000 - policy.pulse);
+    await db.assessment.update({ where: { id: pulse.id }, data: { status: "CLOSED" } });
 
-    const before = (await db.subjectProfile.findUniqueOrThrow({ where: { userId: u.id } })).aiCredits;
-    await pay(u.id, "pro_yearly");
-    await pay(u.id, "pro_yearly");
-    const o = await billing.billingOverview(u.id);
-    expect(o.plan).toBe("PRO");
-    expect(o.credits).toBe(before + 6);
-    expect(o.subscriptions).toHaveLength(1);
-    expect(o.subscriptions[0].currentPeriodEnd.getTime()).toBeGreaterThan(Date.now() + 729 * 86400000);
+    // A personal 50% discount on surveys halves the follow-up price; an AI-only discount doesn't.
+    const admin = await mk("pricingadmin");
+    await pricing.createDiscount(admin.id, { target: "user", who: u.email!, percent: 20, scope: "AI" });
+    await pricing.createDiscount(admin.id, { target: "user", who: u.email!, percent: 50, scope: "SURVEYS" });
+    const sessions = await import("@/lib/services/sessions");
+    const again = await sessions.rerunSurvey(u.id, root.id, { reuseRaters: true, dueInDays: 14 });
+    expect(await billing.launchQuote(again.id)).toMatchObject({ kind: "paid", reason: "follow_up", discount: 50, price: Math.round(policy.followUp / 2) });
+
+    // Pro from before credits keeps surveys free until it ends.
+    await db.subscription.create({ data: { userId: u.id, plan: "PRO", currentPeriodEnd: new Date(Date.now() + 86400000), provider: "stub" } });
     expect(await billing.chatFeature(u.id)).toBe("chat_pro");
-    await pulses.createPulse(u.id, a.id, { questionIds: aq.slice(0, 5).map((q) => q.id) });
-    expect((await svc.createAssessment(u.id, wizard("Huge", 12, "h"))).unlockedAt).not.toBeNull();
-    // Canceling keeps access to the end of the period.
-    await billing.cancelSubscription(u.id, o.subscriptions[0].id);
-    expect(await billing.userPlan(u.id)).toBe("PRO");
-    await db.subscription.updateMany({ where: { userId: u.id }, data: { currentPeriodEnd: new Date(Date.now() - 1000) } });
-    expect(await billing.userPlan(u.id)).toBe("FREE");
+    expect(await launch(u.id, again.id)).toEqual({ kind: "pro", price: 0 });
+    expect(await credits.creditBalance(u.id)).toBe(10000 - policy.pulse);
   });
 
-  it("coach plans: client caps, branding, report credits and gifting", async () => {
+  it("coach plans: client caps and branding; gifting a 360 costs the coach credits", async () => {
     const c = await mk("coach");
     await coach.saveCoachProfile(c.id, { displayName: "Coach Test" });
     expect(await billing.coachHasBranding(c.id)).toBe(false);
@@ -128,26 +155,67 @@ describe.skipIf(!hasDb)("payments and marketplace (integration)", async () => {
     await coach.inviteCoach(client.id, c.email!);
     const req = await db.coachClientLink.findFirstOrThrow({ where: { clientId: client.id, status: "PENDING" } });
     await coach.respondToInvite(c.id, req.id, true);
-    await expect(billing.giftFull360(c.id, client.id)).rejects.toThrow(/no client report credits/);
-    await pay(c.id, "coach_report_credits_5");
+    await expect(billing.giftFull360(c.id, client.id)).rejects.toThrow(/Gifting a 360 costs/);
+    await credits.grantCredits(c.id, 50);
     await billing.giftFull360(c.id, client.id);
-    expect((await billing.billingOverview(c.id)).reportCredits).toBe(4);
-    expect((await billing.billingOverview(client.id)).full360Unlocks).toBe(1);
+    expect(await credits.creditBalance(c.id)).toBe(5000 - policy.coachGift);
+    expect((await billing.billingOverview(client.id)).giftedSurveys).toBe(1);
+    // The client's free 360 comes first; the gift pays for the next one.
+    const one = await svc.createAssessment(client.id, wizard("Client one", 3, "c1"));
+    expect(await launch(client.id, one.id)).toEqual({ kind: "free", price: 0 });
+    const two = await svc.createAssessment(client.id, wizard("Client two", 3, "c2"));
+    expect(await launch(client.id, two.id)).toEqual({ kind: "voucher", price: 0 });
+    expect((await billing.billingOverview(client.id)).giftedSurveys).toBe(0);
     const stranger = await mk("stranger");
     await expect(billing.giftFull360(c.id, stranger.id)).rejects.toThrow(/Not found/);
   });
 
-  it("org rounds use one seat per participant; admins buy more", async () => {
+  it("company rounds are paid from company credits, with the company's discount", async () => {
     const admin = await mk("orgadmin");
-    const orgId = (await org.createOrg(admin.id, `Seats ${stamp}`)).id;
+    const orgId = (await org.createOrg(admin.id, `Credits ${stamp}`)).id;
+    const ws = await credits.companyWorkspaceId(orgId);
+    expect(await credits.balance(ws)).toBe(policy.companyWelcomeCredits);
     for (let i = 0; i < 11; i++) await db.orgMember.create({ data: { orgId, email: `m${i}-${stamp}@t.local`, name: `M${i}`, status: "ACTIVE" } });
     const round = { name: "Round", frameworkId: fw.id, teamMode: false, dueInDays: 14 };
-    await expect(org.createCampaign(admin.id, orgId, round)).rejects.toThrow(/needs 12 seats and the organization has 10/);
+    const cost = 12 * policy.companyParticipant;
+    await expect(org.createCampaign(admin.id, orgId, round)).rejects.toThrow(/The company has/);
+    expect(await db.orgCampaign.count({ where: { orgId } })).toBe(0); // nothing half-created
     const member = await mk("member");
-    await expect(billing.startCheckout(member.id, "org_seats_25", { orgId })).rejects.toThrow(/Only organization owners/);
-    await pay(admin.id, "org_seats_25", { orgId });
+    await expect(billing.startCheckout(member.id, "credits", { orgId, credits: 50 })).rejects.toThrow(/Only organization owners/);
+    const need = Math.ceil((cost - policy.companyWelcomeCredits) / 100);
+    await pay(admin.id, "credits", { orgId, credits: need });
+    expect(await credits.creditBalance(admin.id)).toBe(0); // went to the company, not the person
     await org.createCampaign(admin.id, orgId, round);
-    expect((await db.organization.findUniqueOrThrow({ where: { id: orgId } })).seats).toBe(23);
+    const left = policy.companyWelcomeCredits + need * 100 - cost;
+    expect(await credits.balance(ws)).toBe(left);
+
+    const pa = await mk("pa");
+    await pricing.createDiscount(pa.id, { target: "org", who: orgId, percent: 25, scope: "SURVEYS" });
+    expect((await billing.roundQuote(orgId, 12)).total).toBe(12 * Math.round(policy.companyParticipant * 0.75));
+    // An expired discount doesn't count.
+    await pricing.createDiscount(pa.id, { target: "org", who: orgId, percent: 90, scope: "ALL", startsAt: "2020-01-01", endsAt: "2020-02-01" });
+    expect(await pricing.orgDiscount(orgId, "SURVEYS")).toBe(25);
+  });
+
+  it("pricing policy edits are validated and audited; premium AI is charged at cost x markup", async () => {
+    const admin = await mk("policyadmin");
+    await expect(pricing.updatePolicy(admin.id, { ...policy, premiumMarkupPct: 50 })).rejects.toThrow(/below cost/);
+    const { updatedAt: _u, ...values } = policy;
+    void _u;
+    const changed = await pricing.updatePolicy(admin.id, { ...values, pulse: policy.pulse + 100 });
+    expect(changed).toEqual({ pulse: { from: policy.pulse, to: policy.pulse + 100 } });
+    expect((await pricing.getPolicy()).pulse).toBe(policy.pulse + 100);
+    expect(await db.auditLog.count({ where: { actorId: admin.id, action: "pricing.update" } })).toBe(1);
+    await pricing.updatePolicy(admin.id, values);
+
+    const u = await mk("premium");
+    await credits.grantCredits(u.id, 1);
+    // 12,345 micro-dollars x 2 = 2.469 cents → 3 hundredths of a credit.
+    expect(await chargePremiumAI({ workspaceId: null, userId: u.id, costMicros: 12_345, feature: "chat_premium" })).toBe(3);
+    expect(await credits.creditBalance(u.id)).toBe(97);
+    // Never below zero.
+    expect(await chargePremiumAI({ workspaceId: null, userId: u.id, costMicros: 10_000_000, feature: "chat_premium" })).toBe(97);
+    expect(await credits.creditBalance(u.id)).toBe(0);
   });
 
   it("marketplace: paid plan to list, verified to appear, referral fee on accept", async () => {

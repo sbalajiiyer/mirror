@@ -16,7 +16,7 @@ import { scheduleNextPulse } from "@/lib/services/pulses";
 import { DomainError } from "@/lib/errors";
 import { assertCanUseFramework } from "@/lib/services/frameworks";
 import { campaignContext } from "@/lib/services/org";
-import { checkRaterCap } from "@/lib/services/billing";
+import { chargeForLaunch } from "@/lib/services/billing";
 export { DomainError };
 
 export async function createAssessment(userId: string, input: WizardInput) {
@@ -39,13 +39,10 @@ export async function createAssessment(userId: string, input: WizardInput) {
   const own = subject?.email?.toLowerCase();
   if (own && input.groups.some((g) => g.raters.some((r) => r.email === own))) throw new DomainError("You can't invite yourself as a rater.");
 
-  const raterCount = input.groups.reduce((n, g) => n + g.raters.length, 0);
   const assessment = await db.$transaction(async (tx) => {
-    // Free plan: up to 5 named raters unless Pro, an org round, or a prepaid unlock (Phase 9).
-    const unlocked = await checkRaterCap(tx, userId, raterCount, { orgCampaign: !!orgCampaignId });
+    // Credits: no rater limit; the session is charged when it launches.
     const a = await tx.assessment.create({
       data: {
-        unlockedAt: unlocked ? new Date() : null,
         subjectId: userId,
         frameworkId: framework.id,
         title: input.title,
@@ -203,11 +200,17 @@ export async function launchAssessment(userId: string, assessmentId: string) {
   if (!a) throw new DomainError("Not found", "not_found");
   if (!a.selfLockedAt || a.status === "DRAFT") throw new DomainError("Complete your self-assessment first.", "self_required");
   if (a.status !== "READY") throw new DomainError("This 360 has already been launched.");
-  await db.assessment.update({ where: { id: a.id }, data: { status: "COLLECTING", launchedAt: new Date() } });
+  // Credits: charged once, when the invites first go out (free survey, gift, company round or credits).
+  const charge = await db.$transaction(async (tx) => {
+    const q = await chargeForLaunch(tx, a.id, userId);
+    const r = await tx.assessment.updateMany({ where: { id: a.id, status: "READY" }, data: { status: "COLLECTING", launchedAt: new Date() } });
+    if (r.count !== 1) throw new DomainError("This 360 has already been launched.");
+    return q;
+  });
   const sent = await sendPendingInvites(a.id);
   await scheduleNextPulse(a.id);
-  await audit(userId, "assessment.launch", "Assessment", a.id, { invites: sent });
-  return { sent };
+  await audit(userId, "assessment.launch", "Assessment", a.id, { invites: sent, billing: charge.kind, credits: charge.price });
+  return { sent, charge: { kind: charge.kind, price: charge.price } };
 }
 
 export async function addRaters(userId: string, assessmentId: string, raterGroupId: string, raw: unknown[]) {
@@ -219,10 +222,6 @@ export async function addRaters(userId: string, assessmentId: string, raterGroup
   const group = await db.raterGroup.findFirst({ where: { id: raterGroupId, assessmentId, kind: { not: "SELF" } } });
   if (!group) throw new DomainError("Unknown rater group");
   const created = await db.$transaction(async (tx) => {
-    const existing = await tx.raterInvite.count({ where: { assessmentId: a.id } });
-    if (await checkRaterCap(tx, userId, existing + raters.length, { unlocked: !!a.unlockedAt, orgCampaign: !!a.orgCampaignId })) {
-      if (!a.unlockedAt) await tx.assessment.update({ where: { id: a.id }, data: { unlockedAt: new Date() } });
-    }
     return createInvites(tx, a.id, group.id, raters);
   });
   if (a.status === "COLLECTING") await sendPendingInvites(a.id);

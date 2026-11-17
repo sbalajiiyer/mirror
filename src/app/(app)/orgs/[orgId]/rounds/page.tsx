@@ -1,5 +1,7 @@
 import { adminPage, or404 } from "@/lib/org/page-guard";
-import { orgOverview } from "@/lib/services/org";
+import { campaignMembers, orgOverview } from "@/lib/services/org";
+import { roundQuote } from "@/lib/services/billing";
+import { creditsLabel, formatCredits } from "@/lib/billing/pricing";
 import { frameworksForUser } from "@/lib/services/frameworks";
 import { OrgNav } from "@/components/org/org-nav";
 import { ParticipationBar } from "@/components/org/stats";
@@ -16,6 +18,8 @@ export default async function RoundsPage({ params }: { params: Promise<{ orgId: 
   const o = await or404(orgOverview(user.id, orgId));
   const frameworks = await frameworksForUser(user.id);
   const fwName = new Map(frameworks.map((f) => [f.id, f.name]));
+  const everyone = (await campaignMembers(orgId, null)).length;
+  const price = await roundQuote(orgId, everyone);
   return (
     <div className="space-y-6">
       <OrgNav orgId={orgId} orgName={o.org.name} active="rounds" />
@@ -26,10 +30,12 @@ export default async function RoundsPage({ params }: { params: Promise<{ orgId: 
             Everyone taking part gets an email to set up their own 360 on the same questionnaire. Each person rates themselves and invites their raters; the report
             belongs to them.
           </CardDescription>
-          <p className="text-sm" data-testid="round-seats">
-            <strong>{o.org.seats}</strong> participant seats left (one per person per round).{" "}
-            <Link href="/billing" className="underline">
-              Add seats
+          <p className="text-sm" data-testid="round-credits">
+            Each person in a round costs <strong>{creditsLabel(price.each)}</strong>
+            {price.discount ? ` (${price.discount}% company discount)` : ""}. Everyone in the company ({everyone} {everyone === 1 ? "person" : "people"}) would be{" "}
+            {creditsLabel(price.each * everyone)}. Company credits: <strong>{formatCredits(price.balance)}</strong>.{" "}
+            <Link href={`/orgs/${orgId}/billing`} className="underline">
+              Add credits
             </Link>
           </p>
         </CardHeader>

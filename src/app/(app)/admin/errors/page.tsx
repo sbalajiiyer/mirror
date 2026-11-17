@@ -26,9 +26,14 @@ export default async function ErrorsPage({ searchParams }: { searchParams: Promi
           <h1 className="text-2xl font-semibold tracking-tight">Errors</h1>
           <p className="text-muted-foreground">Grouped server, browser and job errors. Messages are scrubbed of emails and tokens.</p>
         </div>
-        <Button asChild variant="outline">
-          <a href={all ? "/admin/errors" : "/admin/errors?all=1"}>{all ? "Open only" : "Include resolved"}</a>
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild variant="outline">
+            <a href="/admin/pricing">Pricing</a>
+          </Button>
+          <Button asChild variant="outline">
+            <a href={all ? "/admin/errors" : "/admin/errors?all=1"}>{all ? "Open only" : "Include resolved"}</a>
+          </Button>
+        </div>
       </div>
       <Card>
         <CardHeader>

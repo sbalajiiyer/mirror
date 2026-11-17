@@ -133,23 +133,19 @@ export async function deleteCustomFramework(userId: string, id: string) {
 }
 
 /**
- * Paid: generate a questionnaire with AI for 1 credit. The credit is only spent when the AI
- * succeeds; the result is saved as the user's own questionnaire so they can edit it for free.
+ * Generate a questionnaire with AI. Credits: free on the free model; premium models are charged per
+ * use. The result is saved as the user's own questionnaire so they can edit it.
  */
 export async function generateAIFramework(userId: string, rawBrief: unknown) {
   const brief = aiBriefSchema.parse(rawBrief);
   const profile = await db.subjectProfile.findUnique({ where: { userId } });
   if (!profile) throw new DomainError("Finish onboarding first.");
-  if (profile.aiCredits < 1) throw new DomainError("You need 1 credit to generate a questionnaire.", "no_credits");
 
   const res = await generateQuestionnaire({ userId, modelChoice: profile.aiModel, brief });
-  if (!res.ok) throw new DomainError(`${res.error} You were not charged.`, "ai_failed");
+  if (!res.ok) throw new DomainError(res.error, "ai_failed");
   const input = customFrameworkSchema.parse(res.data); // also enforces our limits on the AI output
 
   const frameworkId = await db.$transaction(async (tx) => {
-    // Guarded decrement: two tabs can't spend the same credit.
-    const spent = await tx.subjectProfile.updateMany({ where: { userId, aiCredits: { gte: 1 } }, data: { aiCredits: { decrement: 1 } } });
-    if (spent.count !== 1) throw new DomainError("You need 1 credit to generate a questionnaire.", "no_credits");
     const f = await tx.framework.create({
       data: {
         slug: `custom-${randomUUID()}`,
@@ -162,7 +158,6 @@ export async function generateAIFramework(userId: string, rawBrief: unknown) {
         competencies: { create: competencyData(input) },
       },
     });
-    await tx.creditLedger.create({ data: { userId, delta: -1, reason: "ai_questionnaire", ref: f.id } });
     return f.id;
   });
   await audit(userId, "framework.ai_generate", "Framework", frameworkId, { generatedBy: res.generatedBy });

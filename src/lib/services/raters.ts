@@ -3,8 +3,6 @@ import { withAiWorkspace } from "@/lib/ai/context";
 import { localize } from "@/lib/services/translations";
 import type { RaterLocale } from "@/lib/i18n/rater";
 import { regionForAssessment } from "@/lib/services/residency";
-import { isUnlocked } from "@/lib/services/billing";
-import { FREE_RATER_CAP } from "@/lib/billing/catalog";
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
@@ -174,11 +172,6 @@ export async function inviteFromGroupLink(groupToken: string): Promise<string | 
   if (!looksLikeToken(groupToken)) return null;
   const group = await db.raterGroup.findUnique({ where: { shareTokenHash: hashToken(groupToken) }, include: { assessment: true } });
   if (!group || group.assessment.status !== "COLLECTING") return null;
-  // Free plan: the 5-rater limit also covers people joining through a shared link (Phase 9).
-  if (!(await isUnlocked(group.assessment.subjectId, group.assessment))) {
-    const n = await db.raterInvite.count({ where: { assessmentId: group.assessmentId } });
-    if (n >= FREE_RATER_CAP) return null;
-  }
   const id = randomUUID();
   await db.raterInvite.create({
     data: { id, assessmentId: group.assessmentId, raterGroupId: group.id, channel: "LINK", tokenHash: hashToken(derivedToken("invite", id)), invitedAt: new Date() },

@@ -202,7 +202,7 @@ function Explainer() {
             ["Organizations", "People, teams and cohorts, 360 rounds (incl. team 360), participation, team radar/heatmap, cohort comparison, opt-in talent grid"],
             ["Personalization", "AI coach chat and role-play, adaptive questions, personalized pulses, weekly nudges, sharing (badge, summary, full report)"],
             ["Analytics", "Benchmarks (anonymous norms), dashboard builder, scheduled dashboard emails, CSV export, read-only API"],
-            ["Payments", "Free/Pro, full-360 unlock, AI credits, coach plans and report credits, org seats, coach marketplace with referral fees (payments simulated until Stripe is switched on)"],
+            ["Payments", "Credits ($1 = 1 credit, any amount, buyer pays fees), one free 360, editable pricing policy and discounts, coach and company plans, coach marketplace with referral fees (payments simulated until Stripe is switched on)"],
             ["Enterprise", "OIDC SSO per org, data residency (US/EU), retention, org audit log, personal activity log, data export and account deletion"],
             ["Polish", "Rater form in 5 languages, streaming AI replies, dark mode, mobile menu, installable app"],
           ]}
@@ -431,20 +431,29 @@ function Explainer() {
         </More>
       </Section>
 
-      <Section id="billing" title="Plans and payments" intro={<p>Freemium for individuals, plans for coaches, seats for organizations. Payments are simulated until a provider is switched on.</p>}>
-        <More title="Plans and prices (defaults)">
+      <Section
+        id="billing"
+        title="Credits and payments"
+        intro={<p>Everyone pays with credits ($1 = 1 credit), bought in any amount; the buyer pays card fees. Coaches and companies also have monthly plans. Payments are simulated until a provider is switched on.</p>}
+      >
+        <More title="What things cost (starting values; edited at /admin/pricing)">
           <Table
-            head={["Plan / product", "Price", "What it includes"]}
+            head={["Item", "Credits", "Notes"]}
             rows={[
-              ["Free", "–", "Up to 5 raters per 360, interactive report, 1 pulse per survey"],
-              ["Full 360", "$49 one-off", "Unlimited raters and PDF for one 360"],
-              ["Pro", "$99 / year", "Unlimited raters, PDF, pulses, 100 chat messages/day, +3 AI credits"],
-              ["AI credits", "$19.99 for 5", "AI questionnaires, premium AI conversations"],
-              ["Coach Starter / Pro", "$29 / $79 a month", "10 / 40 active clients, white-label, marketplace listing"],
-              ["Client report credits", "$175 for 5", "Coaches gift full 360s to clients"],
-              ["Org seats", "$299 for 25, $1,000 for 100", "One seat per participant per round (10 free)"],
+              ["First 360", "Free", "Everything except premium AI models (count set in the policy)"],
+              ["360 survey / follow-up session", "49 / 49", "Unlimited raters and PDF; charged when invites first go out"],
+              ["Pulse check", "9", "Personal and company"],
+              ["Coach gifts a 360", "35", "From the coach's credits; the client's next 360 is paid for"],
+              ["Company round", "12 per person", "From company credits; new companies get 120 welcome credits"],
+              ["Premium AI", "Cost × 2", "Per request, in hundredths of a credit; the free model is free"],
+              ["Top-up fees", "2.9% + 30¢", "Added to the price and paid by the buyer"],
+              ["Coach Starter / Pro, company plan", "$29 / $79 / $49 a month", "Subscriptions"],
             ]}
           />
+          <p className="mt-2">
+            Prices, fees and the free-survey count live in the <code>PricingPolicy</code> table; percentage discounts per company or person live in{" "}
+            <code>PriceDiscount</code> (best one wins). Wallets are on <code>Workspace.credits</code>, every change is in <code>CreditLedger</code>.
+          </p>
         </More>
         <More title="How payments are wired">
           <p>
@@ -492,7 +501,7 @@ function Explainer() {
               route has no caller check.
             </li>
             <li>
-              <strong>Company plan and AI:</strong> monthly plan plus seats (30-day trial); allowed AI models; monthly AI budgets overall and per person with
+              <strong>Company plan and AI:</strong> monthly plan plus company credits (30-day trial); allowed AI models; monthly AI budgets overall and per person with
               free-model fallback; usage recorded per workspace through request-scoped AI context.
             </li>
             <li>

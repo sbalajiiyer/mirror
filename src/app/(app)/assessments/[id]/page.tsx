@@ -22,6 +22,32 @@ import { TranslationsPanel } from "@/components/assessment/translations-panel";
 import { DeleteSurvey } from "@/components/assessment/delete-survey";
 import { RemindersPanel } from "@/components/assessment/reminders-panel";
 import { raterPanel } from "@/lib/services/reminders";
+import { launchQuote } from "@/lib/services/billing";
+import { creditsLabel, formatCredits } from "@/lib/billing/pricing";
+
+/** Credits: what sending the invites will cost, in plain words, for the launch card. */
+async function launchCostText(id: string) {
+  const q = await launchQuote(id);
+  const wallet = q.wallet === "company" ? `${q.orgName ?? "the company"}'s credits` : "your credits";
+  switch (q.kind) {
+    case "free":
+      return { text: "This is your free 360. Nothing is charged.", enough: true };
+    case "round":
+      return { text: "Paid by your company as part of this round.", enough: true };
+    case "pro":
+      return { text: "Included in your earlier Pro plan.", enough: true };
+    case "voucher":
+      return { text: "Paid for by your coach's gift.", enough: true };
+    case "paid":
+      return {
+        text: `${q.what} costs ${creditsLabel(q.price)}${q.discount ? ` (${q.discount}% off)` : ""}, taken from ${wallet} when you send the invites. Balance: ${formatCredits(q.balance)}.`,
+        enough: q.enough,
+        billingHref: q.wallet === "company" ? null : `/billing?need=${q.price}`,
+      };
+    default:
+      return undefined;
+  }
+}
 
 export default async function AssessmentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -89,7 +115,14 @@ export default async function AssessmentPage({ params }: { params: Promise<{ id:
       )}
 
       {(a.status === "READY" || a.status === "COLLECTING" || a.status === "CLOSED") && (
-        <LifecycleActions assessmentId={a.id} status={a.status} submitted={submitted} invites={invites.length} min={min} />
+        <LifecycleActions
+          assessmentId={a.id}
+          status={a.status}
+          submitted={submitted}
+          invites={invites.length}
+          min={min}
+          cost={a.status === "READY" ? await launchCostText(a.id) : undefined}
+        />
       )}
 
       {a.status === "CLOSED" && (

@@ -30,6 +30,8 @@ jobs:
       DEV_TOOLS_ENABLED: "true"
       DEMO_LOGIN_ENABLED: "true"
       AI_PROVIDER: mock
+      # The demo person is a platform admin in CI so /admin/pricing can be tested.
+      PLATFORM_ADMIN_EMAILS: demo@mirror.local
       # Test-only password for the unlinked /tech page (not the real one).
       TECH_PAGE_PASSWORD_HASH: "scrypt$0TGsHmelH_nVY5CFQMSxMw$LFevrCCrSUSS--6SjPMu4F-DvqkiRTepz20GqEL0mcM"
       E2E_TECH_PASSWORD: ci-tech-page-password

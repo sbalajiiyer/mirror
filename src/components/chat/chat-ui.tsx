@@ -1,5 +1,7 @@
 "use client";
 
+import { formatCredits } from "@/lib/billing/pricing";
+
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { MessageSquareText, Send, Theater, Trash2 } from "lucide-react";
@@ -180,7 +182,7 @@ export function NewChatForms({
   const premiumBox = (
     <label className="flex items-center gap-2 text-xs text-muted-foreground">
       <input type="checkbox" className="size-4" checked={usePremium} disabled={!premium.available} onChange={(e) => setUsePremium(e.target.checked)} />
-      {premium.available ? `Use ${premium.label} (premium, 1 credit per conversation · you have ${premium.credits})` : "Premium model: coming soon (free model is used)"}
+      {premium.available ? `Use ${premium.label} (premium, charged per reply · you have ${formatCredits(premium.credits)} credits)` : "Premium model: choose one in Settings (the free model is used)"}
     </label>
   );
   return (

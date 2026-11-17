@@ -27,17 +27,16 @@ test("build a questionnaire for free and use it in a new 360", async ({ page }) 
   await expect(page.getByText(/6 statements/)).toBeVisible();
 });
 
-test("generate a questionnaire with AI for 1 credit", async ({ page }) => {
+test("generate a questionnaire with AI on the free model without using credits", async ({ page }) => {
   await demoLogin(page);
   await page.goto("/questionnaires/new?ai=1");
-  const before = Number((await page.getByTestId("credit-balance").innerText()).match(/\d+/)![0]);
-  test.skip(before < 1, "demo account has no credits left (reseed to reset)");
+  const before = (await page.getByTestId("credit-balance").innerText()).match(/[\d,.]+/)![0];
   await page.getByLabel("What do you want feedback on?").fill("I recently became a team lead and want feedback on how I run 1:1s and planning.");
   await page.getByTestId("generate-questionnaire").click();
   await expect(page.getByTestId("generated-alert")).toBeVisible();
   await expect(page.getByTestId("builder-section").first()).toBeVisible();
   await page.goto("/questionnaires");
-  await expect(page.getByTestId("credit-balance")).toContainText(`${before - 1} credit`);
+  await expect(page.getByTestId("credit-balance")).toContainText(`${before} credits`);
   await expect(page.getByText("AI-generated").first()).toBeVisible();
 });
 

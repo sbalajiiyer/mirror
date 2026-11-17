@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Lock, Target } from "lucide-react";
-import { db } from "@/lib/db";
 import { requireOnboardedUser } from "@/lib/session";
 import { GiftFull360Button } from "@/components/billing/billing-controls";
+import { coachGiftPrice } from "@/lib/services/billing";
+import { creditBalance } from "@/lib/services/credits";
 import { DomainError } from "@/lib/errors";
 import { clientDetail, sessionPrep } from "@/lib/services/coach";
 import { AIBriefButton, MeetingsPanel, NotesPanel } from "@/components/coach/coach-forms";
@@ -26,7 +27,7 @@ export default async function ClientPage({ params }: { params: Promise<{ clientI
     throw e;
   }
   const brief = await sessionPrep(user.id, clientId);
-  const reportCredits = (await db.entitlement.aggregate({ where: { userId: user.id, kind: "coach_report_credit", remaining: { gt: 0 } }, _sum: { remaining: true } }))._sum.remaining ?? 0;
+  const [gift, balance] = await Promise.all([coachGiftPrice(user.id), creditBalance(user.id)]);
   const shares = [
     ["Reports", d.link.shareReports],
     ["Comments", d.link.shareComments],
@@ -53,10 +54,10 @@ export default async function ClientPage({ params }: { params: Promise<{ clientI
       </div>
 
       <div className="flex flex-wrap items-center gap-3 text-sm">
-        <GiftFull360Button clientId={clientId} credits={reportCredits} />
-        {reportCredits < 1 && (
+        <GiftFull360Button clientId={clientId} price={gift.price} balance={balance} />
+        {balance < gift.price && (
           <Link href="/billing" className="underline">
-            Buy client report credits
+            Add credits
           </Link>
         )}
       </div>

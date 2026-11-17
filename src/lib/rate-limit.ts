@@ -42,8 +42,8 @@ export const LIMITS = {
   clientErrorIp: { limit: 20, windowSec: 600 },
   /** Deep health checks (they start a browser), per network. */
   healthDeepIp: { limit: 3, windowSec: 3600 },
-  /** Demo sign-ins from one network. */
-  demoLoginIp: { limit: 60, windowSec: 600 },
+  /** Demo sign-ins from one network (demo accounts only; the end-to-end suite signs in ~60 times in a few minutes). */
+  demoLoginIp: { limit: 120, windowSec: 600 },
 } as const satisfies Record<string, { limit: number; windowSec: number }>;
 
 export type LimitName = keyof typeof LIMITS;
