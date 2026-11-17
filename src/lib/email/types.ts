@@ -9,6 +9,8 @@ export type EmailMessage = {
   fromName?: string;
   /** Where replies go, e.g. the person asking for feedback. */
   replyTo?: string;
+  /** Extra headers, e.g. List-Unsubscribe (added by sendEmail; providers must pass them through). */
+  headers?: Record<string, string>;
 };
 
 /** Every email provider implements this. Add new providers in src/lib/email/index.ts. */

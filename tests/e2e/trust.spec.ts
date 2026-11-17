@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { demoLogin, expectAccessible } from "./helpers";
+import { demoLogin, expectAccessible, passAgeCheck } from "./helpers";
 
 async function signUp(page: Page, email: string) {
   await page.goto("/signin");
@@ -27,6 +27,7 @@ test("privacy policy and terms are public, linked, and accessible", async ({ pag
 test("deleting an account waits 7 days, and signing in again cancels it", async ({ page }) => {
   const email = `grace.${Date.now()}@example.com`;
   await signUp(page, email);
+  await passAgeCheck(page);
   await page.waitForURL("**/onboarding");
   await page.getByLabel("Your name").fill("Grace Period");
   await page.getByRole("button", { name: /Grow as a leader/ }).click();
@@ -55,6 +56,7 @@ test("deleting an account waits 7 days, and signing in again cancels it", async 
 
 test("delete all AI conversations from the danger zone", async ({ page }) => {
   await signUp(page, `chats.${Date.now()}@example.com`);
+  await passAgeCheck(page);
   await page.waitForURL("**/onboarding");
   await page.getByLabel("Your name").fill("Chat Deleter");
   await page.getByRole("button", { name: /Grow as a leader/ }).click();

@@ -12,6 +12,9 @@ export function SiteFooter({ narrow = false }: { narrow?: boolean }) {
           <Link href="/terms" className="hover:text-foreground hover:underline">
             Terms
           </Link>
+          <Link href="/copyright" className="hover:text-foreground hover:underline">
+            Copyright
+          </Link>
         </nav>
       </div>
     </footer>

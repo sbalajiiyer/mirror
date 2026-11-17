@@ -21,7 +21,7 @@ export default function TermsPage() {
 
       <h2>Your account</h2>
       <ul>
-        <li>You must be at least 16 and able to agree to these terms.</li>
+        <li>You must be at least {LEGAL.minimumAge} and able to agree to these terms. We ask your birth month and year when you sign up (and don&apos;t store them); accounts of people under {LEGAL.minimumAge} are deleted.</li>
         <li>Keep access to your email (and your organization&apos;s sign-in, if you use SSO) secure; you are responsible for activity on your account.</li>
         <li>Give accurate information and keep it up to date.</li>
       </ul>
@@ -68,10 +68,22 @@ export default function TermsPage() {
       <h2>Plans, payments and refunds</h2>
       <ul>
         <li>Paid plans and credits are described on the Billing page, with prices shown before you pay.</li>
-        <li>Yearly and monthly plans run for the period bought; you can stop renewal at any time and keep access to the end of the period.</li>
+        <li>
+          Credits are a one-time purchase and don&apos;t expire. Coach plans and the company plan are bought one period at a time: they don&apos;t renew
+          automatically and you are never charged again unless you buy another period. The price and period are shown next to the button before you pay.
+        </li>
         <li>[Refund policy, e.g. refunds within 14 days for unused purchases, and any statutory rights in your country.]</li>
         <li>We may change prices for future periods with notice.</li>
       </ul>
+
+      <h2>Copyright</h2>
+      <p>
+        Only add content you have the right to use. To report content that infringes your copyright, follow the steps on our{" "}
+        <Link href="/copyright" className="underline">
+          copyright page
+        </Link>
+        , which names our designated agent.
+      </p>
 
       <h2>AI features</h2>
       <p>

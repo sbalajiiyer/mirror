@@ -10,7 +10,22 @@ export const LEGAL = {
   governingLaw: "[State/country of governing law]",
   effectiveDate: "[Effective date]",
   dpo: "[Data protection contact, if required]",
+  /** Minimum age to create an account (also stated in the terms). Checked by a neutral age screen at sign-up. */
+  minimumAge: 16,
+  /** Designated agent for copyright (DMCA) notices, as registered with the U.S. Copyright Office. */
+  dmcaAgent: {
+    name: "[Designated agent name]",
+    address: "[Agent postal address]",
+    email: "[copyright@your-domain]",
+    phone: "[Agent phone]",
+  },
 } as const;
+
+/**
+ * Postal address shown in the footer of every non-essential email (CAN-SPAM). Set MAIL_POSTAL_ADDRESS;
+ * a registered P.O. box or commercial mail-receiving address is fine.
+ */
+export const mailPostalAddress = () => process.env.MAIL_POSTAL_ADDRESS?.trim() || LEGAL.address;
 
 export const LEGAL_DRAFT = true;
 

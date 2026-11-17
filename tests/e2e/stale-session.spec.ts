@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { passAgeCheck } from "./helpers";
 
 // A session cookie can outlive its user (account deleted, demo data re-seeded on deploy).
 // It must count as signed out, not bounce between /signin and the app forever.
@@ -13,6 +14,7 @@ test("a session for a user that no longer exists goes to sign-in, without a redi
   await page.goto("/dev/outbox");
   const link = await page.getByTestId("outbox-mail").filter({ hasText: `→ ${email}` }).first().locator('a[href*="/api/auth/callback/email"]').getAttribute("href");
   await page.goto(link!);
+  await passAgeCheck(page);
   await page.waitForURL("**/onboarding");
   await page.getByLabel("Your name").fill("Stale Tester");
   await page.getByRole("button", { name: /Grow as a leader/ }).click();

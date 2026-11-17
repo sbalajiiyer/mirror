@@ -9,7 +9,8 @@ export const consoleSender: EmailSender = {
   async send(message) {
     const from = message.fromName ? ` from="${message.fromName}"` : "";
     const reply = message.replyTo ? ` reply-to=${message.replyTo}` : "";
-    console.info(`[email:console] to=${message.to}${from}${reply} subject="${message.subject}"\n${message.text}\n`);
+    const unsub = message.headers?.["List-Unsubscribe"] ? ` list-unsubscribe=${message.headers["List-Unsubscribe"]}` : "";
+    console.info(`[email:console] to=${message.to}${from}${reply}${unsub} subject="${message.subject}"\n${message.text}\n`);
     return {};
   },
 };

@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { consoleSender } from "./console";
 import type { EmailMessage, EmailSender } from "./types";
+import { ESSENTIAL_TEMPLATES, emailFooter, isSuppressed, unsubscribeOneClickUrl } from "./unsubscribe";
 
 export type { EmailMessage, EmailSender };
 
@@ -19,8 +20,26 @@ export function getEmailSender(): EmailSender {
   }
 }
 
-/** Send an email and record it in the Notification table. Never throws. */
-export async function sendEmail(message: EmailMessage, sender: EmailSender = getEmailSender()) {
+/**
+ * Send an email and record it in the Notification table. Never throws.
+ * Non-essential emails get our postal address and an unsubscribe link (footer and List-Unsubscribe
+ * headers), and are skipped for addresses that unsubscribed.
+ */
+export async function sendEmail(original: EmailMessage, sender: EmailSender = getEmailSender()) {
+  const essential = ESSENTIAL_TEMPLATES.has(original.template);
+  if (!essential && (await isSuppressed(original.to))) {
+    const row = await db.notification.create({
+      data: { to: original.to, template: original.template, subject: original.subject, body: original.text, provider: sender.name, status: "SUPPRESSED", fromName: original.fromName ?? null, replyTo: original.replyTo ?? null },
+    });
+    return { ok: false as const, id: row.id, error: "unsubscribed" };
+  }
+  const message: EmailMessage = essential
+    ? original
+    : {
+        ...original,
+        text: original.text + emailFooter(original.to),
+        headers: { ...original.headers, "List-Unsubscribe": `<${unsubscribeOneClickUrl(original.to)}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
+      };
   const row = await db.notification.create({
     data: {
       to: message.to,

@@ -6,7 +6,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatCents } from "@/lib/billing/catalog";
+import { formatCents, purchaseTerms } from "@/lib/billing/catalog";
 import { creditsLabel, formatCredits, topUpPrice, type Policy } from "@/lib/billing/pricing";
 import { buyAction, cancelSubscriptionAction, giftFull360Action, stubPayAction } from "@/app/(app)/billing/actions";
 
@@ -156,6 +156,9 @@ export function BuyCredits({ fees, min, max, orgId, suggested = [25, 50, 100, 25
           {pending ? "Opening checkout…" : price ? `Pay ${formatCents(price.totalCents)}` : "Buy credits"}
         </Button>
       </div>
+      <p className="text-xs text-muted-foreground" data-testid="terms-credits">
+        {purchaseTerms("credits")}
+      </p>
       <p id={`${id}-price`} className="text-sm text-muted-foreground" data-testid="credit-price">
         {price
           ? `${n.toLocaleString("en-US")} credits ${formatCents(price.creditsCents)} + card and processing fees ${formatCents(price.feeCents)} = ${formatCents(price.totalCents)}`

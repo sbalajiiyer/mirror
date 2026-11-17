@@ -155,8 +155,16 @@ export default function PrivacyPage() {
       <ul>
         <li>A session cookie to keep you signed in, and short-lived cookies for single sign-on.</li>
         <li>Your theme choice and, on the rater form, your language, saved in your browser.</li>
-        <li>No advertising or cross-site tracking cookies.</li>
+        <li>If you didn&apos;t pass the age check, a cookie that stops the check being retried from that browser for a year.</li>
+        <li>No advertising or cross-site tracking cookies, no analytics, and no session recording or replay.</li>
+        <li>Fonts are served by {LEGAL.product} itself; nothing is loaded from font or analytics services.</li>
       </ul>
+
+      <h2>Emails</h2>
+      <p>
+        Every email except sign-in links and email confirmations has an unsubscribe link and our postal address. Unsubscribing stops all invitations,
+        reminders, nudges and reports to that address.
+      </p>
 
       <h2>Security</h2>
       <p>
@@ -165,7 +173,11 @@ export default function PrivacyPage() {
       </p>
 
       <h2>Children</h2>
-      <p>{LEGAL.product} is not intended for anyone under 16, and we do not knowingly collect their data.</p>
+      <p>
+        {LEGAL.product} is not intended for anyone under {LEGAL.minimumAge}. New accounts answer a neutral age question (birth month and year, which we
+        don&apos;t store); if the answer is under {LEGAL.minimumAge} the account and its email address are deleted straight away. If you believe we hold
+        data about someone under {LEGAL.minimumAge}, email {LEGAL.contactEmail} and we will delete it.
+      </p>
 
       <h2>Changes</h2>
       <p>If we make material changes we will tell you in the app or by email before they take effect. The date at the top shows the current version.</p>

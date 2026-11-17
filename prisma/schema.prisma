@@ -29,6 +29,11 @@ model User {
   personalEmailPending   String?
   personalEmailTokenHash String?   @unique
   personalEmailTokenExp  DateTime?
+  /// Age gate: passed the neutral age check (birth year and month are never stored), and accepted the terms.
+  ageConfirmedAt         DateTime?
+  termsAcceptedAt        DateTime?
+  /// Age gate: under the minimum age. The account can't be used and is scheduled for deletion.
+  ageBlockedAt           DateTime?
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 
@@ -473,6 +478,7 @@ enum NotificationStatus {
   QUEUED
   SENT
   FAILED
+  SUPPRESSED
 }
 
 /// Outbound email log. With EMAIL_PROVIDER=console this doubles as the dev outbox.
@@ -492,6 +498,14 @@ model Notification {
   replyTo   String?
   createdAt DateTime           @default(now())
   sentAt    DateTime?
+}
+
+/// Addresses that asked for no more emails from Mirror (unsubscribe link in every non-essential email).
+/// Sign-in links and email confirmations are still sent: the person asked for them.
+model EmailSuppression {
+  email     String   @id
+  source    String   @default("link") // link | one-click | admin
+  createdAt DateTime @default(now())
 }
 
 model AuditLog {

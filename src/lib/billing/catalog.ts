@@ -37,6 +37,20 @@ export const PRODUCTS: Record<ProductKey, { label: string; description: string; 
   company_platform_month: { label: "Company plan (1 month)", description: "Company workspace: rounds, analytics, roles, SSO, audit log. Rounds are paid with credits.", amountCents: 4900, kind: "subscription", days: 30 },
 };
 
+/**
+ * Purchase terms shown right next to every buy button and on the checkout page. Subscriptions are
+ * bought one period at a time: nothing renews or is charged automatically. If automatic renewal is
+ * ever added, change this text first (and get consent to the renewal terms at the button).
+ */
+export function purchaseTerms(k: ProductKey) {
+  const p = PRODUCTS[k];
+  if (k === "credits") return "One-time payment. Nothing renews or is charged again. Credits don't expire.";
+  if (p.kind === "subscription" && p.days) {
+    return `${formatCents(p.amountCents)} for ${p.days} days, paid once. It doesn't renew automatically and you won't be charged again; buy another ${p.days === 30 ? "month" : "period"} before it ends to keep it. Buying early adds ${p.days} days to the end date.`;
+  }
+  return "One-time payment. Nothing renews or is charged again.";
+}
+
 export const formatCents = (c: number, currency = "usd") => new Intl.NumberFormat("en", { style: "currency", currency }).format(c / 100);
 
 export function referralFeeCents(sessionPriceCents: number | null | undefined) {

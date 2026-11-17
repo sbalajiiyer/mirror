@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { demoLogin, expectAccessible, raterLinksFromOutbox } from "./helpers";
+import { demoLogin, expectAccessible, raterLinksFromOutbox, passAgeCheck } from "./helpers";
 
 test("raters can answer in Spanish or German; built-in statements are translated", async ({ page }) => {
   const email = `es.rater.${Date.now()}@example.com`;
@@ -97,6 +97,7 @@ test("a coach gets a coach onboarding, not the self-360 questions", async ({ pag
   await page.goto("/dev/outbox");
   const link = await page.getByTestId("outbox-mail").filter({ hasText: `→ ${email}` }).first().locator('a[href*="/api/auth/callback/email"]').getAttribute("href");
   await page.goto(link!);
+  await passAgeCheck(page);
   await page.waitForURL("**/onboarding");
   await page.getByTestId("coach-onboarding-link").click();
   await page.waitForURL("**/onboarding/coach");
