@@ -374,11 +374,11 @@ pulses were renamed by migration `rate_limit_pulse_titles`.
 - Chat replies are not streamed (each reply arrives whole); streaming can come with a premium model.
 - All ten phases are built. Before charging real money: choose the payment provider (Stripe) and confirm prices.
 - Coaches who accept by email go through the subject onboarding first; a coach-specific onboarding would be nicer.
-- Dependency audit (2026-11-16): `next-auth` upgraded to 5.0.0-beta.32 (fixes the email normalisation /
-  misdelivery advisories). Sign-in emails also go through our own stricter normaliser (`src/lib/email-address.ts`:
-  Unicode NFKC, ASCII only, exactly one "@"). `postcss` is pinned to ≥ 8.5.33 via `overrides` (it was bundled by
-  Next). Remaining `npm audit` items are development-time only (the Prisma CLI's `deepmerge-ts`, typescript-eslint's
-  `minimatch`). Their fixes need major upgrades (Prisma 7, Next 16), which are planned separately.
+- Dependencies (2026-11-17): Next.js 16 (Turbopack builds), React 19.3, Prisma 7, next-auth 5 beta.32; `npm audit` reports
+  0 vulnerabilities. Sign-in emails also go through our own stricter normaliser (`src/lib/email-address.ts`). Prisma 7
+  runs migrations with its schema-engine binary (downloaded at install on CI and Vercel); the app still connects
+  through the node-postgres driver adapter with no query engine binary. In a sandbox that can't reach
+  binaries.prisma.sh, set `PRISMA_SCHEMA_ENGINE_BINARY` to a stub for `prisma generate`; migrations then need CI.
 - `RaterInvite.submittedAt` is stored at day granularity like `Submission.submittedOn`, but row insertion order in Postgres
   could still correlate the two for someone with raw DB access; acceptable for now, revisit with an append-only shuffle job.
 - The Groq API couldn't be reached from the build sandbox, so real Groq calls were tested only with a stubbed HTTP layer; `GROQ_API_KEY` is set on Vercel Production (2026-11-16); not yet on Preview.

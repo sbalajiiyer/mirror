@@ -2,15 +2,13 @@
 // Phase 1 + 2 subset of the data model in docs/SPEC.md.
 
 generator client {
-  provider   = "prisma-client-js"
-  engineType = "client"
+  provider = "prisma-client-js"
 }
 
-// Connection: DATABASE_URL, read by prisma.config.ts (migrations) and src/lib/db.ts (runtime),
-// both through the node-postgres driver adapter.
+// Connection: the URL lives in prisma.config.ts (migrations, Prisma 7) and src/lib/db.ts (runtime,
+// through the node-postgres driver adapter).
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ---------------------------------------------------------------------------

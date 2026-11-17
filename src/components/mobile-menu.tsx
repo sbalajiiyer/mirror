@@ -8,17 +8,17 @@ import { Button } from "@/components/ui/button";
 
 /** Navigation for small screens: a disclosure button that opens a full-width panel under the header. */
 export function MobileMenu({ links, email, signOut }: { links: { href: string; label: string }[]; email?: string | null; signOut: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  // The menu belongs to the page it was opened on, so navigating closes it.
+  const [openOn, setOpenOn] = useState<string | null>(null);
+  const open = openOn === pathname;
+  const setOpen = (v: boolean | ((o: boolean) => boolean)) => setOpenOn((typeof v === "function" ? v(open) : v) ? pathname : null);
   const button = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        setOpen(false);
+        setOpenOn(null);
         button.current?.focus();
       }
     };

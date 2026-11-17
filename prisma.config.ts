@@ -1,20 +1,16 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { pgConfigFromUrl } from "./src/lib/pg-config";
 
-// Migrations run through the JS/Wasm schema engine + node-postgres driver adapter, so no
-// native Prisma engine binaries are downloaded (works in locked-down CI and serverless).
+// Prisma 7: the connection URL for migrations lives here. Migrations prefer a direct (non-pooled)
+// connection when one is configured, e.g. Neon's host without "-pooler". The app itself connects
+// through the node-postgres driver adapter (src/lib/db.ts), so no query engine binary is used.
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
     seed: "tsx prisma/seed.ts",
   },
-  experimental: { adapter: true },
-  engine: "js",
-  // Migrations prefer a direct (non-pooled) connection when one is configured, e.g. Neon's
-  // host without "-pooler". Discrete fields (not connectionString) so the adapter's shadow
-  // database gets its own name.
-  adapter: async () => new PrismaPg(pgConfigFromUrl(process.env.DIRECT_DATABASE_URL || process.env.DATABASE_URL!)),
+  datasource: {
+    url: process.env.DIRECT_DATABASE_URL || process.env.DATABASE_URL || "",
+  },
 });
