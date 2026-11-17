@@ -1,6 +1,6 @@
 # Phase 11 plan — Personal and company workspaces
 
-_Status: **approved** (2026-11-17), decisions in §12. Built in steps 11a–11f._
+_Status: **done** (2026-11-17). Decisions in §12; build log at the end. Admin guide: `docs/guides/company-admin.md`._
 
 ## 1. Goal
 
@@ -309,3 +309,9 @@ Built together: the switcher is only safe because of the checks.
 - Tests: offer → employee accepts → coach accepts; decline; status-only admin view; plan limit
   unaffected; ends on leaving; personal email rules (integration); sign-in via personal email and
   offering coaching (e2e).
+
+### 11f — Docs and verification (2026-11-17)
+- Admin guide for owners and admins: `docs/guides/company-admin.md`.
+- STATUS.md and the `/tech` page describe workspaces, roles, billing, AI budgets and coaching.
+- Final check on production after the last merge: health check, migrations applied, every company
+  has an owner, every user has a Personal workspace.
