@@ -31,6 +31,8 @@ export default async function Outbox() {
             </CardTitle>
             <p className="text-xs text-muted-foreground">
               {m.template} · {m.status} · {m.createdAt.toLocaleString()}
+              {m.fromName && ` · from ${m.fromName}`}
+              {m.replyTo && ` · reply-to ${m.replyTo}`}
             </p>
           </CardHeader>
           <CardContent>

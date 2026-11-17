@@ -127,7 +127,10 @@ model SubjectProfile {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Saved reminder message (with {fill-ins}) and tone, reused across 360s.
+  reminderTemplate String?
+  reminderTone     String?
 }
 
 // ---------------------------------------------------------------------------
@@ -354,6 +357,10 @@ model RaterInvite {
   submittedAt    DateTime?
   lastRemindedAt DateTime?
   reminderCount  Int           @default(0)
+  /// A personal line for this rater only, added to their invitation and reminders.
+  personalNote   String?
+  /// A reminder written outside the sending window, sent at the next one: { message, byUserId, at }.
+  queuedReminder Json?
   createdAt      DateTime      @default(now())
 
   assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
@@ -473,6 +480,10 @@ model Notification {
   status    NotificationStatus @default(QUEUED)
   provider  String
   error     String?
+  /// Shown as the sender, e.g. "Alex Silva via Mirror" (the address is always Mirror's).
+  fromName  String?
+  /// Replies go here (the person who asked for feedback).
+  replyTo   String?
   createdAt DateTime           @default(now())
   sentAt    DateTime?
 }
@@ -1149,4 +1160,25 @@ model RoundResult {
 
   @@unique([campaignId, scope])
   @@index([orgId])
+}
+
+/// Every rater reminder, sent, queued or skipped, and round reminders to participants.
+/// Rater rows identify the invitation (the subject already sees each rater's status), never answers.
+model ReminderLog {
+  id           String   @id @default(cuid())
+  assessmentId String?
+  inviteId     String?
+  campaignId   String?
+  memberId     String?
+  sentById     String?
+  /// AUTO (scheduled job) | MANUAL (subject) | ROUND (company admin to a participant)
+  kind         String
+  /// SENT | QUEUED | SKIPPED
+  outcome      String
+  reason       String?
+  createdAt    DateTime @default(now())
+
+  @@index([assessmentId, createdAt])
+  @@index([campaignId, createdAt])
+  @@index([inviteId])
 }

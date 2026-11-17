@@ -189,6 +189,8 @@ async function sendPendingInvites(assessmentId: string) {
         dueAt: a.dueAt,
         pulse: a.type === "PULSE",
         minutes: Math.max(2, Math.round(a.questions.length * 0.2 + 1)),
+        note: inv.personalNote,
+        replyTo: a.subject.email,
       }),
     );
     await db.raterInvite.update({ where: { id: inv.id }, data: { invitedAt: new Date() } });

@@ -263,7 +263,7 @@ export async function createCampaign(adminId: string, orgId: string, raw: unknow
   return c;
 }
 
-async function campaignMembers(orgId: string, groupId: string | null) {
+export async function campaignMembers(orgId: string, groupId: string | null) {
   return db.orgMember.findMany({ where: { orgId, status: "ACTIVE", ...(groupId ? { groups: { some: { groupId } } } : {}) }, orderBy: { name: "asc" } });
 }
 

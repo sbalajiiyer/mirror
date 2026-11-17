@@ -48,8 +48,11 @@ export default async function RoundsPage({ params }: { params: Promise<{ orgId: 
               {c.dueAt && ` · due ${c.dueAt.toLocaleDateString()}`}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
             <ParticipationBar p={c.stats} label={c.name} />
+            <Link href={`/orgs/${orgId}/rounds/${c.id}`} className="text-sm font-medium underline">
+              Who hasn&apos;t started · send reminders
+            </Link>
           </CardContent>
         </Card>
       ))}

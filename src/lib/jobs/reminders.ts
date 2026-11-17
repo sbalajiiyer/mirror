@@ -12,6 +12,7 @@
  * Runs from GET /api/cron/reminders (e.g. Vercel Cron, free) or `npm run jobs:reminders`.
  * A queue (Inngest / Trigger.dev) can call `runReminders` later without changes.
  */
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { pulseDueEmail, raterReminderEmail } from "@/lib/email/templates";
@@ -19,8 +20,10 @@ import { firstName } from "@/lib/utils";
 import { derivedToken } from "@/lib/tokens";
 import { appUrl } from "@/lib/url";
 
-export const MAX_REMINDERS = 3;
-export const MIN_GAP_HOURS = 48;
+import { isSendWindow, MAX_REMINDERS, MIN_GAP_HOURS } from "@/lib/reminders/rules";
+
+// Shared with the manual reminders on the rater panel.
+export { isSendWindow, MAX_REMINDERS, MIN_GAP_HOURS };
 const DAY = 24 * 3600 * 1000;
 
 export type ReminderCandidate = {
@@ -31,11 +34,6 @@ export type ReminderCandidate = {
   hasEmail: boolean;
 };
 
-export function isSendWindow(now: Date): boolean {
-  const day = now.getUTCDay();
-  const hour = now.getUTCHours();
-  return day >= 1 && day <= 5 && hour >= 9 && hour < 17;
-}
 
 export function reminderDue(
   c: ReminderCandidate,
@@ -58,11 +56,14 @@ export function reminderDue(
 }
 
 export async function runReminders(now = new Date()) {
+  // Reminders people wrote outside working hours go first, then the automatic ones.
+  const queued = isSendWindow(now) ? await (await import("@/lib/services/reminders")).sendQueuedReminders(now) : 0;
   const invites = await db.raterInvite.findMany({
     where: {
       status: { in: ["INVITED", "STARTED"] },
       email: { not: null },
       reminderCount: { lt: MAX_REMINDERS },
+      queuedReminder: { equals: Prisma.DbNull },
       assessment: { status: "COLLECTING" },
     },
     include: { assessment: { include: { subject: { include: { profile: true } } } } },
@@ -84,15 +85,18 @@ export async function runReminders(now = new Date()) {
         link: appUrl(`/r/${derivedToken("invite", inv.id)}`),
         dueAt: inv.assessment.dueAt,
         final: decision.final,
+        note: inv.personalNote,
+        replyTo: inv.assessment.subject.email,
       }),
     );
     await db.raterInvite.update({
       where: { id: inv.id },
       data: { reminderCount: { increment: 1 }, lastRemindedAt: now },
     });
+    await db.reminderLog.create({ data: { assessmentId: inv.assessmentId, inviteId: inv.id, kind: "AUTO", outcome: "SENT" } });
     sent++;
   }
-  return { checked: invites.length, sent };
+  return { checked: invites.length, sent, queued };
 }
 
 /** Email subjects whose next pulse is due (once per due date). Runs with the daily cron. */

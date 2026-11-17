@@ -31,7 +31,7 @@ test("set a session's company and tags from its header", async ({ page }) => {
   await demoLogin(page);
   const card = page.getByTestId("survey").filter({ hasText: "Leadership check-in" });
   await card.getByTestId("session-row").first().click();
-  await page.getByRole("button", { name: "Edit session details" }).click();
+  await page.getByRole("button", { name: /Edit session details|Name this session/ }).click();
   await page.getByLabel("Company").fill("Contoso Health");
   await page.getByLabel("Tags (comma-separated)").fill("Leadership, New Team");
   await page.getByRole("button", { name: "Save" }).click();
