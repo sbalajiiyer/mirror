@@ -55,17 +55,21 @@ test("coach sees plan, marketplace listing and can gift a full 360", async ({ pa
   await expect(page.getByTestId("report-credits")).toHaveText("2");
 });
 
-test("org admin sees seats and can add more", async ({ page }) => {
+test("company owner sees the plan and seats, and can add seats", async ({ page }) => {
   await page.goto("/signin");
   await page.getByTestId("demo-admin-login").click();
   await page.waitForURL("**/orgs**");
+  // Company billing lives in the company workspace (Phase 11e).
   await page.goto("/billing");
+  await page.getByTestId("org-billing").getByRole("link", { name: /Brightline Studio billing/ }).click();
+  await page.waitForURL(/\/orgs\/[^/]+\/billing$/);
+  await expect(page.getByTestId("company-plan-status")).toContainText("Paid until");
   await expect(page.getByTestId("org-seats")).toHaveText("100");
   await page.waitForLoadState("networkidle");
   await page.getByTestId("org-billing").getByTestId("buy-org_seats_25").click();
   await page.waitForURL("**/billing/checkout/**");
   await page.waitForLoadState("networkidle");
   await page.getByRole("button", { name: "Pay (test)" }).click();
-  await page.waitForURL("**/billing?paid=**");
+  await page.waitForURL(/\/orgs\/[^/]+\/billing\?paid=/);
   await expect(page.getByTestId("org-seats")).toHaveText("125");
 });

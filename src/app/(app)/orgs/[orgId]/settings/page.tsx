@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { ssoSettings } from "@/lib/services/sso";
 import { REGIONS, isRegion } from "@/lib/residency";
 import { aiCatalog } from "@/lib/ai/models";
+import { orgAiUsage } from "@/lib/services/org-settings";
+import { formatCents } from "@/lib/billing/catalog";
 import { OrgNav } from "@/components/org/org-nav";
 import { OrgAiForm, OrgDataForm, SsoConfigForm, SsoDomainForm, VerifyDomainButton } from "@/components/org/org-settings-forms";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +17,7 @@ export default async function OrgSettingsPage({ params }: { params: Promise<{ or
   const { user } = await adminPage(orgId, "/settings", "OWNER");
   const org = await db.organization.findUniqueOrThrow({ where: { id: orgId } });
   const sso = await or404(ssoSettings(user.id, orgId));
+  const usage = await or404(orgAiUsage(user.id, orgId));
   const region = REGIONS[isRegion(org.region) ? org.region : "us"];
   return (
     <div className="space-y-6">
@@ -54,7 +57,10 @@ export default async function OrgSettingsPage({ params }: { params: Promise<{ or
               .filter((m) => m.tier === "premium" && m.available)
               .map((m) => ({ id: m.id, label: m.label, description: m.description }))}
             allowed={org.allowedAiModels}
+            budgetCents={org.aiBudgetCents}
+            perPersonCents={org.aiPerPersonCents}
           />
+          <AiUsage usage={usage} />
         </CardContent>
       </Card>
 
@@ -104,6 +110,32 @@ export default async function OrgSettingsPage({ params }: { params: Promise<{ or
           </section>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function AiUsage({ usage }: { usage: Awaited<ReturnType<typeof orgAiUsage>> }) {
+  return (
+    <div className="mt-6 space-y-2 border-t pt-4 text-sm" data-testid="ai-usage">
+      <p className="font-medium">
+        Premium AI this month: {formatCents(usage.totalCents)}
+        {usage.budgetCents != null && ` of ${formatCents(usage.budgetCents)}`}
+      </p>
+      {usage.people.length === 0 ? (
+        <p className="text-muted-foreground">No premium AI used yet this month.</p>
+      ) : (
+        <ul className="divide-y">
+          {usage.people.map((p) => (
+            <li key={p.userId} className="flex justify-between py-1.5">
+              <span>{p.name}</span>
+              <span className="tabular-nums">
+                {formatCents(p.cents)}
+                {usage.perPersonCents != null && <span className="text-muted-foreground"> / {formatCents(usage.perPersonCents)}</span>}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

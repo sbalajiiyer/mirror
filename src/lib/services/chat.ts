@@ -1,6 +1,6 @@
 import "server-only";
 import { regionForAssessment } from "@/lib/services/residency";
-import { withAiWorkspace } from "@/lib/ai/context";
+import { modelForWorkspace, withAiWorkspace } from "@/lib/ai/context";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
@@ -71,14 +71,23 @@ export async function getChat(userId: string, chatId: string) {
   return c;
 }
 
-export async function startChat(userId: string, raw: unknown) {
+/**
+ * `activeWorkspaceId` (Phase 11e): the workspace the chat is started in, already checked by the
+ * caller. A chat about a report lives in that report's workspace. In a company workspace, premium
+ * chats come out of the company's AI budget, never the person's own credits.
+ */
+export async function startChat(userId: string, raw: unknown, activeWorkspaceId?: string | null) {
   const input = startChatSchema.parse(raw);
   let title = "Questions about my feedback";
+  let workspaceId = activeWorkspaceId ?? null;
   if (input.assessmentId) {
     const r = await visibleReport(userId, input.assessmentId);
     if (!r) throw new DomainError("Chat needs a closed report with results.");
     title = `About ${r.a.title}`;
+    workspaceId = r.a.workspaceId;
   }
+  const ws = workspaceId ? await db.workspace.findUnique({ where: { id: workspaceId }, select: { kind: true } }) : null;
+  const company = ws?.kind === "COMPANY";
   let scenario: string | null = null;
   if (input.mode === "ROLEPLAY") {
     const preset = ROLEPLAY_PRESETS.find((p) => p.key === input.preset);
@@ -87,15 +96,16 @@ export async function startChat(userId: string, raw: unknown) {
     title = preset?.label ?? `Role-play: ${input.scenario!.slice(0, 50)}`;
   }
   const profile = await db.subjectProfile.findUnique({ where: { userId } });
-  const premium = input.premium && resolveModel(profile?.aiModel).tier === "premium";
-  if (input.premium && !premium) throw new DomainError("Choose an available premium model in Settings first.");
+  const premium = input.premium && (company ? (await modelForWorkspace(profile?.aiModel, workspaceId, userId)).tier === "premium" : resolveModel(profile?.aiModel).tier === "premium");
+  if (input.premium && !premium)
+    throw new DomainError(company ? "Premium AI isn't available here right now: the model isn't allowed, or this month's AI budget is used up." : "Choose an available premium model in Settings first.");
   const chat = await db.$transaction(async (tx) => {
-    if (premium) {
+    if (premium && !company) {
       const spent = await tx.subjectProfile.updateMany({ where: { userId, aiCredits: { gte: 1 } }, data: { aiCredits: { decrement: 1 } } });
       if (spent.count !== 1) throw new DomainError("A premium conversation costs 1 credit.", "no_credits");
     }
-    const c = await tx.coachChat.create({ data: { userId, assessmentId: input.assessmentId ?? null, mode: input.mode, title, scenario, tier: premium ? "premium" : "free" } });
-    if (premium) await tx.creditLedger.create({ data: { userId, delta: -1, reason: "ai_chat", ref: c.id } });
+    const c = await tx.coachChat.create({ data: { userId, assessmentId: input.assessmentId ?? null, mode: input.mode, title, scenario, tier: premium ? "premium" : "free", ...(workspaceId ? { workspaceId } : {}) } });
+    if (premium && !company) await tx.creditLedger.create({ data: { userId, delta: -1, reason: "ai_chat", ref: c.id } });
     return c;
   });
   await audit(userId, "chat.start", "CoachChat", chat.id, { mode: input.mode, tier: chat.tier });

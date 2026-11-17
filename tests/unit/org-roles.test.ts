@@ -14,6 +14,7 @@ describe("company roles", () => {
     const tabsFor = (r: string) => Object.entries(TAB_ROLE).filter(([, min]) => atLeast(r, min)).map(([k]) => k);
     expect(tabsFor("ANALYST")).toEqual(["overview", "analytics"]);
     expect(tabsFor("ADMIN")).not.toContain("settings");
-    expect(tabsFor("OWNER")).toContain("settings");
+    expect(tabsFor("ADMIN")).not.toContain("billing");
+    expect(tabsFor("OWNER")).toEqual(expect.arrayContaining(["settings", "billing"]));
   });
 });

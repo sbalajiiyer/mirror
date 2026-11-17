@@ -154,8 +154,25 @@ export function SsoConfigForm({ orgId, initial, verified }: { orgId: string; ini
 }
 
 /** Phase 11e: owners choose which premium AI models people may use here. The free model is always on. */
-export function OrgAiForm({ orgId, models, allowed }: { orgId: string; models: { id: string; label: string; description: string }[]; allowed: string[] }) {
+const toCents = (v: string) => (v.trim() === "" ? null : Math.round(Number(v) * 100));
+const toDollars = (c: number | null) => (c == null ? "" : String(c / 100));
+
+export function OrgAiForm({
+  orgId,
+  models,
+  allowed,
+  budgetCents,
+  perPersonCents,
+}: {
+  orgId: string;
+  models: { id: string; label: string; description: string }[];
+  allowed: string[];
+  budgetCents: number | null;
+  perPersonCents: number | null;
+}) {
   const [on, setOn] = useState(new Set(allowed));
+  const [budget, setBudget] = useState(toDollars(budgetCents));
+  const [perPerson, setPerPerson] = useState(toDollars(perPersonCents));
   const { msg, pending, run } = useRun();
   if (models.length === 0) return <p className="text-sm text-muted-foreground">Only the free model is available on this installation.</p>;
   return (
@@ -164,7 +181,7 @@ export function OrgAiForm({ orgId, models, allowed }: { orgId: string; models: {
       data-testid="org-ai-form"
       onSubmit={(e) => {
         e.preventDefault();
-        run(() => updateOrgAiAction(orgId, { allowedAiModels: [...on] }), "Saved.");
+        run(() => updateOrgAiAction(orgId, { allowedAiModels: [...on], aiBudgetCents: toCents(budget), aiPerPersonCents: toCents(perPerson) }), "Saved.");
       }}
     >
       {models.map((m) => (
@@ -186,6 +203,17 @@ export function OrgAiForm({ orgId, models, allowed }: { orgId: string; models: {
           </span>
         </label>
       ))}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="ai-budget">Monthly AI budget, everyone (USD)</Label>
+          <Input id="ai-budget" type="number" min={0} step="1" inputMode="decimal" placeholder="No limit" value={budget} onChange={(e) => setBudget(e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="ai-per-person">Monthly AI budget per person (USD)</Label>
+          <Input id="ai-per-person" type="number" min={0} step="1" inputMode="decimal" placeholder="No limit" value={perPerson} onChange={(e) => setPerPerson(e.target.value)} />
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground">When a budget is used up, people get the free model until next month. Nothing is charged to employees.</p>
       <Button type="submit" disabled={pending}>
         {pending ? "Saving…" : "Save AI settings"}
       </Button>

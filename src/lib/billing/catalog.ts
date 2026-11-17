@@ -19,7 +19,7 @@ export const PLANS: Record<PlanKey, { label: string; summary: string; features: 
   COACH_PRO: { label: "Coach Pro", summary: "Up to 40 active clients", features: ["Up to 40 active clients", "White-label branding", "Marketplace listing", "Priority in the marketplace"] },
 };
 
-export type ProductKey = "full_360" | "pro_yearly" | "ai_credits_5" | "coach_starter_month" | "coach_pro_month" | "coach_report_credits_5" | "org_seats_25" | "org_seats_100";
+export type ProductKey = "full_360" | "pro_yearly" | "ai_credits_5" | "coach_starter_month" | "coach_pro_month" | "coach_report_credits_5" | "org_seats_25" | "org_seats_100" | "company_platform_month";
 
 export const PRODUCTS: Record<ProductKey, { label: string; description: string; amountCents: number; kind: "one_off" | "subscription"; plan?: PlanKey; days?: number }> = {
   full_360: { label: "Full 360", description: "Unlimited raters and PDF export for one 360", amountCents: 4900, kind: "one_off" },
@@ -30,6 +30,8 @@ export const PRODUCTS: Record<ProductKey, { label: string; description: string; 
   coach_report_credits_5: { label: "5 client report credits", description: "Gift a full 360 to a client (wholesale, $35 each)", amountCents: 17500, kind: "one_off" },
   org_seats_25: { label: "Cohort package: 25 seats", description: "25 participant seats for 360 rounds ($11.96 each)", amountCents: 29900, kind: "one_off" },
   org_seats_100: { label: "100 participant seats", description: "100 seats for 360 rounds ($10 each)", amountCents: 100000, kind: "one_off" },
+  // Phase 11e: placeholder price, change freely before real payments.
+  company_platform_month: { label: "Company plan (1 month)", description: "Company workspace: rounds, analytics, roles, SSO, audit log. Seats are separate.", amountCents: 4900, kind: "subscription", days: 30 },
 };
 
 export const formatCents = (c: number, currency = "usd") => new Intl.NumberFormat("en", { style: "currency", currency }).format(c / 100);

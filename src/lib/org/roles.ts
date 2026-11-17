@@ -28,5 +28,6 @@ export const TAB_ROLE = {
   rounds: "ADMIN",
   talent: "ADMIN",
   audit: "ADMIN",
+  billing: "OWNER",
   settings: "OWNER",
 } as const satisfies Record<string, CompanyRole>;

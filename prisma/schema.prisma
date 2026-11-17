@@ -528,6 +528,7 @@ model AIInteractionLog {
 
   @@index([userId, createdAt])
   @@index([actorKey, createdAt])
+  @@index([workspaceId, createdAt])
 }
 
 enum GoalStatus {
@@ -725,6 +726,12 @@ model Organization {
   allowPersonalCopy Boolean       @default(true)
   /// Phase 11e: premium AI models people may use in this workspace (the free model is always allowed).
   allowedAiModels   String[]      @default([])
+  /// Phase 11e: company plan paid until (null = never paid; new companies get a free trial).
+  platformPaidUntil DateTime?
+  /// Phase 11e: monthly premium-AI budget for the whole workspace, in cents (null = no limit).
+  aiBudgetCents     Int?
+  /// Phase 11e: monthly premium-AI budget per person, in cents (null = no limit).
+  aiPerPersonCents  Int?
 }
 
 enum OrgRole {

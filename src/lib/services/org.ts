@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { OrgMember } from "@prisma/client";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
+import { platformStatus } from "@/lib/org/platform";
 import { atLeast, ORG_ROLES, type CompanyRole } from "@/lib/org/roles";
 import { roundProfile } from "@/lib/services/round-results";
 import { cancelExit, startExit } from "@/lib/services/leaving";
@@ -245,6 +246,8 @@ export const campaignSchema = z.object({
 export async function createCampaign(adminId: string, orgId: string, raw: unknown) {
   const admin = await requireAdmin(adminId, orgId);
   const input = campaignSchema.parse(raw);
+  // Phase 11e: new rounds need an active company plan (or the free trial).
+  if (!platformStatus(admin.org).active) throw new DomainError("The company plan has ended. An owner can renew it on the Billing page to start new rounds.", "plan_required");
   await assertCanUseFramework(adminId, input.frameworkId);
   if (input.groupId && !(await db.orgGroup.findFirst({ where: { id: input.groupId, orgId } }))) throw new DomainError("Unknown team or cohort");
   if (input.teamMode && !input.groupId) throw new DomainError("A team 360 needs a team.");

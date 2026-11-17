@@ -4,7 +4,9 @@ import { requireOnboardedUser } from "@/lib/session";
 import { billingOverview } from "@/lib/services/billing";
 import { paymentProvider } from "@/lib/billing/provider";
 import { COACH_CLIENT_LIMIT, PLANS, PRODUCTS, formatCents, type ProductKey } from "@/lib/billing/catalog";
-import { BuyButton, CancelSubscriptionButton } from "@/components/billing/billing-controls";
+import { CancelSubscriptionButton } from "@/components/billing/billing-controls";
+import { Product } from "@/components/billing/product-card";
+import { redirect } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,19 +15,6 @@ export const metadata = { title: "Billing" };
 
 const date = (d: Date) => d.toISOString().slice(0, 10);
 
-function Product({ k, context, label }: { k: ProductKey; context?: { assessmentId?: string; orgId?: string }; label?: string }) {
-  const p = PRODUCTS[k];
-  return (
-    <div className="flex flex-col justify-between gap-3 rounded-lg border p-4" data-testid={`product-${k}`}>
-      <div>
-        <p className="font-medium">{p.label}</p>
-        <p className="text-2xl font-semibold">{formatCents(p.amountCents)}</p>
-        <p className="mt-1 text-sm text-muted-foreground">{p.description}</p>
-      </div>
-      <BuyButton product={k} context={context} label={label ?? `Buy ${p.label}`} />
-    </div>
-  );
-}
 
 export default async function BillingPage({ searchParams }: { searchParams: Promise<{ paid?: string; canceled?: string; unlock?: string }> }) {
   const user = await requireOnboardedUser("/billing");
@@ -33,6 +22,9 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   const o = await billingOverview(user.id);
   const unlock = sp.unlock ? await db.assessment.findFirst({ where: { id: sp.unlock, subjectId: user.id }, select: { id: true, title: true, unlockedAt: true } }) : null;
   const paid = sp.paid ? o.payments.find((p) => p.id === sp.paid) : null;
+  // Company purchases (Phase 11e) are shown on the company's own billing page.
+  const paidOrg = (paid?.context as { orgId?: string } | null)?.orgId;
+  if (paidOrg) redirect(`/orgs/${paidOrg}/billing?paid=${paid!.id}`);
   const stub = paymentProvider().name === "stub";
   const personalSub = o.subscriptions.find((s) => s.plan === "PRO");
   const coachSub = o.subscriptions.find((s) => s.plan.startsWith("COACH_"));
@@ -142,13 +134,12 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
         <Card key={org.id} data-testid="org-billing">
           <CardHeader>
             <CardTitle className="text-base">{org.name}</CardTitle>
-            <CardDescription>
-              <span data-testid="org-seats">{org.seats}</span> participant seats left. Each person in a 360 round uses one seat.
-            </CardDescription>
+            <CardDescription>Company plan and participant seats are managed in the company workspace.</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2">
-            <Product k="org_seats_25" context={{ orgId: org.id }} />
-            <Product k="org_seats_100" context={{ orgId: org.id }} />
+          <CardContent>
+            <Link href={`/orgs/${org.id}/billing`} className="text-sm font-medium underline">
+              Open {org.name} billing
+            </Link>
           </CardContent>
         </Card>
       ))}
