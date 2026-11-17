@@ -7,7 +7,6 @@ import { addMonths } from "@/lib/progress";
 import { derivedToken, hashToken } from "@/lib/tokens";
 import { firstName } from "@/lib/utils";
 import { DomainError } from "@/lib/errors";
-import { assertPulseAllowed } from "@/lib/services/billing";
 import { getReportForOwner } from "@/lib/services/reports";
 
 export const pulseSchema = z.object({
@@ -53,7 +52,6 @@ export async function createPulse(userId: string, sourceId: string, raw: unknown
   const root = rootId === source.id ? source : await db.assessment.findUniqueOrThrow({ where: { id: rootId }, select: { title: true } });
   const open = await db.assessment.count({ where: { OR: [{ id: rootId }, { rootAssessmentId: rootId }], status: { in: ["DRAFT", "READY", "COLLECTING"] } } });
   if (open > 0) throw new DomainError("This survey already has a session in progress. Finish or close it first.");
-  await assertPulseAllowed(userId, rootId);
   const name = firstName(source.subject.profile?.displayName ?? source.subject.name);
 
   const pulse = await db.$transaction(async (tx) => {
@@ -66,8 +64,6 @@ export async function createPulse(userId: string, sourceId: string, raw: unknown
         rootAssessmentId: rootId,
         sessionNumber,
         title: pulseTitle(root.title, sessionNumber),
-        // Pulses belong to their survey, so they share its unlock (Phase 9).
-        unlockedAt: source.unlockedAt,
         company: source.company,
         tags: source.tags,
         goal: source.goal,

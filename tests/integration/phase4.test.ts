@@ -93,43 +93,32 @@ describe.skipIf(!hasDb)("Phase 4 (integration)", async () => {
     ).rejects.toThrow(/unknown framework/i);
   });
 
-  it("refuses AI generation without credits and doesn't call the AI", async () => {
-    const f = groq({});
-    globalThis.fetch = f as unknown as typeof fetch;
-    await expect(fw.generateAIFramework(userId, { purpose: "I lead a design team and want feedback on critique sessions." })).rejects.toThrow(/need 1 credit/);
-    expect(f).not.toHaveBeenCalled();
-  });
-
-  it("charges exactly 1 credit for a successful AI questionnaire and records it", async () => {
-    await grantCredits(userId, 2);
+  it("generates an AI questionnaire on the free model without using credits (credits launch)", async () => {
+    const before = await creditBalance(userId);
     globalThis.fetch = groq({ name: "Design lead 360", description: "Critique and craft.", competencies: [section("Critique", 3), section("Craft", 3)] }) as unknown as typeof fetch;
     const r = await fw.generateAIFramework(userId, { purpose: "I lead a design team and want feedback on critique sessions.", sections: 3, perSection: 3 });
     expect(r.generatedBy).toBe("ai");
-    expect(await creditBalance(userId)).toBe(1);
     const saved = await fw.getOwnFramework(userId, r.frameworkId);
     expect(saved.source).toBe("ai");
-    const ledger = await db.creditLedger.findMany({ where: { userId }, orderBy: { createdAt: "asc" } });
-    expect(ledger.map((l) => [l.delta, l.reason])).toEqual([
-      [2, "grant"],
-      [-1, "ai_questionnaire"],
-    ]);
-    expect(ledger[1].ref).toBe(r.frameworkId);
+    expect(await creditBalance(userId)).toBe(before);
+    expect(await db.creditLedger.count({ where: { userId, reason: "ai_questionnaire" } })).toBe(0);
   });
 
-  it("doesn't charge when the AI fails or returns an unusable questionnaire", async () => {
+  it("reports AI failures and unusable questionnaires without saving anything", async () => {
+    const count = await db.framework.count({ where: { ownerId: userId } });
     globalThis.fetch = groq({}, 500) as unknown as typeof fetch;
-    await expect(fw.generateAIFramework(userId, { purpose: "I lead a design team and want feedback on critique sessions." })).rejects.toThrow(/not charged/);
+    await expect(fw.generateAIFramework(userId, { purpose: "I lead a design team and want feedback on critique sessions." })).rejects.toThrow(/unavailable/);
     globalThis.fetch = groq({ name: "Tiny", description: "x", competencies: [section("Ab", 1), section("Cd", 1)] }) as unknown as typeof fetch;
     await expect(fw.generateAIFramework(userId, { purpose: "I lead a design team and want feedback on critique sessions." })).rejects.toThrow(/at least 5 statements/);
-    expect(await creditBalance(userId)).toBe(1);
+    expect(await db.framework.count({ where: { ownerId: userId } })).toBe(count);
   });
 
-  it("can't spend the same credit twice in parallel", async () => {
-    globalThis.fetch = (async () => groq({ name: "Parallel 360", description: "x", competencies: [section("Alpha"), section("Beta")] })()) as unknown as typeof fetch;
-    const brief = { purpose: "I lead a design team and want feedback on critique sessions." };
-    const results = await Promise.allSettled([fw.generateAIFramework(userId, brief), fw.generateAIFramework(userId, brief)]);
-    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
-    expect(await creditBalance(userId)).toBe(0);
+  it("grants credits in hundredths with a ledger entry", async () => {
+    const before = await creditBalance(userId);
+    await grantCredits(userId, 2);
+    expect(await creditBalance(userId)).toBe(before + 200);
+    const last = await db.creditLedger.findFirstOrThrow({ where: { userId }, orderBy: { createdAt: "desc" } });
+    expect([last.delta, last.reason, last.balanceAfter]).toEqual([200, "grant", before + 200]);
   });
 
   it("runs a 360 on a custom questionnaire, then a pulse with the same raters", async () => {

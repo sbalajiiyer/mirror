@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Coins, Sparkles } from "lucide-react";
-import { AI_QUESTIONNAIRE_PRICE_CENTS, formatPrice } from "@/lib/questionnaire";
+import { formatCredits } from "@/lib/billing/pricing";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +18,6 @@ export function AIGenerator({ credits, defaultRole }: { credits: number; default
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const router = useRouter();
-  const price = formatPrice(AI_QUESTIONNAIRE_PRICE_CENTS);
 
   return (
     <Card>
@@ -27,7 +26,7 @@ export function AIGenerator({ credits, defaultRole }: { credits: number; default
           <Sparkles className="size-4 text-primary" /> Tell us what you want feedback on
         </CardTitle>
         <CardDescription>
-          AI writes a complete questionnaire of observable behaviours. It&apos;s saved as yours, and you can edit it for free afterwards. Costs 1 credit ({price}); you&apos;re only charged if generation succeeds.
+          AI writes a complete questionnaire of observable behaviours. It&apos;s saved as yours, and you can edit it afterwards. Free on the free AI model; premium models are charged per use.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -70,14 +69,13 @@ export function AIGenerator({ credits, defaultRole }: { credits: number; default
         <div className="flex flex-wrap items-center gap-3 rounded-lg bg-muted/50 p-3 text-sm">
           <Coins className="size-4" />
           <span data-testid="credit-balance">
-            You have <strong>{credits}</strong> credit{credits === 1 ? "" : "s"}.
+            You have <strong>{formatCredits(credits)}</strong> credits. Only premium AI models use them here.
           </span>
-          {credits < 1 && <span className="text-muted-foreground">Buying credits opens soon. Until then, building your own questionnaire is free.</span>}
         </div>
         {error && <Alert tone="error">{error}</Alert>}
         <div className="flex flex-wrap gap-2">
           <Button
-            disabled={pending || credits < 1}
+            disabled={pending}
             data-testid="generate-questionnaire"
             onClick={() =>
               start(async () => {
@@ -89,7 +87,7 @@ export function AIGenerator({ credits, defaultRole }: { credits: number; default
               })
             }
           >
-            {pending ? "Writing your questionnaire… (up to 30 seconds)" : `Generate for 1 credit (${price})`}
+            {pending ? "Writing your questionnaire… (up to 30 seconds)" : "Generate questionnaire"}
           </Button>
           <Button asChild variant="ghost">
             <Link href="/questionnaires/new">Build my own instead (free)</Link>

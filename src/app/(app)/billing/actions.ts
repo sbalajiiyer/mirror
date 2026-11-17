@@ -6,10 +6,10 @@ import { toActionError, type ActionResult } from "@/lib/action-result";
 import { PRODUCTS, type ProductKey } from "@/lib/billing/catalog";
 import { cancelSubscription, completeStubPayment, giftFull360, startCheckout } from "@/lib/services/billing";
 
-export async function buyAction(product: string, context: { assessmentId?: string; orgId?: string } = {}): Promise<ActionResult<{ url: string }>> {
+export async function buyAction(product: string, context: { orgId?: string; credits?: number } = {}): Promise<ActionResult<{ url: string }>> {
   try {
     if (!(product in PRODUCTS)) throw new Error("Unknown product");
-    const r = await startCheckout(await requireUserId(), product as ProductKey, { assessmentId: context.assessmentId || undefined, orgId: context.orgId || undefined });
+    const r = await startCheckout(await requireUserId(), product as ProductKey, { orgId: context.orgId || undefined, credits: context.credits });
     return { ok: true, data: { url: r.url } };
   } catch (e) {
     return toActionError(e);

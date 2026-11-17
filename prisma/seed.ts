@@ -146,7 +146,6 @@ async function main() {
           industry: "Software",
           goals: ["promotion", "leadership_growth"],
           onboardedAt: new Date(),
-          aiCredits: 3,
         },
       },
     },
@@ -662,10 +661,15 @@ async function main() {
   const norms = await rebuildNorms();
 
   // ---------------- Plans and marketplace (Phase 9; payments are simulated) ----------------
-  const YEAR = 365 * DAY;
-  await db.subscription.create({ data: { userId: user.id, plan: "PRO", currentPeriodEnd: new Date(Date.now() + YEAR), provider: "seed" } });
   await db.subscription.create({ data: { userId: coach.id, plan: "COACH_STARTER", currentPeriodEnd: new Date(Date.now() + 30 * DAY), provider: "seed" } });
-  await db.entitlement.create({ data: { userId: coach.id, kind: "coach_report_credit", remaining: 3, source: "seed" } });
+  // Credits (hundredths): the demo person, the demo coach and the demo company start with some.
+  const seedCredits = async (where: { ownerId: string } | { orgId: string }, userId: string, amount: number) => {
+    const w = await db.workspace.update({ where, data: { credits: amount } });
+    await db.creditLedger.deleteMany({ where: { workspaceId: w.id } });
+    await db.creditLedger.create({ data: { workspaceId: w.id, userId, delta: amount, reason: "grant", ref: "seed", balanceAfter: amount, ...("orgId" in where ? { orgId: where.orgId } : {}) } });
+  };
+  await seedCredits({ ownerId: user.id }, user.id, 50000);
+  await seedCredits({ ownerId: coach.id }, coach.id, 20000);
   await db.coachProfile.update({
     where: { userId: coach.id },
     data: { listed: true, verified: true, headline: "Executive coach for new and growing leaders", bio: "I help managers turn 360 feedback into a focused development plan, with monthly sessions and pulse checks in between.", specialties: ["Leadership", "Communication", "Executive presence"], languages: ["English"], sessionPriceCents: 20000 },
@@ -681,7 +685,7 @@ async function main() {
     },
   });
   await db.subscription.create({ data: { userId: priya.id, plan: "COACH_PRO", currentPeriodEnd: new Date(Date.now() + 30 * DAY), provider: "seed" } });
-  await db.organization.update({ where: { id: org.id }, data: { seats: 100 } });
+  await seedCredits({ orgId: org.id }, user.id, 200000);
 
   // ---------------- Enterprise (Phase 10) ----------------
   // Brightline's email domain is verified; SSO goes through the pretend identity provider when dev tools are on.

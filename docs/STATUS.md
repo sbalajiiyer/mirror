@@ -1,6 +1,6 @@
 # Mirror — build status
 
-_Last updated: 2026-11-17 (Phase 11: personal and company workspaces)_
+_Last updated: 2026-11-17 (Credits)_
 
 ## Phases
 
@@ -27,6 +27,7 @@ _Last updated: 2026-11-17 (Phase 11: personal and company workspaces)_
 | — | Plain-language AI — ASD-STE100 rules for AI questionnaires and summaries; Standard and Simplified summary versions; anonymity rules enforced in code | ✅ Done (PR #22) |
 | 11 | Personal and company workspaces — one workspace per item, switcher and menus, frozen round results, leaving and copying, Owner/Admin/Analyst roles, company plan and seats, AI models and budgets, company coaching, personal sign-in email | ✅ Done (PRs #24–#30). Plan and build log: [`docs/phases/phase-11-workspaces-plan.md`](phases/phase-11-workspaces-plan.md); admin guide: [`docs/guides/company-admin.md`](guides/company-admin.md) |
 | — | Rater reminders — one-screen panel (filters, personal lines, tones, AI rewrite, preview, queued sends, history), "<name> via Mirror" with reply-to, round reminders for admins | ✅ Done (PR from `rater-reminders`); see [`docs/phases/rater-reminders.md`](phases/rater-reminders.md) |
+| — | Credits — $1 = 1 credit bought in any amount (buyer pays fees), first 360 free, surveys charged at launch, premium AI at cost × 2, pricing policy and discounts editable at /admin/pricing, company and coach wallets | ✅ Done (PR from `credits`); see [`docs/phases/credits.md`](phases/credits.md) |
 
 Demo scripts: [`docs/phases/phase-1-foundation.md`](phases/phase-1-foundation.md), [`docs/phases/phase-2-report.md`](phases/phase-2-report.md), [`docs/phases/phase-3-ai.md`](phases/phase-3-ai.md), [`docs/phases/phase-4-pulses-progress.md`](phases/phase-4-pulses-progress.md), [`docs/phases/phase-4b-survey-sessions.md`](phases/phase-4b-survey-sessions.md), [`docs/phases/phase-5-coach.md`](phases/phase-5-coach.md), [`docs/phases/phase-6-teams-orgs.md`](phases/phase-6-teams-orgs.md), [`docs/phases/phase-7-personalization.md`](phases/phase-7-personalization.md), [`docs/phases/phase-8-analytics.md`](phases/phase-8-analytics.md), [`docs/phases/phase-9-payments-marketplace.md`](phases/phase-9-payments-marketplace.md), [`docs/phases/phase-10-enterprise.md`](phases/phase-10-enterprise.md), [`docs/phases/polish-2026-11.md`](phases/polish-2026-11.md), [`docs/phases/trust-ux-reliability.md`](phases/trust-ux-reliability.md), [`docs/phases/plain-language-ai.md`](phases/plain-language-ai.md).
 
@@ -69,7 +70,7 @@ on every PR (`.github/workflows/ci.yml`, GitHub Actions free tier, Postgres serv
 | **AI provider (default, free)** | **Groq free tier running open-weight `gpt-oss`** (120b for reports, 20b for light tasks) | No card needed; rate-limited. Owner creates a free key at console.groq.com → `GROQ_API_KEY`. |
 | **AI for paying users** | **Premium model, billed per use** | Subjects can switch to a premium model (e.g. Claude or GPT) in settings and pay by usage. Phase 3 builds the provider interface, the model choice and usage metering; charging (Stripe) comes with Phase 9. |
 | **Hosted database** | **Neon free tier** | Works with the current driver-adapter setup by changing `DATABASE_URL` (pooled string + `?sslmode=require`). |
-| **Paid AI questionnaire** | **Credits, granted manually until Stripe (Phase 9); $4.99 = 1 credit** | Building your own questionnaire is free. `npm run credits:grant -- <email> <n>`; every change is in `CreditLedger`. Price via `NEXT_PUBLIC_AI_QUESTIONNAIRE_PRICE_CENTS`. |
+| **Paid AI questionnaire** | _Superseded by credits (2026-11-17):_ free on the free model; premium models charged per use | | |
 | **Hosting** | **Vercel Hobby** | Free, non-commercial. Needs: PDF via `playwright-core` + `@sparticuz/chromium`; reminders cron is daily on Hobby (or use a GitHub Actions schedule for hourly). |
 
 ## Deployment (Vercel + Neon)
@@ -101,7 +102,7 @@ Nothing paid has been added. Each item below is stubbed behind an interface so i
 | **Premium AI model + price** | Catalog entries for Claude and GPT, off by default (`PREMIUM_AI_ENABLED=false`); placeholder price $0.02 per 1K tokens | Which premium model(s) to offer, their model ids and the per-use price; decide before Phase 9 billing | `src/lib/ai/models.ts`, env vars in `.env.example` |
 | **Google sign-in** | Hidden unless env vars are set | Free: create an OAuth client in Google Cloud Console | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` |
 | **Payment provider** — _owner chose to stub for now_ | `stub` provider: in-app Test checkout, nothing charged. **Anyone signed in can "buy" any plan for free while this is on.** | Stripe (no monthly fee; per-payment fees). Set `PAYMENTS_PROVIDER=stripe`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and add the webhook; see the Phase 9 demo script | `src/lib/billing/provider.ts` |
-| **Prices** | Defaults in the Phase 9 table | Change freely before real payments | `src/lib/billing/catalog.ts` |
+| **Prices** | Credits: 360 49, pulse 9, coach gift 35, company 12/person, premium AI cost × 2, fees 2.9% + 30¢ (paid by the buyer) | Edit any time at /admin/pricing (needs `PLATFORM_ADMIN_EMAILS`); discounts per company or person there too | `PricingPolicy`, `PriceDiscount`; see `docs/phases/credits.md` |
 | **EU database** (residency) | One database (Neon, AWS us-east-1); EU orgs are recorded, labelled, and kept away from non-EU AI | A second Neon project in an EU region (free tier) with per-org routing, when a customer needs data stored in the EU | `src/lib/residency.ts`, `src/lib/db.ts` |
 | **SAML SSO** | OIDC only | BoxyHQ/Jackson (open source) inside the app, or WorkOS (paid) | `src/lib/sso/` |
 | SMS invites | Not built | Twilio etc. (paid) — suggest deferring | — |

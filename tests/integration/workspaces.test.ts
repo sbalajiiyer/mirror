@@ -313,22 +313,28 @@ describe.skipIf(!hasDb)("workspaces (integration)", async () => {
       }
     });
 
-    it("company premium chats don't use the employee's own credits", async () => {
+    it("company premium chats use company credits, not the employee's", async () => {
       const chat = await import("@/lib/services/chat");
-      Object.assign(process.env, { PREMIUM_AI_ENABLED: "true", ANTHROPIC_API_KEY: "test", ANTHROPIC_MODEL: "claude-test" });
+      Object.assign(process.env, { PREMIUM_AI_ENABLED: "true", ANTHROPIC_API_KEY: "test", ANTHROPIC_MODEL: "claude-test", BILLING_ENFORCED: "true" });
       try {
         await db.organization.update({ where: { id: orgId }, data: { aiBudgetCents: null, aiPerPersonCents: null } });
+        await db.workspace.update({ where: { id: companyWs }, data: { credits: 5000 } });
         const u = people[4].id;
-        await db.subjectProfile.update({ where: { userId: u }, data: { aiModel: "premium-claude", aiCredits: 0 } });
+        await db.subjectProfile.update({ where: { userId: u }, data: { aiModel: "premium-claude" } });
+        const mine = await personalWs(u);
+        await db.workspace.update({ where: { id: mine }, data: { credits: 0 } });
         const c = await chat.startChat(u, { mode: "ROLEPLAY", preset: "say_no", premium: true }, companyWs);
         expect(c).toMatchObject({ tier: "premium", workspaceId: companyWs });
-        expect((await db.subjectProfile.findUniqueOrThrow({ where: { userId: u } })).aiCredits).toBe(0);
-        // In Personal, premium still costs a credit.
-        await expect(chat.startChat(u, { mode: "ROLEPLAY", preset: "say_no", premium: true }, await personalWs(u))).rejects.toThrow(/costs 1 credit/);
+        // In Personal, premium needs the person's own credits.
+        await expect(chat.startChat(u, { mode: "ROLEPLAY", preset: "say_no", premium: true }, mine)).rejects.toThrow(/Add credits/);
+        // A company with no credits falls back to the free model.
+        await db.workspace.update({ where: { id: companyWs }, data: { credits: 0 } });
+        await expect(chat.startChat(u, { mode: "ROLEPLAY", preset: "say_no", premium: true }, companyWs)).rejects.toThrow(/no credits/);
       } finally {
         delete process.env.PREMIUM_AI_ENABLED;
         delete process.env.ANTHROPIC_API_KEY;
         delete process.env.ANTHROPIC_MODEL;
+        process.env.BILLING_ENFORCED = "false";
       }
     });
   });

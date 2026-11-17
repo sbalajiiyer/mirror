@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import type { z } from "zod";
 import { db } from "@/lib/db";
 import { costMicros, type AIModelEntry } from "./models";
-import { currentAiWorkspace, modelForWorkspace } from "./context";
+import { chargePremiumAI, currentAiWorkspace, modelForWorkspace } from "./context";
 import { anthropicProvider } from "./providers/anthropic";
 import { groqProvider, openAIProvider } from "./providers/openai-compatible";
 import { AIUnavailableError, type AIProvider, type AIRequest } from "./types";
@@ -76,10 +76,17 @@ export async function runAI<T>(opts: {
     return { ok: false, error: "Daily AI limit reached for this feature. Try again tomorrow.", fallback: opts.fallback() };
   }
 
-  const log = (status: string, extra: { inputTokens?: number; outputTokens?: number; error?: string } = {}) =>
-    db.aIInteractionLog
+  const log = async (status: string, extra: { inputTokens?: number; outputTokens?: number; error?: string } = {}) => {
+    const cost = status === "ok" ? costMicros(entry, extra.inputTokens ?? 0, extra.outputTokens ?? 0) : 0;
+    // Credits: premium requests are charged from the paying wallet after they succeed.
+    const charged =
+      entry.tier === "premium" && entry.provider !== "mock"
+        ? await chargePremiumAI({ workspaceId, userId: opts.userId, costMicros: cost, feature: opts.feature }).catch((e) => (console.error("[ai] charge failed", e), 0))
+        : 0;
+    return db.aIInteractionLog
       .create({
         data: {
+          charged,
           userId: opts.userId ?? null,
           actorKey: opts.userId ? null : (opts.actorKey ?? "anonymous"),
           feature: opts.feature,
@@ -89,12 +96,13 @@ export async function runAI<T>(opts: {
           tier: entry.provider === "mock" ? "mock" : entry.tier,
           inputTokens: extra.inputTokens ?? 0,
           outputTokens: extra.outputTokens ?? 0,
-          costMicros: status === "ok" ? costMicros(entry, extra.inputTokens ?? 0, extra.outputTokens ?? 0) : 0,
+          costMicros: cost,
           status,
           error: extra.error?.slice(0, 500),
         },
       })
       .catch((e) => console.error("[ai] log failed", e));
+  };
 
   if (opts.region && entry.provider !== "mock" && !providerAllowedIn(entry.provider, opts.region)) {
     await log("residency");
@@ -160,10 +168,17 @@ export async function* runAIStream(opts: {
     yield { type: "end", ok: false, generatedBy: "template", modelId: entry.id, error: "Daily AI limit reached for this feature. Try again tomorrow.", limited: true };
     return;
   }
-  const log = (status: string, usage: { inputTokens?: number; outputTokens?: number; error?: string } = {}) =>
-    db.aIInteractionLog
+  const log = async (status: string, usage: { inputTokens?: number; outputTokens?: number; error?: string } = {}) => {
+    const cost = status === "ok" ? costMicros(entry, usage.inputTokens ?? 0, usage.outputTokens ?? 0) : 0;
+    // Credits: premium requests are charged from the paying wallet after they succeed.
+    const charged =
+      entry.tier === "premium" && entry.provider !== "mock"
+        ? await chargePremiumAI({ workspaceId, userId: opts.userId, costMicros: cost, feature: opts.feature }).catch((e) => (console.error("[ai] charge failed", e), 0))
+        : 0;
+    return db.aIInteractionLog
       .create({
         data: {
+          charged,
           userId: opts.userId,
           feature: opts.feature,
           ...(workspaceId ? { workspaceId } : {}),
@@ -172,12 +187,13 @@ export async function* runAIStream(opts: {
           tier: entry.provider === "mock" ? "mock" : entry.tier,
           inputTokens: usage.inputTokens ?? 0,
           outputTokens: usage.outputTokens ?? 0,
-          costMicros: status === "ok" ? costMicros(entry, usage.inputTokens ?? 0, usage.outputTokens ?? 0) : 0,
+          costMicros: cost,
           status,
           error: usage.error?.slice(0, 500),
         },
       })
       .catch((e) => console.error("[ai] log failed", e));
+  };
   const words = function* (text: string) {
     for (const piece of text.match(/\S+\s*/g) ?? [text]) yield piece;
   };

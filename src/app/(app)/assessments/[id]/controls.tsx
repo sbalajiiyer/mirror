@@ -15,12 +15,15 @@ export function LifecycleActions({
   submitted,
   invites,
   min,
+  cost,
 }: {
   assessmentId: string;
   status: "READY" | "COLLECTING" | "CLOSED";
   submitted: number;
   invites: number;
   min: number;
+  /** Credits: what sending the invites costs (from launchQuote). */
+  cost?: { text: string; enough: boolean; billingHref?: string | null };
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -43,10 +46,25 @@ export function LifecycleActions({
             <CardTitle>Self-assessment locked — send your invites</CardTitle>
             <CardDescription>{invites} people will get an email with their personal, anonymous link. Reminders go out automatically.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Button onClick={() => run(() => launchAction(assessmentId), "Invites sent.")} disabled={pending} data-testid="launch">
-              <Send /> {pending ? "Sending…" : "Send invites"}
-            </Button>
+          <CardContent className="space-y-3">
+            {cost && (
+              <p className="text-sm" data-testid="launch-cost">
+                {cost.text}
+              </p>
+            )}
+            {cost && !cost.enough ? (
+              cost.billingHref ? (
+                <Button asChild data-testid="add-credits">
+                  <a href={cost.billingHref}>Add credits to send invites</a>
+                </Button>
+              ) : (
+                <Alert tone="info">The company doesn&apos;t have enough credits. Ask a company owner to add credits.</Alert>
+              )
+            ) : (
+              <Button onClick={() => run(() => launchAction(assessmentId), "Invites sent.")} disabled={pending} data-testid="launch">
+                <Send /> {pending ? "Sending…" : "Send invites"}
+              </Button>
+            )}
           </CardContent>
         </>
       )}

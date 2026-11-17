@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+import { creditBalance } from "@/lib/services/credits";
 export const metadata = { title: "AI coach" };
 
 export default async function ChatHome({ searchParams }: { searchParams: Promise<{ report?: string }> }) {
@@ -40,7 +41,7 @@ export default async function ChatHome({ searchParams }: { searchParams: Promise
         reports={reports}
         presets={ROLEPLAY_PRESETS.map((p) => ({ key: p.key, label: p.label }))}
         defaultReport={report}
-        premium={{ available: chosen.tier === "premium" && !!premiumAny, credits: user.profile.aiCredits, label: chosen.tier === "premium" ? chosen.label : null }}
+        premium={{ available: chosen.tier === "premium" && !!premiumAny, credits: await creditBalance(user.id), label: chosen.tier === "premium" ? chosen.label : null }}
       />
       {chats.length > 0 && (
         <Card>

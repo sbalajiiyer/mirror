@@ -66,7 +66,7 @@ export function SettingsForm({
             </label>
           ))}
           <p className="text-xs text-muted-foreground">
-            This month: {usage.calls} AI requests{usage.premiumCalls ? `, ${usage.premiumCalls} premium (≈ $${usage.costUsd.toFixed(2)})` : ""}. Premium billing starts when payments launch; until then usage is only metered.
+            This month: {usage.calls} AI requests{usage.premiumCalls ? `, ${usage.premiumCalls} premium (≈ $${usage.costUsd.toFixed(2)})` : ""}. Premium requests are paid from your credits at their cost × the premium markup; the free model is always free.
           </p>
         </CardContent>
       </Card>

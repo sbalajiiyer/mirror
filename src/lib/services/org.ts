@@ -8,7 +8,9 @@ import { atLeast, ORG_ROLES, type CompanyRole } from "@/lib/org/roles";
 import { roundProfile } from "@/lib/services/round-results";
 import { cancelExit, startExit } from "@/lib/services/leaving";
 import { DomainError } from "@/lib/errors";
-import { consumeOrgSeats } from "@/lib/services/billing";
+import { chargeRound } from "@/lib/services/billing";
+import { getPolicy } from "@/lib/services/pricing";
+import { grantOrgCredits } from "@/lib/services/credits";
 import { normalizeEmail } from "@/lib/email-address";
 import { sendEmail } from "@/lib/email";
 import { orgCampaignEmail, orgInviteEmail } from "@/lib/email/templates";
@@ -89,6 +91,9 @@ export async function createOrg(userId: string, rawName: string) {
       members: { create: { userId, email: user.email!, name: user.profile?.displayName ?? user.name ?? "", role: "OWNER", status: "ACTIVE", joinedAt: new Date() } },
     },
   });
+  // Credits: a new company starts with welcome credits from the pricing policy.
+  const welcome = (await getPolicy()).companyWelcomeCredits;
+  if (welcome > 0) await grantOrgCredits(org.id, userId, welcome / 100, "welcome");
   await audit(userId, "org.create", "Organization", org.id);
   return org;
 }
@@ -253,10 +258,11 @@ export async function createCampaign(adminId: string, orgId: string, raw: unknow
   if (input.teamMode && !input.groupId) throw new DomainError("A team 360 needs a team.");
   const dueAt = new Date(Date.now() + input.dueInDays * 86400000);
   const members = await campaignMembers(orgId, input.groupId ?? null);
-  // One participant seat per person per round (Phase 9).
+  // Credits: the company pays the participant price for each person in the round.
   const c = await db.$transaction(async (tx) => {
-    await consumeOrgSeats(tx, orgId, members.length);
-    return tx.orgCampaign.create({ data: { orgId, name: input.name, groupId: input.groupId ?? null, frameworkId: input.frameworkId, teamMode: input.teamMode, dueAt } });
+    const round = await tx.orgCampaign.create({ data: { orgId, name: input.name, groupId: input.groupId ?? null, frameworkId: input.frameworkId, teamMode: input.teamMode, dueAt } });
+    await chargeRound(tx, orgId, adminId, members.length, round.id);
+    return round;
   });
   for (const m of members) await sendEmail(orgCampaignEmail({ to: m.email, orgName: admin.org.name, campaignName: c.name, link: appUrl(`/assessments/new?campaign=${c.id}`), dueAt }));
   await audit(adminId, "org.campaign", "OrgCampaign", c.id, { members: members.length }, { orgId });
