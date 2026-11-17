@@ -43,6 +43,9 @@ test("org admin dashboard and a new dashboard from scratch", async ({ page }) =>
   await page.goto("/signin");
   await page.getByTestId("demo-admin-login").click();
   await page.waitForURL("**/orgs");
+  // Company dashboards live in the company workspace (Phase 11).
+  await page.getByTestId("workspace-switcher").selectOption({ label: "Brightline Studio" });
+  await page.waitForURL("**/dashboard");
   await page.goto("/dashboards");
   await page.getByTestId("dashboard-list").getByRole("link", { name: /People overview/ }).click();
   await page.waitForURL(/\/dashboards\/[^/]+$/);

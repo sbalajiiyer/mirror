@@ -17,6 +17,7 @@ import {
   type SessionFilters,
 } from "@/lib/session-groups";
 import { memberTasks } from "@/lib/services/org";
+import { activeWorkspace } from "@/lib/workspace";
 import { StatusBadge } from "@/components/assessment/status-badge";
 import { Alert } from "@/components/ui/alert";
 import { recentlyCancelledDeletion } from "@/lib/services/my-data";
@@ -43,12 +44,15 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const user = await requireOnboardedUser("/dashboard");
   const sp = await searchParams;
   const { by, filters, active } = parseFilters(sp);
+  const ws = await activeWorkspace(user.id);
+  const company = ws.kind === "COMPANY";
   const assessments = await db.assessment.findMany({
-    where: { subjectId: user.id },
+    where: { subjectId: user.id, workspaceId: ws.id },
     orderBy: [{ sessionNumber: "desc" }, { createdAt: "desc" }],
     include: { invites: { select: { status: true } }, reports: { orderBy: { version: "desc" }, take: 1, select: { data: true } } },
   });
-  const orgTasks = await memberTasks(user.id);
+  // Round invitations show in their company workspace, and as a reminder in Personal.
+  const orgTasks = (await memberTasks(user.id)).filter((t) => !company || t.orgId === ws.orgId);
   const byId = new Map(assessments.map((a) => [a.id, a]));
   const rootTitle = (a: (typeof assessments)[number]) => byId.get(a.rootAssessmentId ?? a.id)?.title ?? a.title;
   const all = assessments.map((a) => toGroupableSession(a, rootTitle(a)));
@@ -117,17 +121,21 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Hi {user.profile.displayName.split(" ")[0]}</h1>
-          <p className="text-muted-foreground">Your surveys and every session you&apos;ve run of them.</p>
+          <p className="text-muted-foreground">
+            {company ? `Your 360s in ${ws.name} rounds. Your reports are yours; ${ws.name} sees only group results unless you share.` : "Your surveys and every session you've run of them."}
+          </p>
         </div>
         <div className="flex gap-2">
           <Button asChild variant="outline">
             <Link href="/progress">Progress</Link>
           </Button>
-          <Button asChild>
-            <Link href="/assessments/new">
-              <Plus /> New 360
-            </Link>
-          </Button>
+          {!company && (
+            <Button asChild>
+              <Link href="/assessments/new">
+                <Plus /> New 360
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -209,7 +217,14 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         </form>
       )}
 
-      {all.length === 0 ? (
+      {all.length === 0 && company ? (
+        <Card data-testid="company-empty">
+          <CardHeader>
+            <CardTitle>No round 360s yet</CardTitle>
+            <CardDescription>When {ws.name} starts a 360 round that includes you, it appears here. Personal 360s stay in your Personal space.</CardDescription>
+          </CardHeader>
+        </Card>
+      ) : all.length === 0 ? (
         <Card>
           <CardHeader>
             <CardTitle>Start your first 360</CardTitle>

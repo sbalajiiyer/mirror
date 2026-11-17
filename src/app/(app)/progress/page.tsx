@@ -4,6 +4,7 @@ import { goalProgress, streak, toSeriesPoint, type SeriesPoint } from "@/lib/pro
 import type { ReportData } from "@/lib/report/compute";
 import { markAchieved } from "@/lib/services/goals";
 import { requireOnboardedUser } from "@/lib/session";
+import { activeWorkspace } from "@/lib/workspace";
 import { surveyCode } from "@/lib/survey";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +16,7 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
   const user = await requireOnboardedUser("/progress");
   const { series } = await searchParams;
   const roots = await db.assessment.findMany({
-    where: { subjectId: user.id, rootAssessmentId: null },
+    where: { subjectId: user.id, rootAssessmentId: null, workspaceId: (await activeWorkspace(user.id)).id },
     orderBy: { createdAt: "desc" },
     select: { id: true, title: true, status: true, cadenceMonths: true, nextPulseDueAt: true, createdAt: true },
   });

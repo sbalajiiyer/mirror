@@ -60,8 +60,8 @@ async function context(userId: string, assessmentId: string | null): Promise<{ c
   };
 }
 
-export async function listChats(userId: string) {
-  return db.coachChat.findMany({ where: { userId }, orderBy: { updatedAt: "desc" }, include: { _count: { select: { messages: true } } }, take: 50 });
+export async function listChats(userId: string, workspaceId?: string) {
+  return db.coachChat.findMany({ where: { userId, ...(workspaceId ? { workspaceId } : {}) }, orderBy: { updatedAt: "desc" }, include: { _count: { select: { messages: true } } }, take: 50 });
 }
 
 export async function getChat(userId: string, chatId: string) {

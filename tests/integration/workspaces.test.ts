@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 
 const hasDb = !!process.env.TEST_DATABASE_URL;
 vi.spyOn(console, "info").mockImplementation(() => {});
+const jar = new Map<string, string>();
+vi.mock("next/headers", () => ({ cookies: async () => ({ get: (k: string) => (jar.has(k) ? { value: jar.get(k) } : undefined), set: (k: string, v: string) => void jar.set(k, v) }) }));
 
 describe.skipIf(!hasDb)("workspaces (integration)", async () => {
   const { db } = await import("@/lib/db");
@@ -101,6 +103,28 @@ describe.skipIf(!hasDb)("workspaces (integration)", async () => {
     await db.user.delete({ where: { id: people[5].id } });
     expect(await db.workspace.findUnique({ where: { ownerId: people[5].id } })).toBeNull();
     expect(await rr.roundProfile(orgId, campaignId, "org", 5)).toEqual(before);
+  });
+
+  it("lists Personal first, then companies with the right role, and checks access on the server", async () => {
+    const ws = await import("@/lib/workspace");
+    const list = await ws.listWorkspaces(people[0].id);
+    expect(list.map((w) => [w.kind, w.role])).toEqual([["PERSONAL", "OWNER"], ["COMPANY", "MEMBER"]]);
+    expect((await ws.listWorkspaces(admin.id))[1]).toMatchObject({ kind: "COMPANY", role: "ADMIN", orgId });
+    await expect(ws.requireWorkspaceRole(people[0].id, companyWs, "ADMIN")).rejects.toThrow(/Not found/);
+    await expect(ws.requireWorkspaceRole(people[0].id, await personalWs(people[1].id))).rejects.toThrow(/Not found/);
+    expect((await ws.requireWorkspaceRole(admin.id, companyWs, "ADMIN")).orgId).toBe(orgId);
+  });
+
+  it("remembers the active workspace, but never one the user isn't in", async () => {
+    const ws = await import("@/lib/workspace");
+    jar.clear();
+    expect((await ws.activeWorkspace(people[0].id)).kind).toBe("PERSONAL");
+    await ws.setActiveWorkspace(people[0].id, `org:${orgId}`);
+    expect((await ws.activeWorkspace(people[0].id)).id).toBe(companyWs);
+    // A forged cookie for another company falls back to Personal.
+    jar.set(ws.WORKSPACE_COOKIE, "org:not-mine");
+    expect((await ws.activeWorkspace(people[0].id)).kind).toBe("PERSONAL");
+    expect(await ws.setActiveWorkspace(people[0].id, "org:not-mine")).toBeNull();
   });
 
   it("personal 360s never add to round totals", async () => {
