@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireOnboardedUser } from "@/lib/session";
+import { activeWorkspace } from "@/lib/workspace";
 import { listChats } from "@/lib/services/chat";
 import { ROLEPLAY_PRESETS } from "@/lib/ai/features/chat";
 import { aiCatalog, resolveModel } from "@/lib/ai/models";
@@ -16,9 +17,10 @@ export const metadata = { title: "AI coach" };
 export default async function ChatHome({ searchParams }: { searchParams: Promise<{ report?: string }> }) {
   const user = await requireOnboardedUser("/chat");
   const { report } = await searchParams;
-  const closed = await db.assessment.findMany({ where: { subjectId: user.id, status: "CLOSED" }, orderBy: { closedAt: "desc" }, include: { reports: { take: 1, orderBy: { generatedAt: "desc" }, select: { data: true } } } });
+  const ws = await activeWorkspace(user.id);
+  const closed = await db.assessment.findMany({ where: { subjectId: user.id, status: "CLOSED", workspaceId: ws.id }, orderBy: { closedAt: "desc" }, include: { reports: { take: 1, orderBy: { generatedAt: "desc" }, select: { data: true } } } });
   const reports = closed.filter((a) => (a.reports[0]?.data as unknown as ReportData | undefined)?.anonymity.available).map((a) => ({ id: a.id, title: `${a.title} · S${a.sessionNumber}${a.sessionLabel ? ` ${a.sessionLabel}` : ""}` }));
-  const chats = await listChats(user.id);
+  const chats = await listChats(user.id, ws.id);
   const chosen = resolveModel(user.profile.aiModel);
   const premiumAny = aiCatalog().find((m) => m.tier === "premium" && m.available);
   return (

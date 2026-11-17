@@ -226,3 +226,22 @@ Each step is its own PR, tested and deployed before the next.
 - Tests: `tests/unit/round-totals.test.ts` (frozen totals give exactly the live group profile),
   `tests/integration/workspaces.test.ts` (assignment rules, explicit workspace kept, totals match,
   idempotent, unchanged after an account is deleted, personal 360s never count).
+
+### 11b + 11c — Access checks, switcher and menus (2026-11-17)
+Built together: the switcher is only safe because of the checks.
+- `src/lib/workspace.ts`: `listWorkspaces` (Personal first, then active company memberships with
+  role), `activeWorkspace` (cookie `mirror-ws` = `personal` or `org:<id>`, re-validated against
+  memberships on every read, so a forged value falls back to Personal), `requireWorkspaceRole`,
+  `setActiveWorkspace`.
+- **Header switcher** on every page, with "Companies…" to create or join one. Opening any
+  `/orgs/<id>` page makes that company active.
+- **Menus by workspace** (`src/lib/workspace-nav.ts`): Personal keeps everything; company members
+  get My rounds, Progress, AI coach, Settings; admins also get Company and Dashboards. No billing,
+  questionnaires or coaching marketplace in a company workspace.
+- **Lists follow the active workspace:** My 360s / My rounds, Progress, AI coach (reports and
+  chats) and Dashboards. "New 360" only in Personal; round invitations show in their company (and
+  as a reminder in Personal).
+- **Route inventory test** (`tests/unit/route-inventory.test.ts`): every page, API route and server
+  action must check the caller or be on a reasoned public list.
+- Tests: `workspace-nav`, `route-inventory` (unit); access and cookie rules (integration);
+  `tests/e2e/workspaces.spec.ts`.

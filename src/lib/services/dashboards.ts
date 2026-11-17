@@ -45,8 +45,8 @@ export async function createDashboard(userId: string, raw: unknown) {
   });
 }
 
-export async function listDashboards(userId: string) {
-  return db.dashboard.findMany({ where: { ownerId: userId }, orderBy: { updatedAt: "desc" } });
+export async function listDashboards(userId: string, workspaceId?: string) {
+  return db.dashboard.findMany({ where: { ownerId: userId, ...(workspaceId ? { workspaceId } : {}) }, orderBy: { updatedAt: "desc" } });
 }
 
 export async function getDashboard(userId: string, id: string) {
