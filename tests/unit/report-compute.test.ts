@@ -115,10 +115,22 @@ describe("computeReport", () => {
     expect(JSON.stringify(r)).not.toMatch(/"s\d+"/); // no submission ids leak
   });
 
-  it("shows an opted-in manager separately", () => {
+  it("never shows a manager separately, even for an old 360 that asked for it", () => {
     const r = computeReport(makeInput([sub("manager", [5, 5, 5, 5]), ...[1, 2, 3].map(() => sub("peers", [3, 3, 3, 3]))], { showManagerSeparately: true }));
-    const m = r.anonymity.groups.find((g) => g.exempt)!;
-    expect(r.competencies[0].byGroup[m.id].mean).toBe(5);
+    expect(r.anonymity.groups.some((g) => g.exempt)).toBe(false);
+    expect(r.anonymity.groups).toHaveLength(1);
     expect(r.competencies[0].others.mean).toBe(3.5);
+  });
+
+  it("quotes a group's comments only when at least 3 people in it wrote some", () => {
+    const withComment = (text: string) => ({ ...sub("peers", [3, 3, 3, 3]), comments: [{ kind: "GENERAL" as const, competencyKey: null, text }] });
+    const two = computeReport(makeInput([withComment("Clear communication in meetings"), withComment("Communicates plans clearly"), sub("peers", [3, 3, 3, 3])]));
+    expect(two.comments.total).toBe(2);
+    expect(two.comments.themes.flatMap((t) => t.comments)).toHaveLength(0);
+    expect(two.comments.themes.reduce((n, t) => n + (t.withheld ?? 0), 0)).toBe(2);
+    expect(two.comments.wordCloud).toHaveLength(0);
+    expect(two.anonymity.notes.join(" ")).toMatch(/themes only/);
+    const three = computeReport(makeInput([withComment("Clear communication in meetings"), withComment("Communicates plans clearly"), withComment("Very clear updates")]));
+    expect(three.comments.themes.flatMap((t) => t.comments)).toHaveLength(3);
   });
 });

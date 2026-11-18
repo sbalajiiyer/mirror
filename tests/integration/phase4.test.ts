@@ -128,7 +128,7 @@ describe.skipIf(!hasDb)("Phase 4 (integration)", async () => {
       goal: "leadership_growth",
       frameworkId: customId,
       questions: custom.competencies.flatMap((c) => c.questions.map((q) => ({ competencyKey: c.key, questionKey: q.key, text: q.text, selfText: q.selfText }))),
-      groups: [{ kind: "PEER", name: "Peers", shareLink: false, raters: [1, 2, 3, 4].map((i) => ({ name: `P${i}`, email: `p${i}-${email}` })) }],
+      groups: [{ kind: "PEER", name: "Peers", shareLink: false, raters: [1, 2, 3, 4, 5].map((i) => ({ name: `P${i}`, email: `p${i}-${email}` })) }],
       inviteMessage: "Please give me feedback, thank you!",
       dueAt: null,
       minRatersPerGroup: 3,
@@ -151,7 +151,7 @@ describe.skipIf(!hasDb)("Phase 4 (integration)", async () => {
     expect(pulse).toMatchObject({ type: "PULSE", rootAssessmentId: a.id, status: "DRAFT" });
     expect(pulse.questions.map((q) => q.questionKey).sort()).toEqual(qs.slice(0, 6).map((q) => q.questionKey).sort());
     // Same raters except the one who declined, with brand-new tokens.
-    expect(pulse.invites.map((i) => i.email).sort()).toEqual(invs.slice(0, 3).map((i) => i.email).sort());
+    expect(pulse.invites.map((i) => i.email).sort()).toEqual(invs.filter((_, i) => i !== 3).map((i) => i.email).sort());
     const oldHashes = new Set(invs.map((i) => i.tokenHash));
     expect(pulse.invites.every((i) => !oldHashes.has(i.tokenHash) && i.status === "INVITED")).toBe(true);
     expect((await db.assessment.findUniqueOrThrow({ where: { id: a.id } })).cadenceMonths).toBe(1);
@@ -159,6 +159,10 @@ describe.skipIf(!hasDb)("Phase 4 (integration)", async () => {
     // Self first, then launch schedules the next pulse a month out and sends pulse-worded invites.
     await expect(svc.launchAssessment(userId, p.id)).rejects.toThrow(/self-assessment/i);
     await svc.submitSelfAssessment(userId, p.id, await answersFor(p.id, 4));
+    // One person declined, so only 4 are reused: at least 5 must be invited before sending.
+    await expect(svc.launchAssessment(userId, p.id)).rejects.toThrow(/Invite at least 5/);
+    const peers = await db.raterGroup.findFirstOrThrow({ where: { assessmentId: p.id, kind: "PEER" } });
+    await svc.addRaters(userId, p.id, peers.id, [{ name: "P6", email: `p6-${email}` }]);
     await svc.launchAssessment(userId, p.id);
     const root = await db.assessment.findUniqueOrThrow({ where: { id: a.id } });
     const days = (+root.nextPulseDueAt! - Date.now()) / 86400000;

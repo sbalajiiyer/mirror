@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CheckCircle2, Circle, Clock, Mail } from "lucide-react";
+import { CheckCircle2, Circle, Mail } from "lucide-react";
 import { db } from "@/lib/db";
-import { effectiveMinRaters } from "@/lib/anonymity";
+import { effectiveMinRaters, minInvites } from "@/lib/anonymity";
 import { goalLabel, groupKindLabel } from "@/lib/constants";
 import { requireOwnedAssessment } from "@/lib/session";
 import { derivedToken } from "@/lib/tokens";
@@ -135,12 +135,16 @@ export default async function AssessmentPage({ params }: { params: Promise<{ id:
         <CardHeader>
           <CardTitle className="text-base">Rater progress</CardTitle>
           <CardDescription>
-            {submitted} of {invites.length} responded. Results are shown per group once at least {min} people in it respond; smaller groups are combined. Your report is generated when you close the 360 — not before — so no single response can be singled out.
+            {submitted} of {invites.length} responded. To keep feedback anonymous you see how many answered, never who. A group is shown on its own only when at least{" "}
+            {min} people in it answer and at least {minInvites(min)} were invited; smaller groups are combined. Your report is generated when you close the 360, not
+            before.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {groups.map((g) => {
             const done = g.invites.filter((i) => i.status === "SUBMITTED").length;
+            // Per-group counts only for groups big enough that a count can't point to a person.
+            const countable = g.invites.length >= minInvites(min);
             const shareUrl = g.shareTokenHash ? appUrl(`/r/g/${derivedToken("group", g.id)}`) : null;
             return (
               <section key={g.id} aria-label={g.name} className="space-y-3">
@@ -148,14 +152,12 @@ export default async function AssessmentPage({ params }: { params: Promise<{ id:
                   <div className="flex items-center gap-2">
                     <h3 className="font-medium">{g.name}</h3>
                     <Badge variant="outline">{groupKindLabel(g.kind)}</Badge>
-                    {g.kind === "MANAGER" && a.showManagerSeparately && <Badge variant="warning">shown separately</Badge>}
                   </div>
-                  <span className="text-sm text-muted-foreground">
-                    {done}/{g.invites.length}
-                    {done < min && g.kind !== "MANAGER" ? ` · ${min - done} more to show separately` : ""}
+                  <span className="text-sm text-muted-foreground" data-testid="group-count">
+                    {g.invites.length === 0 ? "" : countable ? `${done}/${g.invites.length} answered` : `${g.invites.length} invited · counted with other groups`}
                   </span>
                 </div>
-                <Progress value={g.invites.length ? (done / g.invites.length) * 100 : 0} aria-label={`${g.name} progress`} />
+                {countable && <Progress value={(done / g.invites.length) * 100} aria-label={`${g.name} progress`} />}
                 <ul className="divide-y rounded-md border text-sm">
                   {g.invites.map((inv) => (
                     <li key={inv.id} className="flex items-center justify-between gap-2 px-3 py-2">
@@ -163,8 +165,8 @@ export default async function AssessmentPage({ params }: { params: Promise<{ id:
                         {inv.channel === "LINK" ? <span className="text-muted-foreground">Via shared link</span> : <>{inv.name && <span className="font-medium">{inv.name} </span>}<span className="text-muted-foreground">{inv.email}</span></>}
                       </span>
                       <span className="flex shrink-0 items-center gap-2">
-                        <InviteStatus status={inv.status} invited={!!inv.invitedAt} reminders={inv.reminderCount} />
-                        {inv.status !== "SUBMITTED" && a.status !== "CLOSED" && <RemoveInvite assessmentId={a.id} inviteId={inv.id} />}
+                        <InviteStatus invited={!!inv.invitedAt} />
+                        {a.status === "READY" && <RemoveInvite assessmentId={a.id} inviteId={inv.id} />}
                       </span>
                     </li>
                   ))}
@@ -186,7 +188,7 @@ export default async function AssessmentPage({ params }: { params: Promise<{ id:
         <Card data-testid="remind-raters">
           <CardHeader>
             <CardTitle className="text-base">Remind raters</CardTitle>
-            <CardDescription>Pick people, check the message, and send. Reminders come from you via Mirror, and replies go to your email.</CardDescription>
+            <CardDescription>Check the message and send. Reminders come from you via Mirror, and replies go to your email.</CardDescription>
           </CardHeader>
           <CardContent>
             <RemindersPanel
@@ -198,7 +200,9 @@ export default async function AssessmentPage({ params }: { params: Promise<{ id:
                 nextWindow: panel.nextWindow.toISOString(),
                 tone: panel.tone,
                 template: panel.template,
-                raters: panel.raters.map((r) => ({ ...r, lastRemindedAt: r.lastRemindedAt?.toISOString() ?? null, until: r.until?.toISOString() ?? null })),
+                raters: panel.raters,
+                nextManualAt: panel.nextManualAt?.toISOString() ?? null,
+                queued: panel.queued,
                 history: panel.history.map((h) => ({ ...h, at: h.at.toISOString() })),
               }}
             />
@@ -223,15 +227,13 @@ export default async function AssessmentPage({ params }: { params: Promise<{ id:
   );
 }
 
-function InviteStatus({ status, invited, reminders }: { status: string; invited: boolean; reminders: number }) {
-  if (status === "SUBMITTED") return <Badge variant="success">Responded</Badge>;
-  if (status === "DECLINED") return <Badge variant="outline">Declined</Badge>;
-  if (status === "STARTED") return <Badge variant="secondary"><Clock className="mr-1 size-3" />In progress</Badge>;
+/** Only whether the invitation went out: never whether someone opened, started, answered or declined. */
+function InviteStatus({ invited }: { invited: boolean }) {
   if (!invited) return <Badge variant="outline">Not sent yet</Badge>;
   return (
     <Badge variant="outline">
       <Mail className="mr-1 size-3" />
-      Invited{reminders ? ` · ${reminders} reminder${reminders > 1 ? "s" : ""}` : ""}
+      Invited
     </Badge>
   );
 }

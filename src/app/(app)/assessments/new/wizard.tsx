@@ -80,7 +80,6 @@ export function Wizard({
   const [message, setMessage] = useState(defaultMessage);
   const [dueAt, setDueAt] = useState(() => new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10));
   const [minRaters, setMinRaters] = useState(3);
-  const [managerSeparate, setManagerSeparate] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const [rec, setRec] = useState<(FrameworkRecommendation & { usedAI: boolean; warning?: string }) | null>(null);
@@ -142,7 +141,6 @@ export function Wizard({
         inviteMessage: message,
         dueAt: dueAt ? new Date(`${dueAt}T17:00:00Z`).toISOString() : null,
         minRatersPerGroup: minRaters,
-        showManagerSeparately: managerSeparate,
         orgCampaignId: campaign?.id ?? null,
       });
       if (!res.ok) setError(res.error);
@@ -423,17 +421,10 @@ export function Wizard({
                   <p className="text-xs text-muted-foreground">Never lower than 3.</p>
                 </div>
               </div>
-              {groups.some((g) => g.kind === "MANAGER") && (
-                <label className="flex items-start gap-3 rounded-lg border p-4">
-                  <input type="checkbox" className="mt-1 size-4" checked={managerSeparate} onChange={(e) => setManagerSeparate(e.target.checked)} />
-                  <span className="text-sm">
-                    <span className="font-medium">Show my manager&apos;s feedback separately</span>
-                    <span className="block text-muted-foreground">
-                      Your manager will be told their answers are visible to you. If off, their answers are combined with other groups.
-                    </span>
-                  </span>
-                </label>
-              )}
+              <p className="text-sm text-muted-foreground" data-testid="anonymity-explainer">
+                You&apos;ll see how many people answered, never who. Groups (including a manager) are shown on their own only when at least {minRaters} people
+                answer and at least {minRaters + 2} were invited; smaller groups are combined. Invite at least {minRaters + 2} people in total.
+              </p>
             </CardContent>
           </>
         )}
@@ -452,7 +443,7 @@ export function Wizard({
                 <Item k="Questions" v={`${activeQs.length} (≈${minutes} min)`} />
                 <Item k="Raters" v={groups.map((g) => `${g.name}: ${g.raters.length}${g.shareLink ? " + link" : ""}`).join(" · ")} />
                 <Item k="Due" v={dueAt || "No due date"} />
-                <Item k="Anonymity" v={`At least ${minRaters} per group${managerSeparate ? ", manager shown separately" : ""}`} />
+                <Item k="Anonymity" v={`At least ${minRaters} answers and ${minRaters + 2} invites per group shown`} />
               </dl>
             </CardContent>
           </>

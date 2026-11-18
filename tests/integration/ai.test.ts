@@ -42,7 +42,7 @@ describe.skipIf(!hasDb)("AI features (integration)", async () => {
       goal: "promotion",
       frameworkId: fw.id,
       questions,
-      groups: [{ kind: "PEER", name: "Peers", shareLink: false, raters: [1, 2, 3].map((i) => ({ name: "", email: `p${i}-${email}` })) }],
+      groups: [{ kind: "PEER", name: "Peers", shareLink: false, raters: [1, 2, 3, 4, 5].map((i) => ({ name: "", email: `p${i}-${email}` })) }],
       inviteMessage: "Please give me feedback, thank you!",
       dueAt: null,
       minRatersPerGroup: 3,

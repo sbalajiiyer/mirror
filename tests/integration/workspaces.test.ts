@@ -33,7 +33,7 @@ describe.skipIf(!hasDb)("workspaces (integration)", async () => {
   let companyWs = "";
 
   async function run360(userId: string, i: number, extra: { orgCampaignId?: string; title: string }) {
-    const a = await svc.createAssessment(userId, { ...base, ...extra, groups: [{ kind: "PEER", name: "Peers", shareLink: false, raters: [1, 2, 3].map((k) => ({ name: `R${k}`, email: `r${k}-${i}-${extra.title.length}-${stamp}@t.local` })) }] });
+    const a = await svc.createAssessment(userId, { ...base, ...extra, groups: [{ kind: "PEER", name: "Peers", shareLink: false, raters: [1, 2, 3, 4, 5].map((k) => ({ name: `R${k}`, email: `r${k}-${i}-${extra.title.length}-${stamp}@t.local` })) }] });
     const aq = await db.assessmentQuestion.findMany({ where: { assessmentId: a.id } });
     const ans = (v: number) => ({ ratings: Object.fromEntries(aq.map((q) => [q.id, v])), competencyComments: {}, start: `Share plans earlier please ${stamp}`, stop: "", continue: "", general: "", deidentify: false });
     await svc.submitSelfAssessment(userId, a.id, ans(4));

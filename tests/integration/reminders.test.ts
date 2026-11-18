@@ -1,4 +1,4 @@
-/** Rater reminders from one screen, and round reminders, against a real database. */
+/** Rater reminders from one screen (without revealing who answered), and round reminders, against a real database. */
 import { describe, expect, it, vi } from "vitest";
 
 const hasDb = !!process.env.TEST_DATABASE_URL;
@@ -12,11 +12,11 @@ describe.skipIf(!hasDb)("reminders (integration)", async () => {
   const { syncFramework } = await import("@/lib/frameworks/sync");
   const { CORE_360 } = await import("@/lib/frameworks/core-360");
   const { runReminders } = await import("@/lib/jobs/reminders");
+  const raters = await import("@/lib/services/raters");
+  const { derivedToken } = await import("@/lib/tokens");
 
   const stamp = Date.now();
   const inHours = new Date("2026-11-17T10:00:00Z"); // Tuesday
-  const evening = new Date("2026-11-17T19:00:00Z");
-  const nextMorning = new Date("2026-11-18T10:00:00Z");
   const mk = (name: string) => db.user.create({ data: { email: `${name}-rem-${stamp}@test.local`, name, profile: { create: { displayName: `${name} Person`, goals: ["promotion"], onboardedAt: new Date() } } } });
   const subject = await mk("subj");
   const other = await mk("other");
@@ -28,7 +28,7 @@ describe.skipIf(!hasDb)("reminders (integration)", async () => {
     goal: "promotion",
     frameworkId: fw.id,
     questions: qs,
-    groups: [{ kind: "PEER", name: "Peers", shareLink: false, raters: ["Sam Lee", "Kim Ro", "Jo Park"].map((n, i) => ({ name: n, email: `r${i}-rem-${stamp}@t.local` })) }],
+    groups: [{ kind: "PEER", name: "Peers", shareLink: false, raters: ["Sam Lee", "Kim Ro", "Jo Park", "Ana Diaz", "Lee Chan"].map((n, i) => ({ name: n, email: `r${i}-rem-${stamp}@t.local` })) }],
     inviteMessage: "Please give me feedback, thank you.",
     dueAt: null,
     minRatersPerGroup: 3,
@@ -47,45 +47,62 @@ describe.skipIf(!hasDb)("reminders (integration)", async () => {
     expect(mail).toMatchObject({ fromName: "subj Person via Mirror", replyTo: subject.email });
   });
 
-  it("sends a personalised reminder in working hours, and logs it", async () => {
-    const r = await rem.sendReminders(subject.id, a.id, { inviteIds: [invites[0].id, invites[1].id], message: "Hi {first name}, a quick nudge from {your name}.", saveTemplate: true, tone: "brief" }, inHours);
-    expect(r).toMatchObject({ sent: 2, queued: 0, skipped: [] });
+  const answers = async () => {
+    const aq = await db.assessmentQuestion.findMany({ where: { assessmentId: a.id } });
+    return { ratings: Object.fromEntries(aq.map((q) => [q.id, 3])), competencyComments: {}, start: "", stop: "", continue: "", general: "", deidentify: false };
+  };
+  const reminderMails = (to: string) => db.notification.count({ where: { to, template: "rater-reminder-personal" } });
+
+  it("reminds everyone who hasn't answered, never someone who has, and the result names and counts no one", async () => {
+    await raters.submitRaterResponse(derivedToken("invite", invites[4].id), await answers());
+    const r = await rem.sendReminders(subject.id, a.id, { message: "Hi {first name}, a quick nudge from {your name}.", saveTemplate: true, tone: "brief" }, inHours);
+    expect(r).toEqual({ when: "now", sendsAt: null });
+    for (const inv of invites.slice(0, 4)) expect(await reminderMails(inv.email!)).toBe(1);
+    expect(await reminderMails(invites[4].email!)).toBe(0);
     const mail = await db.notification.findFirstOrThrow({ where: { to: invites[0].email!, template: "rater-reminder-personal" }, orderBy: { createdAt: "desc" } });
     expect(mail.body).toContain("Hi Sam, a quick nudge from subj Person.");
     expect(mail.body).toContain("Thanks for the launch work last month.");
     expect(mail.replyTo).toBe(subject.email);
-    expect(await db.reminderLog.count({ where: { assessmentId: a.id, outcome: "SENT", kind: "MANUAL" } })).toBe(2);
     expect((await db.subjectProfile.findUniqueOrThrow({ where: { userId: subject.id } })).reminderTemplate).toContain("{first name}");
+    // The panel shows raters without any status, and history without names or counts.
+    const panel = await rem.raterPanel(subject.id, a.id, inHours);
+    expect(Object.keys(panel.raters[0]).sort()).toEqual(["email", "group", "id", "name", "note"]);
+    expect(panel.history).toEqual([{ at: expect.any(Date), kind: "MANUAL", outcome: "SENT" }]);
+    expect(JSON.stringify(panel)).not.toMatch(/SUBMITTED|Responded|Already responded/);
   });
 
-  it("skips people reminded in the last 2 days, with the reason", async () => {
-    const r = await rem.sendReminders(subject.id, a.id, { inviteIds: [invites[0].id], message: "Hi {first name}, again." }, new Date(inHours.getTime() + 3600_000));
-    expect(r.sent).toBe(0);
-    expect(r.skipped).toEqual([{ name: "Sam Lee", reason: "Reminded recently" }]);
+  it("allows one reminder round from you every 2 days", async () => {
+    await expect(rem.sendReminders(subject.id, a.id, { message: "Hi {first name}, again." }, new Date(inHours.getTime() + 3600_000))).rejects.toThrow(/sent a reminder recently/);
     const panel = await rem.raterPanel(subject.id, a.id, new Date(inHours.getTime() + 3600_000));
-    expect(panel.raters.find((x) => x.id === invites[0].id)).toMatchObject({ canRemind: false, reason: "Reminded recently" });
-    expect(panel.raters.find((x) => x.id === invites[2].id)).toMatchObject({ canRemind: true });
+    expect(panel.nextManualAt).toEqual(new Date(inHours.getTime() + 48 * 3600_000));
   });
 
-  it("queues reminders written outside working hours and sends them at the next window", async () => {
-    const r = await rem.sendReminders(subject.id, a.id, { inviteIds: [invites[2].id], message: "Hi {first name}, when you have a moment." }, evening);
-    expect(r).toMatchObject({ sent: 0, queued: 1 });
-    expect(r.sendsAt).toEqual(new Date("2026-11-18T09:00:00Z"));
-    expect(await db.notification.count({ where: { to: invites[2].email!, template: "rater-reminder-personal" } })).toBe(0);
-    // The daily job sends it once in hours, and never also an automatic reminder the same run.
-    const run = await runReminders(nextMorning);
-    expect(run.queued).toBeGreaterThanOrEqual(1);
-    const mails = await db.notification.findMany({ where: { to: invites[2].email! }, orderBy: { createdAt: "asc" } });
-    expect(mails.map((m) => m.template).filter((t) => t.startsWith("rater-reminder"))).toEqual(["rater-reminder-personal"]);
+  it("queues a round written outside working hours, can cancel it, and sends it at the next window", async () => {
+    const thuEvening = new Date("2026-11-19T19:00:00Z");
+    const friMorning = new Date("2026-11-20T10:00:00Z");
+    const r = await rem.sendReminders(subject.id, a.id, { message: "Hi {first name}, when you have a moment." }, thuEvening);
+    expect(r).toEqual({ when: "queued", sendsAt: new Date("2026-11-20T09:00:00Z") });
+    expect((await rem.raterPanel(subject.id, a.id, thuEvening)).queued).toBe(true);
+    await rem.cancelQueuedReminders(subject.id, a.id);
+    expect((await rem.raterPanel(subject.id, a.id, thuEvening)).queued).toBe(false);
+    await rem.sendReminders(subject.id, a.id, { message: "Hi {first name}, when you have a moment." }, thuEvening);
+    await runReminders(friMorning);
+    const mails = await db.notification.findMany({ where: { to: invites[2].email!, template: { startsWith: "rater-reminder" } }, orderBy: { createdAt: "asc" } });
     expect(mails.at(-1)!.body).toContain("Hi Jo, when you have a moment.");
+    expect(await reminderMails(invites[4].email!)).toBe(0); // still never the person who answered
     expect((await db.raterInvite.findUniqueOrThrow({ where: { id: invites[2].id } })).queuedReminder).toBeNull();
   });
 
-  it("only the person who asked can send, and never more than 3 in total", async () => {
-    await expect(rem.sendReminders(other.id, a.id, { inviteIds: [invites[1].id], message: "Hi {first name}, hello there." }, inHours)).rejects.toThrow(/Not found/);
+  it("only the person who asked can send, and nobody gets more than 3 in total", async () => {
+    await expect(rem.sendReminders(other.id, a.id, { message: "Hi {first name}, hello there." }, inHours)).rejects.toThrow(/Not found/);
     await db.raterInvite.update({ where: { id: invites[1].id }, data: { reminderCount: 3, lastRemindedAt: new Date("2026-11-01T00:00:00Z") } });
-    const r = await rem.sendReminders(subject.id, a.id, { inviteIds: [invites[1].id], message: "Hi {first name}, hello there." }, nextMorning);
-    expect(r.skipped).toEqual([{ name: "Kim Ro", reason: "Already reminded 3 times" }]);
+    const before = await reminderMails(invites[1].email!);
+    await rem.sendReminders(subject.id, a.id, { message: "Hi {first name}, hello there." }, new Date("2026-11-24T10:00:00Z"));
+    expect(await reminderMails(invites[1].email!)).toBe(before);
+  });
+
+  it("after invitations go out, raters can't be removed (that could show who answered)", async () => {
+    await expect(svc.removeInvite(subject.id, invites[0].id)).rejects.toThrow(/can't be removed/);
   });
 
   it("company admins remind participants who haven't started, never raters", async () => {

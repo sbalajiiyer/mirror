@@ -41,7 +41,7 @@ describe.skipIf(!hasDb)("survey sessions (integration)", async () => {
       goal: "promotion",
       frameworkId: fw.id,
       questions: full.competencies.slice(0, 2).flatMap((c) => c.questions.map((q) => ({ competencyKey: c.key, questionKey: q.key, text: q.text, selfText: q.selfText }))),
-      groups: [{ kind: "PEER", name: "Peers", shareLink: false, raters: [1, 2, 3].map((i) => ({ name: `R${i}`, email: `r${i}-${email}` })) }],
+      groups: [{ kind: "PEER", name: "Peers", shareLink: false, raters: [1, 2, 3, 4, 5].map((i) => ({ name: `R${i}`, email: `r${i}-${email}` })) }],
       inviteMessage: "Please give me feedback, thank you!",
       dueAt: null,
       minRatersPerGroup: 3,

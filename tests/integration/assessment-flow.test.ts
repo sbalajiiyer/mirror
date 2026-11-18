@@ -31,7 +31,7 @@ describe.skipIf(!hasDb)("assessment lifecycle (integration)", async () => {
       goal: "promotion",
       frameworkId: fw.id,
       questions,
-      groups: [{ kind: "PEER", name: "Peers", shareLink: false, raters: [1, 2, 3, 4].map((i) => ({ name: `P${i}`, email: `p${i}-${email}` })) }],
+      groups: [{ kind: "PEER", name: "Peers", shareLink: false, raters: [1, 2, 3, 4, 5].map((i) => ({ name: `P${i}`, email: `p${i}-${email}` })) }],
       inviteMessage: "Please give me feedback, thank you!",
       dueAt: null,
       minRatersPerGroup: 1, // must be raised to the floor of 3
@@ -74,8 +74,8 @@ describe.skipIf(!hasDb)("assessment lifecycle (integration)", async () => {
 
   it("sends invites on launch", async () => {
     const r = await svc.launchAssessment(userId, assessmentId);
-    expect(r.sent).toBe(4);
-    expect(await db.notification.count({ where: { template: "rater-invite", to: { endsWith: email } } })).toBe(4);
+    expect(r.sent).toBe(5);
+    expect(await db.notification.count({ where: { template: "rater-invite", to: { endsWith: email } } })).toBe(5);
   });
 
   it("saves drafts and stores submissions with no link back to the rater", async () => {

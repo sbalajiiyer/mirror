@@ -133,7 +133,7 @@ describe.skipIf(!hasDb)("enterprise (integration)", async () => {
     const subject = await db.user.findFirstOrThrow({ where: { email: `new-${stamp}@${domain}` } });
     const camp = await org.createCampaign(admin.id, orgId, { name: "Round", frameworkId: fw.id, teamMode: false, dueInDays: 14 });
     const make = async (title: string) => {
-      const a = await svc.createAssessment(subject.id, { title, goal: "self_awareness", frameworkId: fw.id, questions: qs, orgCampaignId: title === "Old" ? camp.id : undefined, groups: [{ kind: "PEER", name: "Peers", shareLink: false, raters: [1, 2, 3].map((i) => ({ name: `P${i}`, email: `${title}${i}-${stamp}@t.local` })) }], inviteMessage: "Please give me feedback, thank you.", dueAt: null, minRatersPerGroup: 3, showManagerSeparately: false });
+      const a = await svc.createAssessment(subject.id, { title, goal: "self_awareness", frameworkId: fw.id, questions: qs, orgCampaignId: title === "Old" ? camp.id : undefined, groups: [{ kind: "PEER", name: "Peers", shareLink: false, raters: [1, 2, 3, 4, 5].map((i) => ({ name: `P${i}`, email: `${title}${i}-${stamp}@t.local` })) }], inviteMessage: "Please give me feedback, thank you.", dueAt: null, minRatersPerGroup: 3, showManagerSeparately: false });
       const aq = await db.assessmentQuestion.findMany({ where: { assessmentId: a.id } });
       const ans = { ratings: Object.fromEntries(aq.map((q) => [q.id, 4])), competencyComments: {}, start: "A specific comment", stop: "", continue: "", general: "", deidentify: false };
       await svc.submitSelfAssessment(subject.id, a.id, ans);

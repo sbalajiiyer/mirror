@@ -51,7 +51,9 @@ export default function PrivacyPage() {
       <h2>How raters stay anonymous</h2>
       <ul>
         <li>Answers are saved with no reference to the invitation they came from, and submission dates are rounded to the day.</li>
-        <li>Results for a rater group appear only once at least 3 people in it have answered (a manager is shown separately only if they agree).</li>
+        <li>Results for a rater group appear only once at least 3 people in it have answered and at least 5 were invited; smaller groups, including a manager, are combined. There are no exceptions.</li>
+        <li>The person who asked for feedback (and their company or coach) sees how many people answered, never who answered, started or declined. Reminders go to everyone who hasn&apos;t answered without saying who that is.</li>
+        <li>Written comments are quoted only when at least 3 people in a group wrote some; otherwise they count towards themes without being shown word for word.</li>
         <li>Raters can have AI remove details that might identify them before their comments are saved; the original wording is not kept.</li>
         <li>Reports are frozen when a 360 closes, so nobody can work out who answered late.</li>
       </ul>

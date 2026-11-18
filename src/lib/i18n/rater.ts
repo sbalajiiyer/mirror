@@ -60,7 +60,6 @@ export type RaterStrings = {
   openUntil: (date: string) => string;
   noDeadline: string;
   autosave: string;
-  managerWarning: (name: string) => string;
   anonymous: (name: string) => string;
   decline: string;
   declineConfirm: string;
@@ -121,8 +120,7 @@ const en: RaterStrings = {
   openUntil: (d) => `open until ${d}`,
   noDeadline: "no deadline",
   autosave: "Your progress saves automatically — come back to this link any time.",
-  managerWarning: (n) => `As ${n}'s manager, your ratings will be shown to them separately, so they are not anonymous. Everyone else's are.`,
-  anonymous: (n) => `Anonymous: ${n} only sees results combined with at least two other people. Your name and email are never linked to your answers.`,
+  anonymous: (n) => `Anonymous: ${n} sees how many people answered, never who answered or what any one person said. Results only appear combined with at least two others, and comments are quoted only when at least three people wrote some. Your name and email are never linked to your answers.`,
   decline: "I'd rather not give feedback",
   declineConfirm: "Decline this feedback request?",
   declined: (n) => `You've declined. Thanks for letting ${n} know.`,
@@ -182,8 +180,7 @@ const es: RaterStrings = {
   openUntil: (d) => `abierto hasta el ${d}`,
   noDeadline: "sin fecha límite",
   autosave: "Tu progreso se guarda automáticamente: puedes volver a este enlace cuando quieras.",
-  managerWarning: (n) => `Como responsable de ${n}, tus valoraciones se le mostrarán por separado, así que no son anónimas. Las de los demás sí lo son.`,
-  anonymous: (n) => `Anónimo: ${n} solo ve los resultados combinados con al menos otras dos personas. Tu nombre y tu correo nunca se vinculan a tus respuestas.`,
+  anonymous: (n) => `Anónimo: ${n} ve cuántas personas respondieron, nunca quién respondió ni qué dijo cada persona. Los resultados solo aparecen combinados con al menos otras dos personas y los comentarios solo se citan si al menos tres personas escribieron alguno. Tu nombre y tu correo nunca se vinculan a tus respuestas.`,
   decline: "Prefiero no dar mi opinión",
   declineConfirm: "¿Rechazar esta solicitud de opinión?",
   declined: (n) => `Has rechazado la solicitud. Gracias por avisar a ${n}.`,
@@ -243,8 +240,7 @@ const fr: RaterStrings = {
   openUntil: (d) => `ouvert jusqu'au ${d}`,
   noDeadline: "pas de date limite",
   autosave: "Votre progression est enregistrée automatiquement : revenez sur ce lien quand vous voulez.",
-  managerWarning: (n) => `En tant que manager de ${n}, vos notes lui seront montrées séparément : elles ne sont donc pas anonymes. Celles des autres le sont.`,
-  anonymous: (n) => `Anonyme : ${n} ne voit que des résultats regroupés avec au moins deux autres personnes. Votre nom et votre e-mail ne sont jamais liés à vos réponses.`,
+  anonymous: (n) => `Anonyme : ${n} voit combien de personnes ont répondu, jamais qui a répondu ni ce qu'une personne a dit. Les résultats n'apparaissent que regroupés avec au moins deux autres personnes, et les commentaires ne sont cités que si au moins trois personnes en ont écrit. Votre nom et votre e-mail ne sont jamais liés à vos réponses.`,
   decline: "Je préfère ne pas répondre",
   declineConfirm: "Refuser cette demande de retour ?",
   declined: (n) => `Vous avez refusé. Merci d'avoir prévenu ${n}.`,
@@ -304,8 +300,7 @@ const de: RaterStrings = {
   openUntil: (d) => `offen bis ${d}`,
   noDeadline: "keine Frist",
   autosave: "Ihr Fortschritt wird automatisch gespeichert – Sie können jederzeit über diesen Link zurückkehren.",
-  managerWarning: (n) => `Als Führungskraft von ${n} werden Ihre Bewertungen separat angezeigt und sind daher nicht anonym. Die aller anderen schon.`,
-  anonymous: (n) => `Anonym: ${n} sieht Ergebnisse nur zusammengefasst mit mindestens zwei weiteren Personen. Name und E-Mail werden nie mit Ihren Antworten verknüpft.`,
+  anonymous: (n) => `Anonym: ${n} sieht, wie viele Personen geantwortet haben, aber nie wer geantwortet hat oder was eine einzelne Person gesagt hat. Ergebnisse erscheinen nur zusammen mit mindestens zwei weiteren Personen, und Kommentare werden nur zitiert, wenn mindestens drei Personen welche geschrieben haben. Name und E-Mail werden nie mit Ihren Antworten verknüpft.`,
   decline: "Ich möchte lieber kein Feedback geben",
   declineConfirm: "Diese Feedback-Anfrage ablehnen?",
   declined: (n) => `Sie haben abgelehnt. Danke, dass Sie ${n} Bescheid gegeben haben.`,
@@ -365,8 +360,7 @@ const pt: RaterStrings = {
   openUntil: (d) => `aberto até ${d}`,
   noDeadline: "sem prazo",
   autosave: "O seu progresso é guardado automaticamente — pode voltar a este link quando quiser.",
-  managerWarning: (n) => `Como chefia de ${n}, as suas avaliações serão mostradas separadamente, por isso não são anónimas. As das outras pessoas são.`,
-  anonymous: (n) => `Anónimo: ${n} só vê resultados combinados com pelo menos outras duas pessoas. O seu nome e email nunca ficam ligados às suas respostas.`,
+  anonymous: (n) => `Anónimo: ${n} vê quantas pessoas responderam, nunca quem respondeu nem o que cada pessoa disse. Os resultados só aparecem combinados com pelo menos outras duas pessoas e os comentários só são citados se pelo menos três pessoas escreveram algum. O seu nome e email nunca ficam ligados às suas respostas.`,
   decline: "Prefiro não dar feedback",
   declineConfirm: "Recusar este pedido de feedback?",
   declined: (n) => `Recusou. Obrigado por avisar ${n}.`,

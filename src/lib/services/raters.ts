@@ -28,7 +28,6 @@ export type RaterContext =
       state: "open";
       subjectFirstName: string;
       groupKind: string;
-      managerShownSeparately: boolean;
       message: string;
       dueAt: string | null;
       scaleMax: number;
@@ -71,7 +70,6 @@ export async function getRaterContext(token: string, locale: RaterLocale = "en")
     state: "open",
     subjectFirstName: name,
     groupKind: inv.raterGroup.kind,
-    managerShownSeparately: inv.raterGroup.kind === "MANAGER" && a.showManagerSeparately,
     message: a.inviteMessage,
     dueAt: a.dueAt?.toISOString() ?? null,
     scaleMax: a.scaleMax,

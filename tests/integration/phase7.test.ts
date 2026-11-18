@@ -27,7 +27,7 @@ describe.skipIf(!hasDb)("personalization v2 (integration)", async () => {
     goal: "promotion",
     frameworkId: fw.id,
     questions: qs,
-    groups: [{ kind: "PEER", name: "Peers", shareLink: false, raters: [1, 2, 3].map((i) => ({ name: `P${i}`, email: `p${i}-${stamp}@t.local` })) }],
+    groups: [{ kind: "PEER", name: "Peers", shareLink: false, raters: [1, 2, 3, 4, 5].map((i) => ({ name: `P${i}`, email: `p${i}-${stamp}@t.local` })) }],
     inviteMessage: "Please give me feedback, thank you.",
     dueAt: null,
     minRatersPerGroup: 3,
@@ -67,7 +67,7 @@ describe.skipIf(!hasDb)("personalization v2 (integration)", async () => {
     const badge = await share.createShare(user.id, a.id, { kind: "BADGE" });
     expect(badge.id).toMatch(/^[A-Za-z0-9_-]{22}$/);
     const pub = await share.publicShare(badge.id);
-    expect(pub!.badge.raters).toBe(3);
+    expect(pub!.badge.raters).toBe(5);
     expect(pub!.name).toBe("Pat Doe");
     expect(JSON.stringify(pub)).not.toContain("Secret comment");
     const rep = await share.createShare(user.id, a.id, { kind: "REPORT" });

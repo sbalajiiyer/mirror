@@ -34,7 +34,7 @@ describe.skipIf(!hasDb)("coach workspace (integration)", async () => {
     goal: "promotion",
     frameworkId: fw.id,
     questions: qs,
-    groups: [{ kind: "PEER", name: "Peers", shareLink: false, raters: [1, 2, 3].map((i) => ({ name: `P${i}`, email: `p${i}-${stamp}@t.local` })) }],
+    groups: [{ kind: "PEER", name: "Peers", shareLink: false, raters: [1, 2, 3, 4, 5].map((i) => ({ name: `P${i}`, email: `p${i}-${stamp}@t.local` })) }],
     inviteMessage: "Please give me feedback, thank you.",
     dueAt: null,
     minRatersPerGroup: 3,
@@ -92,7 +92,7 @@ describe.skipIf(!hasDb)("coach workspace (integration)", async () => {
     await coach.updateSharing(client.id, link.id, { shareReports: true, shareComments: false, shareGoals: true, sharePlan: false, showBranding: true });
     expect(await coach.brandingForClient(client.id)).toMatchObject({ name: "Coachy & Co", color: "#0f766e" });
     const prep = await coach.sessionPrep(coachU.id, client.id);
-    expect(prep.basedOn?.raters).toBe(3);
+    expect(prep.basedOn?.raters).toBe(5);
     expect(prep.questions.length).toBeGreaterThan(0);
   });
 

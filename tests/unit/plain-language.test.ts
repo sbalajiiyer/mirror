@@ -73,9 +73,9 @@ describe("summary digest anonymity", () => {
   );
   const d = reportDigest(report);
 
-  it("leaves out groups with fewer than 3 raters, even an opted-in manager", () => {
-    expect(report.anonymity.groups.some((g) => g.n < 3)).toBe(true);
-    expect(d.groups.every((g) => !/Manager/.test(g))).toBe(true);
+  it("never has a group under 3 raters: a lone manager is pooled with others", () => {
+    expect(report.anonymity.groups.every((g) => g.n >= 3 && !g.exempt)).toBe(true);
+    expect(d.groups).not.toContain("Manager");
     expect(JSON.stringify(d)).not.toMatch(/\(Manager\)/);
   });
 
