@@ -60,7 +60,6 @@ export default async function RaterPage({ params, searchParams }: { params: Prom
           draft={ctx.draft}
           message={ctx.message}
           dueAt={ctx.dueAt}
-          managerShownSeparately={ctx.managerShownSeparately}
           machineTranslated={ctx.machineTranslated}
         />,
       );

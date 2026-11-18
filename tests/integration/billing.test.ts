@@ -72,7 +72,7 @@ describe.skipIf(!hasDb)("payments and marketplace (integration)", async () => {
     expect(await launch(u.id, first.id)).toEqual({ kind: "free", price: 0 });
     expect((await db.assessment.findUniqueOrThrow({ where: { id: first.id } })).billing).toBe("FREE");
 
-    const second = await svc.createAssessment(u.id, wizard("Second", 4, "g"));
+    const second = await svc.createAssessment(u.id, wizard("Second", 5, "g"));
     expect(await billing.launchQuote(second.id)).toMatchObject({ kind: "paid", price: policy.survey360, enough: false, balance: 0 });
     await svc.submitSelfAssessment(u.id, second.id, await answers(second.id, 4));
     await expect(svc.launchAssessment(u.id, second.id)).rejects.toThrow(credits.CreditsRequired);
@@ -114,7 +114,7 @@ describe.skipIf(!hasDb)("payments and marketplace (integration)", async () => {
 
   it("follow-ups and pulses are priced from the policy; discounts apply; Pro is honored until it ends", async () => {
     const u = await mk("series");
-    const root = await svc.createAssessment(u.id, wizard("Series", 3, "s"));
+    const root = await svc.createAssessment(u.id, wizard("Series", 5, "s"));
     await launch(u.id, root.id);
     await finish(u.id, root.id);
     const qs = await db.assessmentQuestion.findMany({ where: { assessmentId: root.id }, orderBy: { order: "asc" } });
@@ -161,9 +161,9 @@ describe.skipIf(!hasDb)("payments and marketplace (integration)", async () => {
     expect(await credits.creditBalance(c.id)).toBe(5000 - policy.coachGift);
     expect((await billing.billingOverview(client.id)).giftedSurveys).toBe(1);
     // The client's free 360 comes first; the gift pays for the next one.
-    const one = await svc.createAssessment(client.id, wizard("Client one", 3, "c1"));
+    const one = await svc.createAssessment(client.id, wizard("Client one", 5, "c1"));
     expect(await launch(client.id, one.id)).toEqual({ kind: "free", price: 0 });
-    const two = await svc.createAssessment(client.id, wizard("Client two", 3, "c2"));
+    const two = await svc.createAssessment(client.id, wizard("Client two", 5, "c2"));
     expect(await launch(client.id, two.id)).toEqual({ kind: "voucher", price: 0 });
     expect((await billing.billingOverview(client.id)).giftedSurveys).toBe(0);
     const stranger = await mk("stranger");

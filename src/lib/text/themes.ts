@@ -50,13 +50,16 @@ export type ThemeGroup = {
   raters?: number;
   sentiment: number; // -1..1 average
   comments: ThemedComment[];
+  /** Comments counted in this theme but not quoted (too few writers in their group). */
+  withheld?: number;
 };
 
 /** Group comments by their primary theme. Each comment lands in exactly one theme. */
-export function groupComments(comments: { text: string; group: string; sid?: string }[]): ThemeGroup[] {
+export function groupComments(comments: { text: string; group: string; sid?: string; withheld?: boolean }[]): ThemeGroup[] {
   const buckets = new Map<string, ThemedComment[]>();
   const scores = new Map<string, number[]>();
   const sids = new Map<string, Set<string>>();
+  const withheld = new Map<string, number>();
   for (const c of comments) {
     const primary = themesFor(c.text)[0] ?? "other";
     const s = sentimentOf(c.text);
@@ -66,7 +69,9 @@ export function groupComments(comments: { text: string; group: string; sid?: str
       sids.set(primary, new Set());
     }
     if (c.sid) sids.get(primary)!.add(c.sid);
-    buckets.get(primary)!.push({ text: c.text, group: c.group, sentiment: s.label });
+    // Withheld comments (too few writers in their group) count towards the theme but aren't quoted.
+    if (c.withheld) withheld.set(primary, (withheld.get(primary) ?? 0) + 1);
+    else buckets.get(primary)!.push({ text: c.text, group: c.group, sentiment: s.label });
     scores.get(primary)!.push(s.score);
   }
   const label = (k: string) => THEMES.find((t) => t.key === k)?.label ?? "Other";
@@ -74,7 +79,8 @@ export function groupComments(comments: { text: string; group: string; sid?: str
     .map(([key, cs]) => {
       const sc = scores.get(key)!;
       const raters = sids.get(key)!.size;
-      return { key, label: label(key), count: cs.length, ...(raters ? { raters } : {}), sentiment: sc.reduce((a, b) => a + b, 0) / sc.length, comments: cs };
+      const w = withheld.get(key) ?? 0;
+      return { key, label: label(key), count: cs.length + w, ...(raters ? { raters } : {}), ...(w ? { withheld: w } : {}), sentiment: sc.reduce((a, b) => a + b, 0) / sc.length, comments: cs };
     })
     .sort((a, b) => (a.key === "other" ? 1 : b.key === "other" ? -1 : b.count - a.count));
 }

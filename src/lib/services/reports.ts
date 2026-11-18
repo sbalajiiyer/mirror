@@ -12,7 +12,7 @@ export async function loadReportInput(assessmentId: string): Promise<ReportInput
     include: {
       subject: { include: { profile: true } },
       questions: true,
-      raterGroups: true,
+      raterGroups: { include: { _count: { select: { invites: true } } } },
       submissions: { include: { responses: true, comments: true } },
     },
   });
@@ -24,10 +24,10 @@ export async function loadReportInput(assessmentId: string): Promise<ReportInput
       goal: a.goal,
       scaleMax: a.scaleMax,
       minRatersPerGroup: a.minRatersPerGroup,
-      showManagerSeparately: a.showManagerSeparately,
       subjectFirstName: name,
     },
     groups: a.raterGroups.map((g) => ({ id: g.id, kind: g.kind, name: g.name, order: g.order })),
+    invited: Object.fromEntries(a.raterGroups.map((g) => [g.id, g._count.invites])),
     questions: a.questions.map((q) => ({
       id: q.id,
       competencyKey: q.competencyKey,

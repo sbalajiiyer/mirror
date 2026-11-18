@@ -31,6 +31,7 @@ test("someone under the minimum age is turned away, their account is deleted, an
   await page.goto("/signin");
   await page.getByLabel("Email").fill(email);
   await page.getByRole("button", { name: "Email me a sign-in link" }).click();
+  await expect(page.getByRole("heading", { name: "Check your email" })).toBeVisible();
   await page.goto("/dev/outbox");
   const link = await page.getByTestId("outbox-mail").filter({ hasText: `→ ${email}` }).first().locator('a[href*="/api/auth/callback/email"]').getAttribute("href");
   await page.goto(link!);

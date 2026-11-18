@@ -69,7 +69,7 @@ export async function createPulse(userId: string, sourceId: string, raw: unknown
         goal: source.goal,
         inviteMessage: pulseInviteMessage(name),
         minRatersPerGroup: source.minRatersPerGroup,
-        showManagerSeparately: source.showManagerSeparately,
+        showManagerSeparately: false,
         scaleMax: source.scaleMax,
         dueAt: new Date(Date.now() + input.dueInDays * 86400000),
         questions: {

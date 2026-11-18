@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireUserId } from "@/lib/session";
 import { toActionError, type ActionResult } from "@/lib/action-result";
-import { cancelQueuedReminder, sendReminders, setPersonalNote } from "@/lib/services/reminders";
+import { cancelQueuedReminders, sendReminders, setPersonalNote } from "@/lib/services/reminders";
 import { rewriteReminder } from "@/lib/ai/features/invite";
 import { db } from "@/lib/db";
 
@@ -29,9 +29,9 @@ export async function setPersonalNoteAction(assessmentId: string, inviteId: stri
   }
 }
 
-export async function cancelQueuedReminderAction(assessmentId: string, inviteId: string): Promise<ActionResult> {
+export async function cancelQueuedRemindersAction(assessmentId: string): Promise<ActionResult> {
   try {
-    await cancelQueuedReminder(await requireUserId(), inviteId);
+    await cancelQueuedReminders(await requireUserId(), assessmentId);
     revalidatePath(`/assessments/${assessmentId}`);
     return { ok: true };
   } catch (e) {

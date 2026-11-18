@@ -17,8 +17,8 @@ test("report renders every section from the seeded 360", async ({ page }) => {
   await expect(page.getByText("Biggest blind spot")).toBeVisible();
   await expect(page.getByRole("img", { name: /Radar chart/ })).toBeVisible();
   await expect(page.getByTestId("report").locator("table caption")).toHaveText(/Average score per competency/);
-  // Manager opted in → shown separately with n=1; everyone else is grouped with ≥3.
-  await expect(page.getByRole("columnheader", { name: /Manager\s*n=1/ })).toBeVisible();
+  // No manager exception: the manager is pooled, so no column has fewer than 3 people.
+  await expect(page.getByRole("columnheader", { name: /n=[12]\b/ })).toHaveCount(0);
   // No rater names or emails anywhere in the report.
   await expect(report).not.toContainText("@example.com");
   await expect(report).not.toContainText("Sam Patel");

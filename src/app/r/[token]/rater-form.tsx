@@ -16,7 +16,6 @@ export function RaterForm(props: {
   draft: QDraft | null;
   message: string;
   dueAt: string | null;
-  managerShownSeparately: boolean;
   machineTranslated: boolean;
 }) {
   const t = raterStrings(props.locale);
@@ -46,14 +45,10 @@ export function RaterForm(props: {
             <li>{t.autosave}</li>
           </ul>
           {props.machineTranslated && t.translatedNote && <p className="text-xs text-muted-foreground">{t.translatedNote}</p>}
-          {props.managerShownSeparately ? (
-            <Alert tone="warning">{t.managerWarning(name)}</Alert>
-          ) : (
-            <Alert tone="success">
-              <ShieldCheck className="mr-1 inline size-4" />
-              {t.anonymous(name)}
-            </Alert>
-          )}
+          <Alert tone="success" data-testid="rater-anonymity">
+            <ShieldCheck className="mr-1 inline size-4" />
+            {t.anonymous(name)}
+          </Alert>
           <button
             className="text-sm text-muted-foreground underline"
             onClick={async () => {

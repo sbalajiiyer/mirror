@@ -3,7 +3,7 @@ import { demoLogin, expectAccessible, rateAllSections, rateStep, raterLinksFromO
 
 test("subject sets up a 360, rates self, invites raters; raters respond anonymously; report appears on close", async ({ page, browser }) => {
   const stamp = Date.now();
-  const emails = [1, 2, 3].map((i) => `peer${i}.${stamp}@example.com`);
+  const emails = [1, 2, 3, 4, 5].map((i) => `peer${i}.${stamp}@example.com`);
 
   await demoLogin(page);
   await page.getByRole("link", { name: /New 360/ }).click();
@@ -18,7 +18,7 @@ test("subject sets up a 360, rates self, invites raters; raters respond anonymou
     await page.getByLabel("Peers rater email").fill(e);
     await page.getByTestId("group-PEER").getByRole("button", { name: "Add", exact: true }).click();
   }
-  await expect(page.getByText("3 people invited")).toBeVisible();
+  await expect(page.getByText("5 people invited")).toBeVisible();
   await page.getByRole("button", { name: "Continue" }).click(); // raters
   await page.getByRole("button", { name: "Continue" }).click(); // settings
   await page.getByRole("button", { name: "Create & rate myself" }).click();
@@ -36,7 +36,10 @@ test("subject sets up a 360, rates self, invites raters; raters respond anonymou
   await page.getByTestId("launch").click();
   await expect(page.getByText("Invites sent.")).toBeVisible();
 
-  const links = await raterLinksFromOutbox(page, emails);
+  // The subject sees who was invited, never who answered.
+  await expect(page.getByText("Responded", { exact: true })).toHaveCount(0);
+  // Three of the five answer.
+  const links = await raterLinksFromOutbox(page, emails.slice(0, 3));
 
   // Raters on a phone, in a separate (signed-out) browser context.
   const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
@@ -44,7 +47,7 @@ test("subject sets up a 360, rates self, invites raters; raters respond anonymou
     const r = await phone.newPage();
     await r.goto(link);
     await expect(r.getByText(/would value your feedback/)).toBeVisible();
-    await expect(r.getByText(/Anonymous:/)).toBeVisible();
+    await expect(r.getByTestId("rater-anonymity")).toContainText("never who answered or what any one person said");
     if (i === 0) await expectAccessible(r); // rater intro, on a phone
     await r.getByRole("button", { name: "Start" }).click();
     if (i === 0) await expectAccessible(r); // a rating section
@@ -79,9 +82,11 @@ test("subject sets up a 360, rates self, invites raters; raters respond anonymou
   }
   await phone.close();
 
-  // Progress tracker shows 3/3, then close → report.
+  // Progress shows counts only (3 of 5), never who; then close → report.
   await page.goto(assessmentUrl);
-  await expect(page.getByText("3 of 3 responded")).toBeVisible();
+  await expect(page.getByText("3 of 5 responded")).toBeVisible();
+  await expect(page.getByTestId("group-count").first()).toHaveText("3/5 answered");
+  await expect(page.getByText("Responded", { exact: true })).toHaveCount(0);
   page.once("dialog", (d) => d.accept());
   await page.getByTestId("close").click();
   await page.waitForURL(/\/report$/);

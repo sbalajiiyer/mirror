@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
-import { effectiveMinRaters } from "@/lib/anonymity";
+import { effectiveMinRaters, minInvites } from "@/lib/anonymity";
 import { sendEmail } from "@/lib/email";
 import { raterInviteEmail } from "@/lib/email/templates";
 import { derivedToken, hashToken } from "@/lib/tokens";
@@ -51,7 +51,7 @@ export async function createAssessment(userId: string, input: WizardInput) {
         goal: input.goal,
         inviteMessage: input.inviteMessage,
         minRatersPerGroup: effectiveMinRaters(input.minRatersPerGroup),
-        showManagerSeparately: input.showManagerSeparately,
+        showManagerSeparately: false, // no manager exception (2026-11-18)
         dueAt: input.dueAt ? new Date(input.dueAt) : null,
         questions: {
           create: input.questions.map((q, i) => ({
@@ -200,6 +200,15 @@ export async function launchAssessment(userId: string, assessmentId: string) {
   if (!a) throw new DomainError("Not found", "not_found");
   if (!a.selfLockedAt || a.status === "DRAFT") throw new DomainError("Complete your self-assessment first.", "self_required");
   if (a.status !== "READY") throw new DomainError("This 360 has already been launched.");
+  // Anonymity: invite more people than must answer, so knowing the invite list never tells who answered.
+  const need = minInvites(a.minRatersPerGroup);
+  const [named, linkGroups] = await Promise.all([
+    db.raterInvite.count({ where: { assessmentId: a.id, email: { not: null } } }),
+    db.raterGroup.count({ where: { assessmentId: a.id, shareTokenHash: { not: null } } }),
+  ]);
+  if (named < need && linkGroups === 0) {
+    throw new DomainError(`Invite at least ${need} people before sending (you have ${named}), so nobody can work out who answered. At least ${effectiveMinRaters(a.minRatersPerGroup)} need to respond.`, "too_few_invites");
+  }
   // Credits: charged once, when the invites first go out (free survey, gift, company round or credits).
   const charge = await db.$transaction(async (tx) => {
     const q = await chargeForLaunch(tx, a.id, userId);
@@ -230,9 +239,10 @@ export async function addRaters(userId: string, assessmentId: string, raterGroup
 }
 
 export async function removeInvite(userId: string, inviteId: string) {
-  const inv = await db.raterInvite.findFirst({ where: { id: inviteId, assessment: { subjectId: userId } } });
+  const inv = await db.raterInvite.findFirst({ where: { id: inviteId, assessment: { subjectId: userId } }, include: { assessment: { select: { status: true } } } });
   if (!inv) throw new DomainError("Not found", "not_found");
-  if (inv.status === "SUBMITTED") throw new DomainError("This person already responded; their answers stay in the results.");
+  // Anonymity: once invitations are out, removing someone (or failing to) could show whether they answered.
+  if (inv.assessment.status !== "DRAFT" && inv.assessment.status !== "READY") throw new DomainError("Invitations have gone out, so people can't be removed any more.");
   await db.raterInvite.delete({ where: { id: inv.id } });
 }
 

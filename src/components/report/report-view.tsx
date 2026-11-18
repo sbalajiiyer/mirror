@@ -238,9 +238,6 @@ export function ReportView({
         <span>
           Results for a group are shown only when at least{" "}
           {report.anonymity.min} people in it responded
-          {groups.some((g) => g.exempt)
-            ? "; your manager agreed to be shown separately"
-            : ""}
           . {report.anonymity.notes.join(" ")}
         </span>
       </Alert>

@@ -3,8 +3,8 @@ import { ANONYMITY_FLOOR, effectiveMinRaters, resolveReportingGroups, stableShuf
 
 const G = (id: string, kind: GroupInput["kind"], order: number): GroupInput => ({ id, kind, name: id[0].toUpperCase() + id.slice(1), order });
 const groups = [G("self", "SELF", 0), G("manager", "MANAGER", 1), G("peers", "PEER", 2), G("reports", "DIRECT_REPORT", 3), G("clients", "CLIENT", 4)];
-const resolve = (counts: Record<string, number>, opts: { min?: number; manager?: boolean } = {}) =>
-  resolveReportingGroups({ groups, counts, minRaters: opts.min ?? 3, showManagerSeparately: opts.manager ?? false });
+const resolve = (counts: Record<string, number>, opts: { min?: number; invited?: Record<string, number> } = {}) =>
+  resolveReportingGroups({ groups, counts, minRaters: opts.min ?? 3, invited: opts.invited });
 
 describe("effectiveMinRaters", () => {
   it("never goes below the floor of 3", () => {
@@ -49,23 +49,24 @@ describe("resolveReportingGroups", () => {
     expect(total).toBe(r.othersN);
   });
 
-  it("does not show the manager separately unless the subject opted in", () => {
+  it("never shows a manager separately: managers are pooled like everyone else", () => {
     const r = resolve({ peers: 3, manager: 1 });
     expect(r.reportingGroups.some((g) => g.exempt)).toBe(false);
     expect(r.reportingGroups.find((g) => g.memberGroupIds.includes("manager"))!.label).toBe("Peers + Manager");
+    // With only a manager and two peers, nothing is shown.
+    expect(resolve({ peers: 2, manager: 1 }).othersVisible).toBe(true);
+    expect(resolve({ peers: 2, manager: 1 }).reportingGroups).toHaveLength(1);
+    expect(resolve({ peers: 1, manager: 1 }).othersVisible).toBe(false);
   });
 
-  it("shows an opted-in manager separately even with one rater", () => {
-    const r = resolve({ peers: 3, manager: 1 }, { manager: true });
-    const m = r.reportingGroups.find((g) => g.exempt)!;
-    expect(m.memberGroupIds).toEqual(["manager"]);
-    expect(m.n).toBe(1);
-  });
-
-  it("requires the non-manager raters alone to meet the threshold when the manager is shown separately", () => {
-    // 1 manager + 2 peers = 3 total, but the 2 peers would be exposed by subtracting the manager.
-    const r = resolve({ peers: 2, manager: 1 }, { manager: true });
-    expect(r.othersVisible).toBe(false);
+  it("shows a group on its own only if at least min + 2 people were invited to it", () => {
+    // Peers: 3 answered out of 3 invited (everyone known to have answered) → pooled with Reports.
+    const r = resolve({ peers: 3, reports: 4 }, { invited: { peers: 3, reports: 6 } });
+    expect(r.reportingGroups.map((g) => g.label)).toEqual(["Reports + Peers"]);
+    const ok = resolve({ peers: 3, reports: 4 }, { invited: { peers: 5, reports: 6 } });
+    expect(ok.reportingGroups.map((g) => g.label)).toEqual(["Peers", "Reports"]);
+    // A single small-invite group that is the whole report keeps its plain name.
+    expect(resolve({ peers: 3 }, { invited: { peers: 3 } }).reportingGroups.map((g) => g.label)).toEqual(["Peers"]);
   });
 
   it("respects a stricter configured minimum", () => {

@@ -20,10 +20,13 @@ export type ReportInput = {
     goal: string;
     scaleMax: number;
     minRatersPerGroup: number;
-    showManagerSeparately: boolean;
+    /** Ignored since 2026-11-18 (no manager exception); optional for old callers. */
+    showManagerSeparately?: boolean;
     subjectFirstName: string;
   };
   groups: GroupInput[];
+  /** Invitations per rater group id; a group is shown on its own only with min + INVITE_MARGIN of them. */
+  invited?: Record<string, number>;
   questions: { id: string; competencyKey: string; competency: string; questionKey?: string | null; text: string; order: number; type: "RATING" | "OPEN_TEXT" }[];
   submissions: {
     id: string;
@@ -119,8 +122,8 @@ export function computeReport(input: ReportInput): ReportData {
   const res = resolveReportingGroups({
     groups: input.groups,
     counts,
+    invited: input.invited,
     minRaters: assessment.minRatersPerGroup,
-    showManagerSeparately: assessment.showManagerSeparately,
   });
   const min = res.min;
   const rgOf = (s: { groupId: string }) => res.groupToReporting[s.groupId] ?? null;
@@ -275,11 +278,19 @@ export function computeReport(input: ReportInput): ReportData {
 
   // ---- Comments (only from reportable groups, labelled by reporting group) -------
   const rgLabel = Object.fromEntries(res.reportingGroups.map((r) => [r.id, r.label]));
-  const all = reportable.flatMap((s) => s.comments.map((c) => ({ ...c, group: rgLabel[rgOf(s)!], sid: s.id })));
+  // Comment-author rule: a reporting group's comments are quoted only if at least `min` different
+  // people in it wrote comments. Otherwise they count towards themes but aren't shown word for word,
+  // because with only one or two writers, style can give someone away.
+  const writers = new Map<string, Set<string>>();
+  for (const s of reportable) if (s.comments.some((c) => c.text.trim())) (writers.get(rgOf(s)!) ?? writers.set(rgOf(s)!, new Set()).get(rgOf(s)!)!).add(s.id);
+  const quotable = (rg: string) => (writers.get(rg)?.size ?? 0) >= min;
+  const all = reportable.flatMap((s) => s.comments.map((c) => ({ ...c, group: rgLabel[rgOf(s)!], sid: s.id, withheld: !quotable(rgOf(s)!) })));
+  const withheldGroups = [...new Set(all.filter((c) => c.withheld).map((c) => c.group))];
+  if (withheldGroups.length) base.anonymity.notes.push(`Comments from ${withheldGroups.join(", ")} are summarised as themes only, because fewer than ${min} people there wrote comments.`);
   const shuffled = stableShuffle(all, (c) => c.text);
-  const pick = (kind: CommentKind) => shuffled.filter((c) => c.kind === kind).map((c) => ({ text: c.text, group: c.group, sid: c.sid }));
+  const pick = (kind: CommentKind) => shuffled.filter((c) => c.kind === kind).map((c) => ({ text: c.text, group: c.group, sid: c.sid, withheld: c.withheld }));
   const competencyComments: Record<string, { text: string; group: string }[]> = {};
-  for (const c of shuffled.filter((c) => c.kind === "COMPETENCY" && c.competencyKey)) {
+  for (const c of shuffled.filter((c) => c.kind === "COMPETENCY" && c.competencyKey && !c.withheld)) {
     (competencyComments[c.competencyKey!] ??= []).push({ text: c.text, group: c.group });
   }
   const freeText = shuffled.filter((c) => c.kind === "GENERAL" || c.kind === "COMPETENCY");
@@ -301,11 +312,11 @@ export function computeReport(input: ReportInput): ReportData {
     highest,
     lowest,
     comments: {
-      themes: groupComments(freeText.map((c) => ({ text: c.text, group: c.group, sid: c.sid }))),
+      themes: groupComments(freeText.map((c) => ({ text: c.text, group: c.group, sid: c.sid, withheld: c.withheld }))),
       competency: competencyComments,
       ssc: { START: groupComments(pick("START")), STOP: groupComments(pick("STOP")), CONTINUE: groupComments(pick("CONTINUE")) },
       wordCloud: wordFrequencies(
-        shuffled.map((c) => c.text),
+        shuffled.filter((c) => !c.withheld).map((c) => c.text),
         [assessment.subjectFirstName],
       ),
       total: shuffled.length,

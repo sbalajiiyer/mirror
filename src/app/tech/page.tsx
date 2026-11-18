@@ -226,8 +226,9 @@ function Explainer() {
               timestamps), and submission dates are truncated to the day.
             </li>
             <li>
-              <strong>Thresholds:</strong> a rater group&apos;s results show only with at least 3 responses (a manager can opt in to be shown separately, and
-              raters are told). Org, coach and benchmark aggregates need at least 5 people; benchmark slices 10, overall norms 30.
+              <strong>Thresholds:</strong> a rater group&apos;s results show only with at least 3 responses and 5 invitations (no manager exception);
+              launching needs 5 invitations; the subject sees counts, never who answered; reminders go to non-responders without naming them; comments
+              are quoted only with 3 or more writers in a group. Org, coach and benchmark aggregates need at least 5 people; benchmark slices 10, overall norms 30.
             </li>
             <li>
               <strong>Frozen reports:</strong> computed once at close, so nobody can diff before/after a late response.

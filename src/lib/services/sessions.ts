@@ -64,7 +64,7 @@ export async function rerunSurvey(userId: string, sourceId: string, raw: unknown
         goal: root.goal,
         inviteMessage: root.inviteMessage,
         minRatersPerGroup: root.minRatersPerGroup,
-        showManagerSeparately: source.showManagerSeparately,
+        showManagerSeparately: false,
         scaleMax: root.scaleMax,
         dueAt: new Date(Date.now() + input.dueInDays * 86400000),
         questions: {

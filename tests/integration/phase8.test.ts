@@ -30,7 +30,7 @@ describe.skipIf(!hasDb)("analytics v2 (integration)", async () => {
       goal: "promotion",
       frameworkId: fw.id,
       questions: qs,
-      groups: [{ kind: "PEER", name: "Peers", shareLink: false, raters: [1, 2, 3].map((k) => ({ name: `R${k}`, email: `r${k}-${i}-${stamp}@t.local` })) }],
+      groups: [{ kind: "PEER", name: "Peers", shareLink: false, raters: [1, 2, 3, 4, 5].map((k) => ({ name: `R${k}`, email: `r${k}-${i}-${stamp}@t.local` })) }],
       inviteMessage: "Please give me feedback, thank you.",
       dueAt: null,
       minRatersPerGroup: 3,
