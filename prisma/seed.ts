@@ -715,6 +715,9 @@ async function main() {
     data: { ownerId: orgAdmin.id, scope: "ORG", orgId: org.id, name: "People overview", widgets: [w("org_participation"), w("org_strengths"), w("team_profile", { groupId: engineering.id }), w("cohort_compare", { aGroupId: cohort.id, aRoundId: spring.id, bGroupId: cohort.id, bRoundId: autumn.id })] },
   });
 
+  // Demo people have passed the age check and accepted the terms (the age gate is tested with new sign-ups).
+  await db.user.updateMany({ where: { ageConfirmedAt: null }, data: { ageConfirmedAt: new Date(), termsAcceptedAt: new Date() } });
+
   // Print a working rater link for manual testing of the rater form.
   const open = await db.raterInvite.findFirst({ where: { assessmentId: b.id, status: "INVITED" } });
   console.log(`Seeded demo subject ${DEMO_EMAIL}`);

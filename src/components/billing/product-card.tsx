@@ -1,4 +1,4 @@
-import { PRODUCTS, formatCents, type ProductKey } from "@/lib/billing/catalog";
+import { PRODUCTS, formatCents, purchaseTerms, type ProductKey } from "@/lib/billing/catalog";
 import { BuyButton } from "@/components/billing/billing-controls";
 
 /** One product with its price and a buy button. */
@@ -11,7 +11,12 @@ export function Product({ k, context, label }: { k: ProductKey; context?: { orgI
         <p className="text-2xl font-semibold">{formatCents(p.amountCents)}</p>
         <p className="mt-1 text-sm text-muted-foreground">{p.description}</p>
       </div>
-      <BuyButton product={k} context={context} label={label ?? `Buy ${p.label}`} />
+      <div className="space-y-2">
+        <BuyButton product={k} context={context} label={label ?? `Buy ${p.label}`} />
+        <p className="text-xs text-muted-foreground" data-testid={`terms-${k}`}>
+          {purchaseTerms(k)}
+        </p>
+      </div>
     </div>
   );
 }

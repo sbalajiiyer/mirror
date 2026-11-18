@@ -1,5 +1,5 @@
 import { devices, expect, test } from "@playwright/test";
-import { demoLogin, expectAccessible } from "./helpers";
+import { demoLogin, expectAccessible, passAgeCheck } from "./helpers";
 
 test("sign in with company SSO (pretend identity provider) joins the organization", async ({ page }) => {
   const email = `new.hire.${Date.now()}@brightline.mirror.local`;
@@ -9,8 +9,9 @@ test("sign in with company SSO (pretend identity provider) joins the organizatio
   await expectAccessible(page);
   await page.getByLabel("Work email").fill(email);
   await page.getByRole("button", { name: "Continue" }).click();
-  await page.waitForURL(/\/(onboarding|dashboard)/);
-  expect(page.url()).toContain("/onboarding");
+  // New accounts pass the age check first, SSO or not.
+  await passAgeCheck(page);
+  await page.waitForURL("**/onboarding");
 });
 
 test("SSO explains when a domain has no SSO", async ({ page }) => {

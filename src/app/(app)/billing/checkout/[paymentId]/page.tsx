@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireUserId } from "@/lib/session";
-import { PRODUCTS, formatCents, type ProductKey } from "@/lib/billing/catalog";
+import { PRODUCTS, formatCents, purchaseTerms, type ProductKey } from "@/lib/billing/catalog";
 import { StubCheckout } from "@/components/billing/billing-controls";
 import { Alert } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +27,9 @@ export default async function StubCheckoutPage({ params }: { params: Promise<{ p
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-3xl font-semibold" data-testid="checkout-amount">{formatCents(p.amountCents, p.currency)}</p>
+          <p className="text-sm text-muted-foreground" data-testid="checkout-terms">
+            {product ? purchaseTerms(p.product as ProductKey) : "One-time payment."}
+          </p>
           <StubCheckout paymentId={p.id} />
         </CardContent>
       </Card>

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { demoLogin, expectAccessible } from "./helpers";
+import { demoLogin, expectAccessible, passAgeCheck } from "./helpers";
 
 async function coachLogin(page: import("@playwright/test").Page) {
   await page.goto("/signin");
@@ -102,6 +102,7 @@ test("a coach invites a new client who accepts from the email link", async ({ pa
     .locator('a[href*="/api/auth/callback/email"]')
     .getAttribute("href");
   await p2.goto(signIn!);
+  await passAgeCheck(p2);
   // Signing in returns to the invitation; a brand-new user accepts, then finishes onboarding.
   await expect(p2.getByTestId("invite-landing")).toContainText("Jordan Lee would like to coach you");
   await p2.getByTestId("accept-invite").click();

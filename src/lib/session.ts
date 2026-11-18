@@ -14,8 +14,19 @@ export async function liveSessionUserId(): Promise<string | null> {
   return u && !u.deletionScheduledAt ? id : null;
 }
 
-/** Current user id or redirect to sign-in. Use in server components and server actions. */
+/**
+ * Current user id or redirect to sign-in. Use in server components and server actions.
+ * Age gate: people who haven't passed the age check yet are sent to /welcome first.
+ */
 export async function requireUserId(callbackUrl?: string): Promise<string> {
+  const id = await requireSignedIn(callbackUrl);
+  const u = await db.user.findUnique({ where: { id }, select: { ageConfirmedAt: true } });
+  if (!u?.ageConfirmedAt) redirect(`/welcome${callbackUrl ? `?next=${encodeURIComponent(callbackUrl)}` : ""}`);
+  return id;
+}
+
+/** Signed in, without the age check. Only for the age check itself (/welcome). */
+export async function requireSignedIn(callbackUrl?: string): Promise<string> {
   const id = await liveSessionUserId();
   if (!id) redirect(`/signin${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`);
   return id;

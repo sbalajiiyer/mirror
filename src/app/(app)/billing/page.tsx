@@ -5,7 +5,7 @@ import { billingOverview, coachGiftPrice, personalPrices } from "@/lib/services/
 import { paymentProvider } from "@/lib/billing/provider";
 import { COACH_CLIENT_LIMIT, PLANS, PRODUCTS, formatCents, type ProductKey } from "@/lib/billing/catalog";
 import { creditsLabel, formatCredits } from "@/lib/billing/pricing";
-import { BuyCredits, CancelSubscriptionButton } from "@/components/billing/billing-controls";
+import { BuyCredits } from "@/components/billing/billing-controls";
 import { LedgerTable } from "@/components/billing/ledger-table";
 import { Product } from "@/components/billing/product-card";
 import { redirect } from "next/navigation";
@@ -131,8 +131,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           </p>
           {personalSub && (
             <div className="flex flex-wrap items-center gap-3 text-sm">
-              <span>Your earlier Pro plan covers surveys until {date(personalSub.currentPeriodEnd)}.</span>
-              {personalSub.status === "ACTIVE" && <CancelSubscriptionButton id={personalSub.id} />}
+              <span>Your earlier Pro plan covers surveys until {date(personalSub.currentPeriodEnd)}. It doesn&apos;t renew.</span>
             </div>
           )}
         </CardContent>
@@ -161,10 +160,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           <CardContent className="space-y-4">
             {coachSub && (
               <div className="flex flex-wrap items-center gap-3 text-sm">
-                <span>
-                  {coachSub.status === "ACTIVE" ? "Renews" : "Ends"} {date(coachSub.currentPeriodEnd)}
-                </span>
-                {coachSub.status === "ACTIVE" && <CancelSubscriptionButton id={coachSub.id} />}
+                <span data-testid="coach-paid-until">Paid until {date(coachSub.currentPeriodEnd)}. Plans don&apos;t renew automatically.</span>
               </div>
             )}
             <div className="grid gap-3 sm:grid-cols-3">

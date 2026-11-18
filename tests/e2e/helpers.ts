@@ -52,3 +52,12 @@ export async function expectAccessible(page: Page, exclude: string[] = []) {
   const report = violations.map((v) => `${v.id} (${v.impact}): ${v.help}\n    ${v.nodes.slice(0, 5).map((n) => n.target.join(" ")).join("\n    ")}`);
   expect(report, `Accessibility violations on ${page.url()}`).toEqual([]);
 }
+
+/** The age gate a new account sees first: a neutral birth month/year question and the terms. */
+export async function passAgeCheck(page: Page, year = 1990) {
+  await page.waitForURL("**/welcome**");
+  await page.getByLabel("Month").selectOption("6");
+  await page.getByLabel("Year").selectOption(String(year));
+  await page.getByTestId("accept-terms").check();
+  await page.getByTestId("age-continue").click();
+}

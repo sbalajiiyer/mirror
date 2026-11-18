@@ -9,12 +9,15 @@ import { describe, expect, it } from "vitest";
 const ROOT = join(__dirname, "../../src/app");
 const ROUTE_FILE = /(^|\/)(page\.tsx|route\.ts|actions\.ts|[\w-]+-actions\.ts)$/;
 const GUARD =
-  /requireUserId|requireOnboardedUser|adminPage|liveSessionUserId|requireOwnedAssessment|\bauth\(\)|requireWorkspaceRole|apiRoute(<[^>]*>)?\(|CRON_SECRET|isPlatformAdmin|verifySignedPayload|verifyStripeSignature/;
+  /requireUserId|requireOnboardedUser|adminPage|liveSessionUserId|requireSignedIn|requireOwnedAssessment|\bauth\(\)|requireWorkspaceRole|apiRoute(<[^>]*>)?\(|CRON_SECRET|isPlatformAdmin|verifySignedPayload|verifyStripeSignature/;
 
 /** Public on purpose. Each entry says what protects it instead. */
 const PUBLIC: Record<string, string> = {
   "(app)/privacy/page.tsx": "legal page",
   "(app)/terms/page.tsx": "legal page",
+  "(app)/copyright/page.tsx": "legal page (DMCA agent)",
+  "api/unsubscribe/route.ts": "signed unsubscribe token (one-click, RFC 8058)",
+  "u/[token]/page.tsx": "signed unsubscribe token; the change needs a button press",
   "(app)/signin/check-email/page.tsx": "static confirmation",
   "(app)/dev/outbox/page.tsx": "404 unless DEV_TOOLS_ENABLED",
   "api/auth/[...nextauth]/route.ts": "Auth.js",
