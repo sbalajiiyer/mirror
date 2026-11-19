@@ -18,6 +18,8 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
   const r = await getReportForOwner(userId, id);
   if (r.status === "not_found") notFound();
   if (r.status === "not_closed") redirect(`/assessments/${id}`);
+  // Anonymous funnel counts: remember only that the report was opened at least once.
+  await db.assessment.updateMany({ where: { id, reportViewedAt: null }, data: { reportViewedAt: new Date() } });
   const profile = await db.subjectProfile.findUnique({ where: { userId } });
   const bench = r.report.anonymity.available ? await benchmarkForReport(r.report, profile?.seniority) : null;
   return (

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { resolveErrorAction } from "./actions";
+import { AdminNav } from "@/components/admin/admin-nav";
 
 export const metadata = { title: "Errors", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -21,15 +22,13 @@ export default async function ErrorsPage({ searchParams }: { searchParams: Promi
   const day = await lastDay();
   return (
     <div className="space-y-6">
+      <AdminNav active="Errors" />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Errors</h1>
           <p className="text-muted-foreground">Grouped server, browser and job errors. Messages are scrubbed of emails and tokens.</p>
         </div>
         <div className="flex gap-2">
-          <Button asChild variant="outline">
-            <a href="/admin/pricing">Pricing</a>
-          </Button>
           <Button asChild variant="outline">
             <a href={all ? "/admin/errors" : "/admin/errors?all=1"}>{all ? "Open only" : "Include resolved"}</a>
           </Button>

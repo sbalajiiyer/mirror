@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { AdminNav } from "@/components/admin/admin-nav";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireOnboardedUser } from "@/lib/session";
@@ -45,6 +45,7 @@ export default async function PricingAdminPage() {
   const { updatedAt, ...values } = policy;
   return (
     <div className="mx-auto max-w-4xl space-y-6">
+      <AdminNav active="Pricing" />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Pricing</h1>
@@ -54,9 +55,7 @@ export default async function PricingAdminPage() {
             {updatedAt && ` Last changed ${day(updatedAt)}.`}
           </p>
         </div>
-        <Link href="/admin/errors" className="text-sm underline">
-          Errors
-        </Link>
+
       </div>
 
       <Card>
