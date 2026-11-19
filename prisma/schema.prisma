@@ -237,6 +237,8 @@ model Assessment {
   dueAt                 DateTime?
   selfLockedAt          DateTime?
   launchedAt            DateTime?
+  /// When the subject first opened the report (for the anonymous funnel counts).
+  reportViewedAt        DateTime?
   closedAt              DateTime?
   /// Pulses point at the full 360 that starts their series (null for a full 360).
   rootAssessmentId      String?

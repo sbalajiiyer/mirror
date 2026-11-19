@@ -10,6 +10,8 @@ export const LEGAL = {
   governingLaw: "[State/country of governing law]",
   effectiveDate: "[Effective date]",
   dpo: "[Data protection contact, if required]",
+  /** Where to report security problems (security.txt, /security). */
+  securityEmail: "[security@your-domain]",
   /** Minimum age to create an account (also stated in the terms). Checked by a neutral age screen at sign-up. */
   minimumAge: 16,
   /** Designated agent for copyright (DMCA) notices, as registered with the U.S. Copyright Office. */
@@ -34,6 +36,7 @@ export const PROCESSORS = [
   { name: "Vercel Inc.", purpose: "Hosting and running the application", location: "United States" },
   { name: "Neon (Databricks)", purpose: "Database hosting", location: "United States (AWS us-east-1)" },
   { name: "Groq, Inc.", purpose: "AI processing (summaries, plans, chat, translation) of anonymised aggregates and, when you ask, comment text", location: "United States" },
+  { name: "Anthropic, PBC / OpenAI, L.L.C. (only if a premium AI model is chosen)", purpose: "The same AI features, on a premium model the person or company picked", location: "United States" },
   { name: "Email delivery provider", purpose: "Sign-in links, rater invitations and reminders", location: "[to be confirmed]" },
   { name: "Stripe, Inc. (when payments are enabled)", purpose: "Payment processing; we never see full card numbers", location: "United States" },
   { name: "Your organization's identity provider (only if it uses SSO)", purpose: "Single sign-on", location: "Chosen by your organization" },
